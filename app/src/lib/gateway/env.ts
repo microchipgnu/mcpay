@@ -41,6 +41,11 @@ const envSchema = z.object({
   PAYMENT_STRATEGY_LOG_LEVEL: z.enum(['debug', 'info', 'warn', 'error']).default('info'),
   PAYMENT_STRATEGY_LOG_AUTH_DETAILS: z.boolean().default(false),
 
+  // Rate limit configuration (optional)
+  RATE_LIMIT_CAPACITY: z.number().optional(),
+  RATE_LIMIT_REFILL_PER_SECOND: z.number().optional(),
+  RATE_LIMIT_MIN_DELAY_MS: z.number().optional(),
+
   // Test strategy optional overrides (per-network)
   // Architecture-level test signers
   TEST_EVM_PRIVATE_KEY: z.string().optional(),

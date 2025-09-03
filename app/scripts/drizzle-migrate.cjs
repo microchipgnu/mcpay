@@ -1,22 +1,49 @@
 #!/usr/bin/env node
 /* eslint-disable @typescript-eslint/no-var-requires */
-const { spawn } = require('node:child_process');
+// Programmatic migrations for reliability in CI/tests
+const { Client } = require('pg');
 
-function run(cmd, args, env) {
-  return new Promise((resolve, reject) => {
-    const p = spawn(cmd, args, { stdio: 'inherit', env });
-    p.on('exit', (code) => (code === 0 ? resolve() : reject(new Error(`${cmd} ${args.join(' ')} -> ${code}`))));
-  });
+async function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function connectWithRetry(connectionString, maxAttempts, delayMs) {
+  let lastError;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    const client = new Client({ connectionString });
+    try {
+      await client.connect();
+      return client;
+    } catch (err) {
+      lastError = err;
+      // Wait and retry; Postgres inside container may not be ready yet
+      await sleep(delayMs);
+    }
+  }
+  throw lastError;
 }
 
 (async () => {
-  const env = { ...process.env };
-  if (!env.DATABASE_URL) {
-    console.log("DRIZZLE MIGRATE", env);
-    console.error('DATABASE_URL is required');
+  try {
+    const databaseUrl = process.env.DATABASE_URL;
+    if (!databaseUrl) {
+      console.error('DATABASE_URL is required');
+      process.exit(1);
+    }
+
+    const { drizzle } = await import('drizzle-orm/node-postgres');
+    const { migrate } = await import('drizzle-orm/node-postgres/migrator');
+
+    // Retry for up to ~30s to allow containerized Postgres to get ready
+    const client = await connectWithRetry(databaseUrl, 60, 500);
+
+    const db = drizzle(client);
+    await migrate(db, { migrationsFolder: './drizzle' });
+
+    await client.end();
+    process.exit(0);
+  } catch (err) {
+    console.error('[drizzle-migrate] Migration failed:', err);
     process.exit(1);
   }
-  await run('node', ['./node_modules/.bin/drizzle-kit', 'migrate'], env);
 })();
-
-
