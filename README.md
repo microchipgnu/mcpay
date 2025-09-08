@@ -289,9 +289,3 @@ Notes:
 **Do I have to use MCP?**  No. MCPay works for plain HTTP endpoints too. MCP features (tool discovery/pricing) make it nicer for agent ecosystems.
 
 **Can humans pay in a browser?**  Yes, via wallet extensions or embedded wallets — same `402` flow.
-
----
-
-## Contributing
-
-PRs welcome. For large changes, open a discussion first. See [LICENSE](./LICENSE) (MIT).
