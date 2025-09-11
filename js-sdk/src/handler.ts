@@ -1,4 +1,5 @@
 export { createPaidMcpHandler } from "./handler/paid-mcp-server";
+export { withPayment } from "./handler/with-payment";
 
 export { 
   PaymentRequirements,

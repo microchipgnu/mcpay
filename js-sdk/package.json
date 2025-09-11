@@ -1,6 +1,6 @@
 {
   "name": "mcpay",
-  "version": "0.0.20",
+  "version": "0.0.22",
   "description": "SDK and CLI for MCPay functionality - MCP servers with payment capabilities",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -25,6 +25,10 @@
     "./handler": {
       "types": "./dist/handler.d.ts",
       "default": "./dist/handler.js"
+    },
+    "./transport": {
+      "types": "./dist/transport.d.ts",
+      "default": "./dist/transport.js"
     }
   },
   "scripts": {
@@ -58,13 +62,13 @@
     "README.md"
   ],
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.12.1",
+    "@modelcontextprotocol/sdk": "^1.17.5",
     "commander": "^12.1.0",
     "dotenv": "^16.5.0",
     "viem": "^2.30.5",
-    "x402": "^0.3.7",
-    "x402-fetch": "^0.3.3",
-    "zod": "^3.25.42",
-    "mcp-handler": "1.0.1"
+    "x402": "^0.6.0",
+    "x402-fetch": "^0.6.0",
+    "zod": "^3.25.76",
+    "mcp-handler": "1.0.2"
   }
 }
