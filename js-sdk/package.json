@@ -1,6 +1,6 @@
 {
   "name": "mcpay",
-  "version": "0.0.22",
+  "version": "0.0.26",
   "description": "SDK and CLI for MCPay functionality - MCP servers with payment capabilities",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

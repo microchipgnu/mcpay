@@ -3,10 +3,8 @@ import { exact } from "x402/schemes";
 import { useFacilitator } from "x402/verify";
 import { findMatchingPaymentRequirements, processPriceToAtomicAmount } from "x402/shared";
 import { getAddress, type Address } from "viem";
-import type { Network, PaymentRequirements, PaymentPayload, SettleResponse } from "x402/types";
+import type { Network, PaymentRequirements, PaymentPayload, SettleResponse, Price } from "x402/types";
 import { settleResponseHeader, SupportedEVMNetworks, SupportedSVMNetworks } from "x402/types";
-
-type Price = string; // e.g. "$0.01" or "0.00001 ETH"
 
 type WithPaymentOptions = {
   /** Map tool name -> price */
