@@ -11,6 +11,7 @@ import ServersGrid from "@/components/custom-ui/servers-grid"
 import ContentCards from "@/components/custom-ui/content-cards"
 import Footer from "@/components/custom-ui/footer"
 import MinimalExplorer from "@/components/custom-ui/minimal-explorer"
+import BuiltWithSection from "@/components/custom-ui/built-with-section"
 
 interface APITool {
   id: string;
@@ -234,6 +235,10 @@ export default function MCPBrowser() {
             <h2 className="text-3xl font-semibold font-host mb-10">How it works</h2>
           </div>
           <ContentCards />
+        </section>
+
+        <section className="mb-40">
+          <BuiltWithSection />
         </section>
       </div>
       <Footer />
