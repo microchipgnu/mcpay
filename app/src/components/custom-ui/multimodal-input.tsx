@@ -130,7 +130,7 @@ export function MultimodalInput({
             href="https://sei.io"
             target="_blank"
             rel="noopener noreferrer"
-            className="underline decoration-dotted text-primary hover:text-indigo-500 transition-colors"
+            className="underline decoration-dotted text-primary hover:text-teal-600 transition-colors"
           >
             Fastest Layer 1 EVM Blockchain: Sei
           </a>
@@ -139,7 +139,7 @@ export function MultimodalInput({
           Run the{' '}
           <Link
             href="/servers/23e2ab26-7808-4984-855c-ec6a7dc97c3a"
-            className="underline decoration-dotted text-primary hover:text-indigo-500 transition-colors"
+            className="underline decoration-dotted text-primary hover:text-teal-600 transition-colors"
           >
             MCPay Build Server
           </Link>

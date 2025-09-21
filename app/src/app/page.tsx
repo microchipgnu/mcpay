@@ -12,6 +12,7 @@ import ContentCards from "@/components/custom-ui/content-cards"
 import Footer from "@/components/custom-ui/footer"
 import MinimalExplorer from "@/components/custom-ui/minimal-explorer"
 import BuiltWithSection from "@/components/custom-ui/built-with-section"
+import FAQSection from "@/components/custom-ui/faq-section"
 
 interface APITool {
   id: string;
@@ -239,6 +240,10 @@ export default function MCPBrowser() {
 
         <section className="mb-40">
           <BuiltWithSection />
+        </section>
+
+        <section className="mb-40">
+          <FAQSection />
         </section>
       </div>
       <Footer />

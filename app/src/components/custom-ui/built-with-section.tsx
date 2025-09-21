@@ -26,7 +26,7 @@ export default function BuiltWithSection() {
                 href="https://vlayer.xyz" 
                 target="_blank" 
                 rel="noopener noreferrer"
-                className="text-foreground hover:text-indigo-500 underline decoration-dotted underline-offset-2 transition-all duration-300 font-semibold"
+                className="text-foreground hover:text-teal-600 underline decoration-dotted underline-offset-2 transition-all duration-300 font-semibold"
               >
                 vLayer
               </Link>{" "}
@@ -35,7 +35,7 @@ export default function BuiltWithSection() {
                 href="https://www.coinbase.com/developer-platform/discover/launches/summer-builder-grants" 
                 target="_blank" 
                 rel="noopener noreferrer"
-                className="text-foreground hover:text-indigo-500 underline decoration-dotted underline-offset-2 transition-all duration-300 font-semibold"
+                className="text-foreground hover:text-teal-600 underline decoration-dotted underline-offset-2 transition-all duration-300 font-semibold"
               >
                 Coinbase Developer Program
               </Link>
@@ -50,7 +50,7 @@ export default function BuiltWithSection() {
                 href="https://modelcontextprotocol.io" 
                 target="_blank" 
                 rel="noopener noreferrer"
-                className="text-foreground hover:text-indigo-500 underline decoration-dotted underline-offset-2 transition-all duration-300 font-semibold"
+                className="text-foreground hover:text-teal-600 underline decoration-dotted underline-offset-2 transition-all duration-300 font-semibold"
               >
                 Model Context Protocol
               </Link>{" "}
@@ -59,7 +59,7 @@ export default function BuiltWithSection() {
                 href="https://x402.org" 
                 target="_blank" 
                 rel="noopener noreferrer"
-                className="text-foreground hover:text-indigo-500 underline decoration-dotted underline-offset-2 transition-all duration-300 font-semibold"
+                className="text-foreground hover:text-teal-600 underline decoration-dotted underline-offset-2 transition-all duration-300 font-semibold"
               >
                 x402
               </Link>
@@ -75,7 +75,7 @@ export default function BuiltWithSection() {
                 href="https://ethglobal.com/events/agents" 
                 target="_blank" 
                 rel="noopener noreferrer"
-                className="text-foreground hover:text-indigo-500 underline decoration-dotted underline-offset-2 transition-all duration-300 font-semibold"
+                className="text-foreground hover:text-teal-600 underline decoration-dotted underline-offset-2 transition-all duration-300 font-semibold"
               >
                 Coinbase Agents in Action
               </Link>
@@ -84,7 +84,7 @@ export default function BuiltWithSection() {
                 href="https://ethglobal.com/showcase/mcpay-fun-y16d3" 
                 target="_blank" 
                 rel="noopener noreferrer"
-                className="text-foreground hover:text-indigo-500 underline decoration-dotted underline-offset-2 transition-all duration-300 font-semibold"
+                className="text-foreground hover:text-teal-600 underline decoration-dotted underline-offset-2 transition-all duration-300 font-semibold"
               >
                 ETHGlobal Prague
               </Link>{" "}
@@ -93,7 +93,7 @@ export default function BuiltWithSection() {
                 href="https://ethglobal.com/events/trifecta" 
                 target="_blank" 
                 rel="noopener noreferrer"
-                className="text-foreground hover:text-indigo-500 underline decoration-dotted underline-offset-2 transition-all duration-300 font-semibold"
+                className="text-foreground hover:text-teal-600 underline decoration-dotted underline-offset-2 transition-all duration-300 font-semibold"
               >
                 ETH Global Trifecta
               </Link>

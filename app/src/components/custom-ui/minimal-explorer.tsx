@@ -301,7 +301,7 @@ export default function MinimalExplorer() {
                         {r.serverName && r.serverId ? (
                           <Link
                             href={`/servers/${r.serverId}`}
-                            className="text-[0.95rem] text-foreground/80 hover:text-indigo-500 hover:underline hover:decoration-dotted underline-offset-2 whitespace-nowrap transition-all duration-300"
+                            className="text-[0.95rem] text-foreground/80 hover:text-teal-600 hover:underline hover:decoration-dotted underline-offset-2 whitespace-nowrap transition-all duration-300"
                           >
                             {r.serverName}
                           </Link>
