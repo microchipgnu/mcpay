@@ -28,8 +28,8 @@ const hostGrotesk = Host_Grotesk({
 });
 
 export const metadata: Metadata = {
-  title: "MCPay",
-  description: "MCPay - Build and Monetize MCP Servers",
+  title: "MCPay — Payments for MCPs",
+  description: "Add micropayments per tool call to your MCP servers or APIs without rewriting infrastructure. Prepare your stack for agent-to-agent payments.",
   icons: {
     icon: [
       { url: '/favicon-16x16.png', sizes: '16x16', type: 'image/png' },
@@ -45,11 +45,27 @@ export const metadata: Metadata = {
     ],
   },
   openGraph: {
-    images: ['/mcpay-hero-painting.png'],
+    title: "MCPay — Payments for MCPs",
+    description: "Add micropayments per tool call to your MCP servers or APIs without rewriting infrastructure. Prepare your stack for agent-to-agent payments.",
+    type: "website",
+    url: "https://mcpay.tech",
+    siteName: "MCPay",
+    images: [
+      {
+        url: '/mcpay-agentic-payments-og-image.png',
+        width: 1200,
+        height: 630,
+        alt: 'MCPay — Payments for MCPs',
+      }
+    ],
   },
   twitter: {
     card: 'summary_large_image',
-    images: ['/mcpay-hero-painting.png'],
+    title: "MCPay — Payments for MCPs",
+    description: "Add micropayments per tool call to your MCP servers or APIs without rewriting infrastructure. Prepare your stack for agent-to-agent payments.",
+    images: ['/mcpay-agentic-payments-og-image.png'],
+    creator: '@mcpaytech',
+    site: '@mcpaytech',
   },
   manifest: '/site.webmanifest',
 };
