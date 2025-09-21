@@ -7,10 +7,10 @@ import { ArrowRight, Rocket, TrendingUp } from "lucide-react"
 import Link from "next/link"
 import { useEffect, useState } from "react"
 import Hero from "@/components/custom-ui/hero"
-import HeroStats from "@/components/custom-ui/hero-stats"
 import ServersGrid from "@/components/custom-ui/servers-grid"
 import ContentCards from "@/components/custom-ui/content-cards"
 import Footer from "@/components/custom-ui/footer"
+import MinimalExplorer from "@/components/custom-ui/minimal-explorer"
 
 interface APITool {
   id: string;
@@ -208,7 +208,7 @@ export default function MCPBrowser() {
         </section>
 
         <section className="mb-40">
-          <HeroStats />
+          <MinimalExplorer />
         </section>
 
         <section className="mb-40">
