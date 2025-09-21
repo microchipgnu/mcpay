@@ -3,7 +3,7 @@
 import * as React from "react";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
-import { HeroTab } from "./hero-tab";
+import Link from "next/link";
 import { cn } from "@/lib/utils";
 import {
   motion,
@@ -95,88 +95,48 @@ export default function Hero({
             />
           </motion.div>
 
-          {/* Heading with the same blur -> crisp motion */}
-          <div className="absolute inset-0 flex items-end sm:items-end justify-center sm:justify-start">
-            <div className="w-full p-6 sm:p-8">
-              <motion.h1
-                className="text-center sm:text-left text-2xl md:text-4xl font-host font-semibold leading-tight text-background drop-shadow"
-                initial={{ opacity: 0, filter: "blur(16px) saturate(0.9)" }}
-                animate={{ opacity: 1, filter: "blur(0px) saturate(1)" }}
-                transition={{ duration: prefersReduced ? 0 : 0.8, ease: easeOut }}
-              >
-                <span className="sm:ml-1">Payments for MCPs</span>
-              </motion.h1>
-            </div>
-          </div>
         </div>
       </div>
 
       {/* Content row */}
       <motion.div
-        className="mt-12 grid gap-8 sm:grid-cols-2 sm:gap-4 sm:items-center"
+        className="mt-12 sm:mt-20 grid gap-8 sm:grid-cols-2 sm:gap-4 sm:items-center"
         initial="hidden"
         whileInView="visible"
         viewport={{ once: true, amount: 0.2 }}
       >
-        {/* LEFT column: tabs + copy + CTA */}
+        {/* LEFT column: H1 + subheading + CTAs */}
         <div>
-          {/* Tabs */}
-          <motion.div className="px-0 sm:px-8" variants={fadeUp}>
-            <HeroTab
-              items={COPY.map(({ id, label }) => ({ id, label }))}
-              value={active}
-              onChange={(id) => setActive(id as Copy["id"])}
-              durationMs={durationMs}
-            />
-          </motion.div>
-
-          {/* Dynamic copy + CTA */}
           <motion.div
-            className="mt-6 px-0 sm:px-8 max-w-xl mx-auto sm:mx-0 text-center sm:text-left"
+            className="max-w-xl mx-auto sm:mx-0 text-center sm:text-left"
             variants={fadeUp}
           >
-            <AnimatePresence mode="wait" initial={false}>
-              <motion.p
-                key={current.id}
-                className="text-balance font-medium text-md text-muted-foreground sm:text-lg"
-                initial={{
-                  opacity: 0,
-                  filter: "blur(6px)",
-                  y: prefersReduced ? 0 : 6,
-                }}
-                animate={{
-                  opacity: 1,
-                  filter: "blur(0px)",
-                  y: 0,
-                }}
-                exit={{
-                  opacity: 0,
-                  filter: "blur(6px)",
-                  y: prefersReduced ? 0 : -6,
-                }}
-                transition={{
-                  duration: prefersReduced ? 0 : 0.25,
-                  ease: easeOut,
-                }}
-              >
-                {current.subheading}
-              </motion.p>
-            </AnimatePresence>
+            <h1 className="text-4xl font-semibold font-host mb-6">
+              Payments for MCPs
+            </h1>
+            
+            <p className="text-balance font-medium text-md text-muted-foreground sm:text-lg mb-6">
+              Add micropayments per tool calls to your servers or APIs, without rewriting infrastructure.
+            </p>
 
-            <motion.div
-              className="mt-6 flex justify-center sm:justify-start"
-              variants={fadeUp}
-            >
-              <Button asChild size="lg" variant="ghostCustom" className="min-w-[10rem]">
-                <a href={current.href ?? "#"}>{current.cta}</a>
-              </Button>
-            </motion.div>
+            <div className="flex flex-col sm:flex-row gap-4 justify-center sm:justify-start">
+              <Link href="/register" className="w-full sm:w-auto">
+                <Button size="lg" variant="ghostCustom" className="w-full sm:min-w-[10rem]">
+                  Monetize
+                </Button>
+              </Link>
+              <Link href="https://docs.mcpay.tech" target="_blank" rel="noopener noreferrer" className="w-full sm:w-auto">
+                <Button size="lg" variant="ghostCustomSecondary" className="w-full sm:min-w-[10rem]">
+                  Documentation
+                </Button>
+              </Link>
+            </div>
           </motion.div>
         </div>
 
         {/* RIGHT column: logo stack */}
         <motion.div
-          className="order-last sm:order-none mt-8 sm:mt-0 px-0 sm:px-8 flex justify-center sm:justify-end items-center"
+          className="order-last sm:order-none mt-8 sm:mt-0 flex justify-center sm:justify-end items-center"
           variants={fadeUp}
         >
           <LogoStack />
