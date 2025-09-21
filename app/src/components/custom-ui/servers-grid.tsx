@@ -50,7 +50,7 @@ function ServerCard({ server }: { server: MCPServer }) {
 
   return (
     <Link href={`/servers/${server.id}`} className="group">
-      <Card className="border border-border bg-background hover:shadow-lg hover:dark:shadow-teal-500/30 rounded-lg transition-all cursor-pointer group-hover:border-teal-500 gap-0">
+      <Card className="border border-border bg-background hover:shadow-lg rounded-lg transition-all cursor-pointer group-hover:border-foreground gap-0">
         <CardHeader className="mb-4">
           <CardTitle className="text-lg">{server.name}</CardTitle>
           <p className="text-sm text-muted-foreground line-clamp-2">
