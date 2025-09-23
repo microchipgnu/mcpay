@@ -1,6 +1,8 @@
 "use client"
 
+import React from "react"
 import { HelpCircle } from "lucide-react"
+import Link from "next/link"
 import {
   Accordion,
   AccordionContent,
@@ -10,25 +12,55 @@ import {
 
 interface FAQItem {
   question: string
-  answer: string
+  answer: string | React.ReactNode
 }
 
 const faqData: FAQItem[] = [
   {
     question: "What is MCPay?",
-    answer: "MCPay is a payment infrastructure for Model Context Protocol (MCP) servers that enables micropayments for AI tool usage. It allows developers to monetize their MCP servers while providing users with a pay-per-use model for accessing AI tools and services."
+    answer: (
+      <>
+        MCPay is a <strong>payment layer for MCP servers and plain HTTP APIs</strong>. It uses <code>HTTP 402 Payment Required</code> with the <strong>x402</strong> flow so clients (apps/agents/browsers) can pay per call and automatically retry to get the result. <strong>No subscriptions, no OAuth, no manual API keys.</strong>
+      </>
+    )
   },
   {
-    question: "Do I need crypto?",
-    answer: "No, you don't need to own or understand cryptocurrency. MCPay supports multiple payment methods including credit cards, Apple Pay, and traditional payment options. We handle all the blockchain transactions behind the scenes for a seamless experience."
+    question: "Do I have to use MCP?",
+    answer: (
+      <>
+        No. MCPay works great for <strong>plain HTTP</strong> endpoints. Using MCP adds niceties like <strong>tool discovery and pricing metadata</strong> for agent ecosystems.
+      </>
+    )
   },
   {
-    question: "Do you use AI?",
-    answer: "MCPay integrates with AI systems through the Model Context Protocol, but we don't replace AI models. Instead, we provide the payment infrastructure that allows AI applications to access and pay for external tools and services in real-time."
+    question: "Who is MCPay for?",
+    answer: (
+      <div className="space-y-2">
+        <div><strong>Providers</strong> (API/MCP owners) who want to <strong>price and monetize</strong> specific tools or routes.</div>
+        <div><strong>Integrators/Agents</strong> who need <strong>programmatic, per-call payments</strong> without human sign-ups.</div>
+        <div><strong>Builders</strong> who want the <strong>fastest path</strong> to ship paid MCP servers.</div>
+      </div>
+    )
   },
   {
-    question: "Why does this exist?",
-    answer: "Traditional subscription models don't work well for AI tool usage, which can be sporadic and varied. MCPay enables a fair pay-per-use model where developers can monetize their tools based on actual usage, and users only pay for what they consume."
+    question: "What's the MCPay Registry?",
+    answer: (
+      <>
+        A machine-readable catalog of MCP servers and their priced tools (analytics, recent payments, integration snippets). Browse the Registry at <Link href="/servers" className="text-foreground hover:text-teal-600 underline decoration-dotted underline-offset-2 transition-all duration-300 font-semibold">Servers</Link>.
+      </>
+    )
+  },
+  {
+    question: "What is MCPay Build?",
+    answer: (
+      <>
+        A v0/Lovable-style builder that lets you <strong>describe tools, preview them live, read the generated code, price tools, and one-click deploy</strong> to GitHub + Vercel. Under the hood it uses an <strong>MCP server</strong> to orchestrate scaffolding, edits, previews, pricing, and deploy.
+        <br /><br />
+        <a href="https://mcpay.tech/build" target="_blank" rel="noopener noreferrer" className="text-foreground hover:text-teal-600 underline decoration-dotted underline-offset-2 transition-all duration-300 font-semibold">Builder</a>
+        <br />
+        <a href="https://mcpay.tech/servers/23e2ab26-7808-4984-855c-ec6a7dc97c3a" target="_blank" rel="noopener noreferrer" className="text-foreground hover:text-teal-600 underline decoration-dotted underline-offset-2 transition-all duration-300 font-semibold">Build server page</a>
+      </>
+    )
   }
 ]
 
@@ -56,9 +88,9 @@ export default function FAQSection() {
                   </span>
                 </AccordionTrigger>
                 <AccordionContent>
-                  <p className="text-sm sm:text-[15px] leading-relaxed text-muted-foreground">
+                  <div className="text-sm sm:text-[15px] leading-relaxed text-foreground">
                     {item.answer}
-                  </p>
+                  </div>
                 </AccordionContent>
               </AccordionItem>
             ))}

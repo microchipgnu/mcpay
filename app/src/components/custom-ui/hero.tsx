@@ -122,7 +122,7 @@ export default function Hero({
             <div className="flex flex-col sm:flex-row gap-4 justify-center sm:justify-start">
               <Link href="/register" className="w-full sm:w-auto">
                 <Button size="lg" variant="ghostCustom" className="w-full sm:min-w-[10rem]">
-                  Monetize
+                  Monetize Server
                 </Button>
               </Link>
               <Link href="https://docs.mcpay.tech" target="_blank" rel="noopener noreferrer" className="w-full sm:w-auto">

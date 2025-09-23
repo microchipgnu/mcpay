@@ -4,6 +4,7 @@ import Image from "next/image"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
+import { ArrowUpRight } from "lucide-react"
 
 interface CardData {
   title: string
@@ -19,19 +20,19 @@ const cardData: CardData[] = [
     firstSentence: "Turn tool calls into transactions.",
     restOfDescription: "Price your MCP resources however you want: per call, per prompt, or per outcome.",
     image: "/painting-zoom-1.png",
-    href: "https://docs.mcpay.tech"
+    href: "https://docs.mcpay.tech/quickstart/monetize"
   },
   {
     title: "Non-Intrusive Middleware",
-    firstSentence: "Drop in payments without breaking your stack.",
+    firstSentence: "Drop in payments without rewriting your infrastructure.",
     restOfDescription: "MCPay wraps around your existing servers so you can start charging with zero refactor.",
     image: "/painting-zoom-2.png",
-    href: "https://docs.mcpay.tech"
+    href: "https://docs.mcpay.tech/quickstart/integrate"
   },
   {
-    title: "Plug and Pay",
-    firstSentence: "One toolkit, any chain.",
-    restOfDescription: "With wallet and facilitator plugins, MCPay adapts to your ecosystem — and grows with it.",
+    title: "More Than Payments",
+    firstSentence: "Supercharge your servers.",
+    restOfDescription: "With guardrails, analytics, data augmentation and plugins.",
     image: "/painting-zoom-3.png",
     href: "https://docs.mcpay.tech"
   }
@@ -57,6 +58,12 @@ export default function ContentCardsSmall() {
                   sizes="(max-width: 768px) 100vw, 33vw"
                   className="object-cover"
                 />
+                {/* Coming Soon pill for the last card */}
+                {index === 2 && (
+                  <div className="absolute top-3 right-3 bg-primary text-primary-foreground text-xs font-mono font-medium px-2 py-1 rounded-sm">
+                    COMING SOON
+                  </div>
+                )}
               </div>
               
               {/* Content */}
@@ -71,8 +78,9 @@ export default function ContentCardsSmall() {
                 </div>
                 
                 <Link href={card.href} target="_blank" rel="noopener noreferrer" className="mt-auto">
-                  <Button variant="ghostCustomSecondary" className="w-full">
+                  <Button variant="ghostCustomSecondary" className="w-full group">
                     LEARN MORE
+                    <ArrowUpRight className="ml-0.5 h-4 w-4 opacity-60 group-hover:opacity-100 transition-opacity" />
                   </Button>
                 </Link>
               </div>
