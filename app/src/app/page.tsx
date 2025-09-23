@@ -14,6 +14,8 @@ import MinimalExplorer from "@/components/custom-ui/minimal-explorer"
 import BuiltWithSection from "@/components/custom-ui/built-with-section"
 import FAQSection from "@/components/custom-ui/faq-section"
 import ContentCardsSmall from "@/components/custom-ui/content-cards-small"
+import TypingAnimation from "@/components/custom-ui/typing-animation"
+import { useScrollToBottom } from "@/hooks/use-scroll-to-bottom"
 
 interface APITool {
   id: string;
@@ -102,6 +104,7 @@ export default function MCPBrowser() {
   const [error, setError] = useState<string | null>(null)
 
   const { isDark } = useTheme()
+  const hasReachedBottom = useScrollToBottom(200)
 
   const getFriendlyErrorMessage = (error: string) => {
     if (error.includes('404')) {
@@ -249,6 +252,16 @@ export default function MCPBrowser() {
 
         <section className="mb-40">
           <FAQSection />
+        </section>
+
+        <section className="mb-2">
+          <div className="max-w-6xl px-4 md:px-6 mx-auto text-center">
+            <TypingAnimation 
+              text="Join the future of agentic payments."
+              trigger={hasReachedBottom}
+              speed={20}
+            />
+          </div>
         </section>
       </div>
       <Footer />
