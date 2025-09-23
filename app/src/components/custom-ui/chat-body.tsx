@@ -4,6 +4,7 @@ import { Messages } from '@/components/custom-ui/messages';
 import { MultimodalInput } from '@/components/custom-ui/multimodal-input';
 import { ChatStatus, UIMessage } from 'ai';
 import { useState } from 'react';
+import { useChatScroll } from '@/hooks/use-chat-scroll';
 
 export interface ChatBodyProps {
   chatId: string;
@@ -23,12 +24,17 @@ export function ChatBody({
   onStop,
 }: ChatBodyProps) {
   const [input, setInput] = useState('');
+  const { isAtBottom, scrollToBottom, scrollContainerRef } = useChatScroll();
 
   return (
     <div className="flex flex-col flex-1 h-full min-w-0 bg-background">
       {/* Messages list: grows and scrolls */}
-      <div className="flex-1 overflow-auto h-full">
-        <Messages status={status} messages={messages} />
+      <div className="flex-1 h-full">
+        <Messages 
+          status={status} 
+          messages={messages} 
+          scrollContainerRef={scrollContainerRef}
+        />
       </div>
 
       {/* Input bar: always visible */}
@@ -51,6 +57,8 @@ export function ChatBody({
           isReadonly={isReadonly}
           onStop={onStop}
           onSendMessage={onSendMessage}
+          isAtBottom={isAtBottom}
+          scrollToBottom={scrollToBottom}
         />
       </form>
     </div>
