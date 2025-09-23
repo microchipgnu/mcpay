@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState, useRef } from "react"
 
 export function useChatScroll(threshold: number = 100) {
   const [isAtBottom, setIsAtBottom] = useState(false)
-  const scrollContainerRef = useRef<HTMLDivElement>(null)
+  const scrollContainerRef = useRef<HTMLDivElement | null>(null)
 
   const scrollToBottom = useCallback(() => {
     const container = scrollContainerRef.current

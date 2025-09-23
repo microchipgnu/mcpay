@@ -10,7 +10,7 @@ import { ChatStatus, UIMessage } from 'ai';
 interface MessagesProps {
   status: ChatStatus;
   messages: UIMessage[];
-  scrollContainerRef?: React.RefObject<HTMLDivElement>;
+  scrollContainerRef?: React.RefObject<HTMLDivElement | null>;
 }
 
 function PureMessages({ status, messages, scrollContainerRef }: MessagesProps) {
