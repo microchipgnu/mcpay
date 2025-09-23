@@ -1,9 +1,16 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 
 export function useScrollToBottom(threshold: number = 100) {
-  const [hasReachedBottom, setHasReachedBottom] = useState(false)
+  const [isAtBottom, setIsAtBottom] = useState(false)
+
+  const scrollToBottom = useCallback(() => {
+    window.scrollTo({
+      top: document.documentElement.scrollHeight,
+      behavior: 'smooth'
+    })
+  }, [])
 
   useEffect(() => {
     const handleScroll = () => {
@@ -13,9 +20,7 @@ export function useScrollToBottom(threshold: number = 100) {
 
       const distanceFromBottom = documentHeight - (scrollTop + windowHeight)
       
-      if (distanceFromBottom <= threshold && !hasReachedBottom) {
-        setHasReachedBottom(true)
-      }
+      setIsAtBottom(distanceFromBottom <= threshold)
     }
 
     window.addEventListener("scroll", handleScroll, { passive: true })
@@ -26,7 +31,7 @@ export function useScrollToBottom(threshold: number = 100) {
     return () => {
       window.removeEventListener("scroll", handleScroll)
     }
-  }, [threshold, hasReachedBottom])
+  }, [threshold])
 
-  return hasReachedBottom
+  return { isAtBottom, scrollToBottom }
 }

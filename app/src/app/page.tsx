@@ -104,7 +104,7 @@ export default function MCPBrowser() {
   const [error, setError] = useState<string | null>(null)
 
   const { isDark } = useTheme()
-  const hasReachedBottom = useScrollToBottom(200)
+  const { isAtBottom: hasReachedBottom } = useScrollToBottom(200)
 
   const getFriendlyErrorMessage = (error: string) => {
     if (error.includes('404')) {
