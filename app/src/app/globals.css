@@ -166,4 +166,15 @@
     display: none;  /* Chrome, Safari, and Opera */
   }
 
+  /* Text selection colors */
+  ::selection {
+    background-color: rgb(20 184 166 / 0.1); /* teal-500 with 25% opacity for light mode */
+    color: rgb(13 148 136); /* teal-600 for better contrast */
+  }
+  
+  .dark ::selection {
+    background-color: rgb(20 184 166 / 0.1); /* teal-500 with 10% opacity for dark mode */
+    color: rgb(153 246 228); /* teal-200 for better contrast */
+  }
+
 }
