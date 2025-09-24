@@ -4,7 +4,7 @@ import Image from "next/image"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
-import { ArrowUpRight, Code, Zap, Shield, BarChart3 } from "lucide-react"
+import { ArrowUpRight, Check } from "lucide-react"
 import { useState, useEffect } from "react"
 
 interface CardData {
@@ -63,7 +63,7 @@ export default function ContentCardsSmall() {
       </div>
       
       {/* Wide developer card */}
-      <Card className="overflow-hidden rounded-2xl mb-6 bg-background relative h-110">
+      <Card className="overflow-hidden rounded-2xl mb-6 bg-background relative">
         <div className="absolute inset-0">
           <Image
             src="/mcpay-developers-image.png"
@@ -75,38 +75,80 @@ export default function ContentCardsSmall() {
             }}
           />
         </div>
-        <CardContent className="relative z-10 p-6 md:p-12 h-full flex flex-col justify-center">
-          <h3 className="text-4xl md:text-5xl font-regular font-host mb-12 text-white">
-            The most complete SDK
-          </h3>
-          
-          <div className="flex flex-col gap-6 mb-8">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 bg-teal-500/10 rounded flex items-center justify-center">
-                <Shield className="w-4 h-4 text-teal-400" strokeWidth={2.5} />
+        <CardContent className="relative z-10 p-8 md:p-12 lg:p-16">
+          <div className="flex flex-col lg:flex-row gap-8 lg:gap-12 items-start lg:items-center">
+            {/* Left Column - Content */}
+            <div className="flex-1">
+              <h3 className="text-3xl md:text-4xl lg:text-5xl font-regular font-host mb-6 md:mb-8 lg:mb-12 text-white">
+                The most complete SDK
+              </h3>
+              
+              <div className="flex flex-col gap-4 md:gap-6 mb-6 md:mb-8">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 bg-teal-500/10 rounded flex items-center justify-center">
+                    <Check className="w-4 h-4 text-teal-400" strokeWidth={2.5} />
+                  </div>
+                  <span className="font-mono text-sm md:text-base lg:text-xl font-medium tracking-wider text-teal-500">SUPPORT FOR EVM AND SOLANA</span>
+                </div>
+                
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 bg-teal-500/10 rounded flex items-center justify-center">
+                    <Check className="w-4 h-4 text-teal-400" strokeWidth={2.5} />
+                  </div>
+                  <span className="font-mono text-sm md:text-base lg:text-xl font-medium tracking-wider text-teal-500">EXTENDABLE WITH PLUGINS</span>
+                </div>
+                
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 bg-teal-500/10 rounded flex items-center justify-center">
+                    <Check className="w-4 h-4 text-teal-400" strokeWidth={2.5} />
+                  </div>
+                  <span className="font-mono text-sm md:text-base lg:text-xl font-medium tracking-wider text-teal-500">SIMPLE X402 SETUP</span>
+                </div>
+                
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 bg-teal-500/10 rounded flex items-center justify-center">
+                    <Check className="w-4 h-4 text-teal-400" strokeWidth={2.5} />
+                  </div>
+                  <span className="font-mono text-sm md:text-base lg:text-xl font-medium tracking-wider text-teal-500">OPEN SOURCE</span>
+                </div>
               </div>
-              <span className="font-mono text-base md:text-xl font-medium tracking-wider text-teal-500">SUPPORT FOR EVM AND SOLANA</span>
             </div>
-            
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 bg-teal-500/10 rounded flex items-center justify-center">
-                <Zap className="w-4 h-4 text-teal-400" strokeWidth={2.5} />
+
+            {/* Right Column - Code Snippet */}
+            <div className="flex-1 w-full">
+              <div className="bg-black/70 backdrop-blur-sm rounded-lg border border-teal-500/40 hover:border-teal-500 transition-all duration-300 overflow-hidden">
+                <div className="p-3 text-xs font-mono leading-5 overflow-x-auto">
+                  <div className="flex min-w-max">
+                    <div className="select-none text-gray-500 pr-3 text-right min-w-[1.5rem] flex-shrink-0">
+                      {Array.from({ length: 20 }, (_, i) => (
+                        <div key={i + 1} className="h-5">{i + 1}</div>
+                      ))}
+                    </div>
+                    <div className="flex-1 min-w-max">
+                      <div className="h-5"><span className="text-slate-400">import</span> <span className="text-slate-400">&#123;</span> <span className="text-blue-400">createMcpPaidHandler</span> <span className="text-slate-400">&#125;</span> <span className="text-slate-400">from</span> <span className="text-teal-500">"mcpay/handler"</span></div>
+                      <div className="h-5"></div>
+                      <div className="h-5"><span className="text-slate-400">export</span> <span className="text-slate-400">const</span> <span className="text-blue-400">paidMcp</span> <span className="text-slate-400">=</span> <span className="text-blue-400">createMcpPaidHandler</span><span className="text-slate-400">(</span></div>
+                      <div className="h-5 pl-4"><span className="text-slate-400">async</span> <span className="text-slate-400">(</span><span className="text-white">server</span><span className="text-slate-400">) =&gt;</span> <span className="text-slate-400">&#123;</span></div>
+                      <div className="h-5"></div>
+                      <div className="h-5 pl-8"><span className="text-white">server</span><span className="text-slate-400">.</span><span className="text-blue-400">paidTool</span><span className="text-slate-400">(</span></div>
+                      <div className="h-5 pl-12"><span className="text-teal-500">"hello"</span><span className="text-slate-400">,</span></div>
+                      <div className="h-5 pl-12"><span className="text-teal-500">"pay for hello"</span><span className="text-slate-400">,</span></div>
+                      <div className="h-5 pl-12"><span className="text-orange-400">"$0.001"</span><span className="text-slate-400">,</span></div>
+                      <div className="h-5 pl-12"><span className="text-slate-400">&#123;&#125;,</span></div>
+                      <div className="h-5 pl-12"><span className="text-slate-400">async</span> <span className="text-slate-400">(&#123;&#125;) =&gt;</span> <span className="text-slate-400">(&#123;</span> <span className="text-slate-500">content</span><span className="text-slate-400">:</span> <span className="text-slate-400">[&#123;</span> <span className="text-slate-500">type</span><span className="text-slate-400">:</span> <span className="text-teal-500">'text'</span><span className="text-slate-400">,</span> <span className="text-slate-500">text</span><span className="text-slate-400">:</span> <span className="text-teal-500">`Hello, world!`</span> <span className="text-slate-400">&#125;]</span> <span className="text-slate-400">&#125;)</span></div>
+                      <div className="h-5 pl-8"><span className="text-slate-400">)</span></div>
+                      <div className="h-5"></div>
+                      <div className="h-5"><span className="text-slate-400">&#125;, &#123;</span></div>
+                      <div className="h-5 pl-4"><span className="text-slate-500">recipient</span><span className="text-slate-400">: &#123;</span></div>
+                      <div className="h-5 pl-8"><span className="text-slate-500">evm</span><span className="text-slate-400">: &#123;</span></div>
+                      <div className="h-5 pl-12"><span className="text-slate-500">address</span><span className="text-slate-400">:</span> <span className="text-orange-400">'0x036CbD53842c5426634e7929541eC2318f3dCF7e'</span></div>
+                      <div className="h-5 pl-8"><span className="text-slate-400">&#125;</span></div>
+                      <div className="h-5 pl-4"><span className="text-slate-400">&#125;</span></div>
+                      <div className="h-5"><span className="text-slate-400">&#125;)</span></div>
+                    </div>
+                  </div>
+                </div>
               </div>
-              <span className="font-mono text-base md:text-xl font-medium tracking-wider text-teal-500">EXTENDABLE WITH PLUGINS</span>
-            </div>
-            
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 bg-teal-500/10 rounded flex items-center justify-center">
-                <Code className="w-4 h-4 text-teal-400" strokeWidth={2.5} />
-              </div>
-              <span className="font-mono text-base md:text-xl font-medium tracking-wider text-teal-500">SIMPLE X402 SETUP</span>
-            </div>
-            
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 bg-teal-500/10 rounded flex items-center justify-center">
-                <BarChart3 className="w-4 h-4 text-teal-400" strokeWidth={2.5} />
-              </div>
-              <span className="font-mono text-base md:text-xl font-medium tracking-wider text-teal-500">OPEN SOURCE</span>
             </div>
           </div>
         </CardContent>
