@@ -1,12 +1,2 @@
-export { createPaidMcpHandler } from "./handler/paid-mcp-server";
-export { withPayment } from "./handler/with-payment";
-
-export { 
-  PaymentRequirements,
-  PaymentOptions,
-  PaymentConfig, 
-  PaymentAuthConfig,
-  AdvancedPaymentOptions,
-  SimplePaymentOptions,
-  VerifyResponse
-} from "./handler/types";
+export { createMcpPaidHandler } from "./handler/server/templates/x402-server";
+export { withX402 } from "./handler/server/plugins/with-x402";
