@@ -15,7 +15,7 @@ import BuiltWithSection from "@/components/custom-ui/built-with-section"
 import FAQSection from "@/components/custom-ui/faq-section"
 import ContentCardsSmall from "@/components/custom-ui/content-cards-small"
 import TypingAnimation from "@/components/custom-ui/typing-animation"
-import { useScrollToBottom } from "@/hooks/use-scroll-to-bottom"
+import { useWindowScroll } from "@/hooks/use-chat-scroll"
 
 interface APITool {
   id: string;
@@ -104,7 +104,7 @@ export default function MCPBrowser() {
   const [error, setError] = useState<string | null>(null)
 
   const { isDark } = useTheme()
-  const { isAtBottom: hasReachedBottom } = useScrollToBottom(200)
+  const { isAtBottom: hasReachedBottom } = useWindowScroll(200)
 
   const getFriendlyErrorMessage = (error: string) => {
     if (error.includes('404')) {

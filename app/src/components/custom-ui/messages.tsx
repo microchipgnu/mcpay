@@ -10,17 +10,13 @@ import { ChatStatus, UIMessage } from 'ai';
 interface MessagesProps {
   status: ChatStatus;
   messages: UIMessage[];
-  scrollContainerRef?: React.RefObject<HTMLDivElement | null>;
 }
 
-function PureMessages({ status, messages, scrollContainerRef }: MessagesProps) {
+function PureMessages({ status, messages }: MessagesProps) {
   console.log("📊 Messages component render - status:", status, "message count:", messages.length);
   console.log("📊 Last message parts:", messages[messages.length - 1]?.parts?.length || 0);
   return (
-    <div 
-      ref={scrollContainerRef}
-      className="flex flex-col min-w-0 gap-6 flex-1 overflow-y-scroll pt-4 relative h-full"
-    >
+    <div className="flex flex-col min-w-0 gap-6 flex-1 overflow-y-scroll pt-4 relative">
       {messages.length === 0 && <Greeting />}
 
       {messages.map((message, idx) => (

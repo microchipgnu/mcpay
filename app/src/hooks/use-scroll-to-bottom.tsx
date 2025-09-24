@@ -1,37 +1,50 @@
-"use client"
+'use client';
 
-import { useCallback, useEffect, useState } from "react"
+import { useRef, useState, useCallback, useEffect } from 'react';
 
-export function useScrollToBottom(threshold: number = 100) {
-  const [isAtBottom, setIsAtBottom] = useState(false)
+type ScrollFlag = ScrollBehavior | false;
 
-  const scrollToBottom = useCallback(() => {
-    window.scrollTo({
-      top: document.documentElement.scrollHeight,
-      behavior: 'smooth'
-    })
-  }, [])
+/**
+ * Tracks whether user is scrolled to the bottom of a container (via viewport enter/leave)
+ * and provides a method to programmatically scroll to the bottom.
+ */
+export function useScrollToBottom() {
+  // Reference for the scrollable messages container (if needed)
+  const containerRef = useRef<HTMLDivElement>(null);
+  // Reference for the bottom anchor
+  const endRef = useRef<HTMLDivElement>(null);
 
+  // State: is the viewport anchored at the bottom?
+  const [isAtBottom, setIsAtBottom] = useState(true);
+  // State: scroll flag; when set, triggers scroll into view
+  const [scrollFlag, setScrollFlag] = useState<ScrollFlag>(false);
+
+  // When scrollFlag changes, scroll the endRef into view
   useEffect(() => {
-    const handleScroll = () => {
-      const scrollTop = window.pageYOffset || document.documentElement.scrollTop
-      const windowHeight = window.innerHeight
-      const documentHeight = document.documentElement.scrollHeight
-
-      const distanceFromBottom = documentHeight - (scrollTop + windowHeight)
-      
-      setIsAtBottom(distanceFromBottom <= threshold)
+    if (scrollFlag && endRef.current) {
+      endRef.current.scrollIntoView({ behavior: scrollFlag });
+      setScrollFlag(false);
     }
+  }, [scrollFlag]);
 
-    window.addEventListener("scroll", handleScroll, { passive: true })
-    
-    // Check initial state
-    handleScroll()
+  // Programmatic scroll function
+  const scrollToBottom = useCallback(
+    (behavior: ScrollBehavior = 'smooth') => {
+      setScrollFlag(behavior);
+    },
+    []
+  );
 
-    return () => {
-      window.removeEventListener("scroll", handleScroll)
-    }
-  }, [threshold])
+  // Viewport enter/leave handlers (use on endRef intersection)
+  const onViewportEnter = useCallback(() => setIsAtBottom(true), []);
+  const onViewportLeave = useCallback(() => setIsAtBottom(false), []);
 
-  return { isAtBottom, scrollToBottom }
+  return {
+    containerRef,
+    endRef,
+    isAtBottom,
+    scrollToBottom,
+    onViewportEnter,
+    onViewportLeave,
+  };
 }

@@ -3,6 +3,7 @@
 import { useCallback, useEffect } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
+import { useScrollToBottom } from '@/hooks/use-scroll-to-bottom';
 import { SuggestedActions } from '@/components/custom-ui/suggested-actions';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
@@ -21,8 +22,6 @@ interface MultimodalInputProps {
   isReadonly?: boolean;
   onStop?: () => void;
   onSendMessage: (text: string) => void;
-  isAtBottom?: boolean;
-  scrollToBottom?: () => void;
 }
 
 export function MultimodalInput({
@@ -34,8 +33,6 @@ export function MultimodalInput({
   isReadonly = false,
   onStop,
   onSendMessage,
-  isAtBottom = true,
-  scrollToBottom,
 }: MultimodalInputProps) {
   const handleSubmit = useCallback(() => {
     const text = input.trim();
@@ -44,9 +41,11 @@ export function MultimodalInput({
     setInput('');
   }, [input, onSendMessage, setInput]);
 
+  const { isAtBottom, scrollToBottom } = useScrollToBottom();
+
   // Scroll to bottom when a message is submitted
   useEffect(() => {
-    if (status === 'submitted' && scrollToBottom) {
+    if (status === 'submitted') {
       scrollToBottom();
     }
   }, [status, scrollToBottom]);
@@ -67,7 +66,7 @@ export function MultimodalInput({
               variant="outline"
               onClick={(e) => {
                 e.preventDefault();
-                scrollToBottom?.();
+                scrollToBottom();
               }}
             >
               <ArrowDown size={16} />

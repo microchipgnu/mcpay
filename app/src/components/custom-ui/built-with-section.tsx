@@ -37,8 +37,9 @@ export default function BuiltWithSection() {
                 rel="noopener noreferrer"
                 className="text-foreground hover:text-teal-600 underline decoration-dotted underline-offset-2 transition-all duration-300 font-semibold"
               >
-                Coinbase Developer Program
+                Coinbase Developer Platform
               </Link>
+              .
             </p>
           </div>
 
