@@ -5,6 +5,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
 import { ArrowUpRight, Code, Zap, Shield, BarChart3 } from "lucide-react"
+import { useState, useEffect } from "react"
 
 interface CardData {
   title: string
@@ -39,6 +40,22 @@ const cardData: CardData[] = [
 ]
 
 export default function ContentCardsSmall() {
+  const [mousePosition, setMousePosition] = useState({ x: 0.5, y: 0.5 })
+
+  useEffect(() => {
+    const handleGlobalMouseMove = (e: MouseEvent) => {
+      const x = e.clientX / window.innerWidth
+      const y = e.clientY / window.innerHeight
+      setMousePosition({ x, y })
+    }
+
+    window.addEventListener('mousemove', handleGlobalMouseMove)
+    
+    return () => {
+      window.removeEventListener('mousemove', handleGlobalMouseMove)
+    }
+  }, [])
+
   return (
     <section className="mx-auto w-full max-w-6xl px-4 md:px-6">
       <div className="mb-10">
@@ -52,7 +69,10 @@ export default function ContentCardsSmall() {
             src="/mcpay-developers-image.png"
             alt="MCPay for developers"
             fill
-            className="object-cover"
+            className="object-cover transition-transform duration-200 ease-out"
+            style={{
+              transform: `scale(1.15) translate(${(mousePosition.x - 0.5) * 40}px, ${(mousePosition.y - 0.5) * 40}px)`
+            }}
           />
         </div>
         <CardContent className="relative z-10 p-6 md:p-12 h-full flex flex-col justify-center">
