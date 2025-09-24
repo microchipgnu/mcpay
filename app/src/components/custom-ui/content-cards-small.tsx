@@ -4,7 +4,7 @@ import Image from "next/image"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
-import { ArrowUpRight } from "lucide-react"
+import { ArrowUpRight, Code, Zap, Shield, BarChart3 } from "lucide-react"
 
 interface CardData {
   title: string
@@ -44,6 +44,53 @@ export default function ContentCardsSmall() {
       <div className="mb-10">
         <h2 className="text-3xl font-semibold font-host">Focus on building</h2>
       </div>
+      
+      {/* Wide developer card */}
+      <Card className="overflow-hidden rounded-2xl mb-6 bg-background relative h-110">
+        <div className="absolute inset-0">
+          <Image
+            src="/mcpay-developers-image.png"
+            alt="MCPay for developers"
+            fill
+            className="object-cover"
+          />
+        </div>
+        <CardContent className="relative z-10 p-6 md:p-12 h-full flex flex-col justify-center">
+          <h3 className="text-4xl md:text-5xl font-regular font-host mb-12 text-white">
+            The most complete SDK
+          </h3>
+          
+          <div className="flex flex-col gap-6 mb-8">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 bg-teal-500/10 rounded flex items-center justify-center">
+                <Shield className="w-4 h-4 text-teal-400" strokeWidth={2.5} />
+              </div>
+              <span className="font-mono text-base md:text-xl font-medium tracking-wider text-teal-500">SUPPORT FOR EVM AND SOLANA</span>
+            </div>
+            
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 bg-teal-500/10 rounded flex items-center justify-center">
+                <Zap className="w-4 h-4 text-teal-400" strokeWidth={2.5} />
+              </div>
+              <span className="font-mono text-base md:text-xl font-medium tracking-wider text-teal-500">EXTENDABLE WITH PLUGINS</span>
+            </div>
+            
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 bg-teal-500/10 rounded flex items-center justify-center">
+                <Code className="w-4 h-4 text-teal-400" strokeWidth={2.5} />
+              </div>
+              <span className="font-mono text-base md:text-xl font-medium tracking-wider text-teal-500">SIMPLE X402 SETUP</span>
+            </div>
+            
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 bg-teal-500/10 rounded flex items-center justify-center">
+                <BarChart3 className="w-4 h-4 text-teal-400" strokeWidth={2.5} />
+              </div>
+              <span className="font-mono text-base md:text-xl font-medium tracking-wider text-teal-500">OPEN SOURCE</span>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
       
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {cardData.map((card, index) => (
