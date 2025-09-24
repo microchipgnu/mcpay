@@ -15,8 +15,6 @@ import type {
 import { SupportedEVMNetworks, SupportedSVMNetworks } from "x402/types";
 import { useFacilitator } from "x402/verify";
 
-// ======= SERVER SIDE =======
-
 export type RecipientWithTestnet = {
   address: string;
   isTestnet?: boolean;
@@ -142,7 +140,7 @@ export function withX402<S extends McpServer>(
                 payTo: normalizedPayTo,
                 asset: normalizedAsset,
                 maxTimeoutSeconds: 300,
-                resource: `x402://${name}`,
+                resource: `mcp://${name}`,
                 mimeType: "application/json",
                 description,
                 extra,
@@ -174,7 +172,7 @@ export function withX402<S extends McpServer>(
                 payTo: String(payTo),
                 asset: String(asset.address),
                 maxTimeoutSeconds: 300,
-                resource: `x402://${name}`,
+                resource: `mcp://${name}`,
                 mimeType: "application/json",
                 description,
                 extra: { feePayer },

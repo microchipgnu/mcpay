@@ -5,13 +5,12 @@ import type { StreamableHTTPClientTransportOptions } from "@modelcontextprotocol
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import type { Account } from "viem";
-import { createPaymentTransport, PaymentTransport } from "../../mcp/payment-http-transport";
+import packageJson from '../../../package.json';
+import { withX402Client, type X402ClientConfig } from "../../client/with-x402-client";
 import { proxyServer } from "./proxy-server";
 
 export enum ServerType {
     HTTPStream = "HTTPStream",
-    Payment = "Payment",
 }
 
 export interface ServerConnection {
@@ -28,12 +27,12 @@ export const startStdioServer = async ({
     initStdioServer,
     initStreamClient,
     serverConnections,
-    account,
+    x402ClientConfig,
 }: {
     initStdioServer?: () => Promise<Server>;
     initStreamClient?: () => Promise<Client>;
     serverConnections: ServerConnection[];
-    account?: Account;
+    x402ClientConfig?: X402ClientConfig;
 }): Promise<Server[]> => {
     if (serverConnections.length === 0) {
         throw new Error("No server connections provided");
@@ -43,21 +42,12 @@ export const startStdioServer = async ({
     const connectedClients: Client[] = [];
 
     for (const connection of serverConnections) {
-        let transport: SSEClientTransport | StreamableHTTPClientTransport | PaymentTransport;
+        let transport: SSEClientTransport | StreamableHTTPClientTransport;
 
-        switch (connection.serverType) {
-            case ServerType.Payment:
-                if (!account) {
-                    throw new Error("Account is required for Payment transport");
-                }
-                transport = createPaymentTransport(new URL(connection.url), account, connection.transportOptions);
-                break;
-            default:
-                transport = new StreamableHTTPClientTransport(
-                    new URL(connection.url),
-                    connection.transportOptions,
-                );
-        }
+        transport = new StreamableHTTPClientTransport(
+            new URL(connection.url),
+            connection.transportOptions,
+        );
 
         let streamClient: Client;
 
@@ -68,8 +58,8 @@ export const startStdioServer = async ({
         } else {
             streamClient = new Client(
                 {
-                    name: "mcp-proxy",
-                    version: "1.0.0",
+                    name: "mcpay-cli",
+                    version: packageJson.version,
                 },
                 {
                     capabilities: {},
@@ -77,8 +67,17 @@ export const startStdioServer = async ({
             );
         }
 
+        
+        
         await streamClient.connect(transport);
-        connectedClients.push(streamClient);
+        
+        // Optionally wrap the client with X402 payment capabilities
+        const wrappedClient = x402ClientConfig
+            ? (withX402Client(streamClient, x402ClientConfig) as Client)
+            : streamClient;
+
+
+        connectedClients.push(wrappedClient);
     }
 
     // We know there's at least one client because we check at the start

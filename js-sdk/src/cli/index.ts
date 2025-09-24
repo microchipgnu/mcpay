@@ -1,18 +1,22 @@
 #!/usr/bin/env node
 
 import { Command } from "commander";
+import fs from "node:fs";
+import path from "node:path";
 import { config } from "dotenv";
-import type { Hex } from "viem";
-import { privateKeyToAccount } from "viem/accounts";
 import packageJson from '../../package.json';
 import { createServerConnections, ServerType, startStdioServer } from '../server/stdio/start-stdio-server';
+import type { X402ClientConfig } from "../client/with-x402-client";
+import { createSigner } from "x402/types";
 
 config();
 
 interface ServerOptions {
   urls: string;
-  privateKey?: string;
   apiKey?: string;
+  x402MaxAtomic?: string;
+  evm?: string;
+  svm?: string;
 }
 
 const program = new Command();
@@ -23,40 +27,27 @@ program
   .version(packageJson.version);
 
 program
-  .command('server')
+  .command('connect')
   .description('Start an MCP stdio server with payment transport')
   .requiredOption('-u, --urls <urls>', 'Comma-separated list of server URLs')
-  .option('-k, --private-key <key>', 'Private key for wallet (or set PRIVATE_KEY env var)')
   .option('-a, --api-key <key>', 'API key for authentication (or set API_KEY env var). Get yours at https://mcpay.tech')
+  .option('--max-atomic <value>', 'Max payment in atomic units (e.g. 100000 for 0.1 USDC). Env: X402_MAX_ATOMIC')
+  .option('--evm <privateKey>', 'EVM private key (0x...) (env: EVM_PRIVATE_KEY)')
+  .option('--svm <secretKey>', 'SVM secret key (base58/hex) (env: SVM_SECRET_KEY)')
   .action(async (options: ServerOptions) => {
     try {
-      const privateKeyString = options.privateKey || process.env.PRIVATE_KEY;
       const apiKey = options.apiKey || process.env.API_KEY;
+      const maxAtomicArg = options.x402MaxAtomic || process.env.X402_MAX_ATOMIC;
+      const evmPkArg = options.evm || process.env.EVM_PRIVATE_KEY;
+      const svmSkArg = options.svm || process.env.SVM_SECRET_KEY;
       
-      if (!privateKeyString && !apiKey) {
-        console.error('Error: Either a private key or API key is required. Use --private-key/--api-key or set PRIVATE_KEY/API_KEY environment variables.');
+      if (!apiKey && !evmPkArg && !svmSkArg) {
+        console.error('Error: Provide either an API key for proxying or a signer with --evm/--svm (or env EVM_PRIVATE_KEY/SVM_SECRET_KEY).');
         process.exit(1);
       }
 
-      let account;
-      let serverType: ServerType;
+      const serverType = ServerType.HTTPStream;
       
-      if (privateKeyString) {
-        // Validate and cast to Hex type
-        if (!privateKeyString.startsWith('0x') || privateKeyString.length !== 66) {
-          console.error('Error: Private key must be a valid hex string starting with 0x and 64 characters long.');
-          process.exit(1);
-        }
-
-        const privateKey = privateKeyString as Hex;
-        account = privateKeyToAccount(privateKey);
-        serverType = ServerType.Payment;
-        // console.log('Using payment transport (private key provided)');
-      } else {
-        serverType = ServerType.HTTPStream;
-        // console.log('Using HTTP transport (no private key provided)');
-      }
-
       const serverUrls = options.urls.split(',').map((url: string) => url.trim());
       
       if (serverUrls.length === 0) {
@@ -76,14 +67,46 @@ program
         }
       } : undefined;
       
+      // Optional X402 client configuration
+      let x402ClientConfig: X402ClientConfig | undefined = undefined;
+      if (evmPkArg || svmSkArg) {
+        const walletObj: Record<string, unknown> = {};
+        if (evmPkArg) {
+          const pk = evmPkArg.trim();
+          if (!pk.startsWith('0x') || pk.length !== 66) {
+            console.error('Invalid --evm private key. Must be 0x-prefixed 64-hex.');
+            process.exit(1);
+          }
+          walletObj.evm = await createSigner("base-sepolia", pk);
+        }
+
+        if (svmSkArg) {
+          const sk = svmSkArg.trim();
+          if (!sk) {
+            console.error('Invalid --svm secret key.');
+            process.exit(1);
+          }
+          walletObj.svm = await createSigner("solana-devnet", sk);
+        }
+
+        const maybeMax = maxAtomicArg ? (() => { try { return BigInt(maxAtomicArg); } catch { return undefined; } })() : undefined;
+
+        x402ClientConfig = {
+          wallet: walletObj as X402ClientConfig['wallet'],
+          ...(maybeMax !== undefined ? { maxPaymentValue: maybeMax } : {}),
+          confirmationCallback: async (payment) => {
+            return true;
+          }
+        };
+      }
+      
       const serverConnections = createServerConnections(serverUrls, serverType, transportOptions);
       
       await startStdioServer({
         serverConnections,
-        account,
+        x402ClientConfig,
       });
 
-      // console.log(`Successfully connected to ${serverUrls.length} servers`);
     } catch (error) {
       console.error('Failed to start server:', error);
       process.exit(1);
