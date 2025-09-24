@@ -60,6 +60,11 @@ export default function Hero({
   const [active, setActive] = React.useState<Copy["id"]>("devs");
   const current = COPY.find((c) => c.id === active) ?? COPY[0];
   const prefersReduced = useReducedMotion();
+  const [isMounted, setIsMounted] = React.useState(false);
+
+  React.useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   const fadeUp: Variants = React.useMemo(
     () => ({
@@ -100,10 +105,11 @@ export default function Hero({
 
       {/* Content row */}
       <motion.div
-        className="mt-12 sm:mt-20 grid gap-8 sm:grid-cols-2 sm:gap-4 sm:items-center"
+        className="mt-6 sm:mt-20 grid gap-8 sm:grid-cols-2 sm:gap-4 sm:items-center"
         initial="hidden"
+        animate={isMounted ? "visible" : "hidden"}
         whileInView="visible"
-        viewport={{ once: true, amount: 0.2 }}
+        viewport={{ once: true, amount: 0.05, margin: "0px 0px -200px 0px" }}
       >
         {/* LEFT column: H1 + subheading + CTAs */}
         <div>

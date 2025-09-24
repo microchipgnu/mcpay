@@ -207,7 +207,7 @@ export default function MCPBrowser() {
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
 
         <section className="mb-16 md:mb-40">
           <Hero />
