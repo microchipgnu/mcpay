@@ -104,22 +104,35 @@ program
       let x402ClientConfig: X402ClientConfig | undefined = undefined;
       if (!apiKey && (evmPkArg || svmSkArg)) {
         const walletObj: Record<string, unknown> = {};
+        
         if (evmPkArg) {
           const pk = evmPkArg.trim();
           if (!pk.startsWith('0x') || pk.length !== 66) {
-            console.error('Invalid --evm private key. Must be 0x-prefixed 64-hex.');
+            console.error('Error: Invalid --evm private key. Must be 0x-prefixed 64-hex.');
             process.exit(1);
           }
-          walletObj.evm = await createSigner(evmNetwork, pk);
+          
+          try {
+            walletObj.evm = await createSigner(evmNetwork, pk);
+          } catch (error) {
+            console.error(`Error: Failed to create EVM signer for network '${evmNetwork}':`, error instanceof Error ? error.message : String(error));
+            process.exit(1);
+          }
         }
 
         if (svmSkArg) {
           const sk = svmSkArg.trim();
           if (!sk) {
-            console.error('Invalid --svm secret key.');
+            console.error('Error: Invalid --svm secret key.');
             process.exit(1);
           }
-          walletObj.svm = await createSigner(svmNetwork, sk);
+          
+          try {
+            walletObj.svm = await createSigner(svmNetwork, sk);
+          } catch (error) {
+            console.error(`Error: Failed to create SVM signer for network '${svmNetwork}':`, error instanceof Error ? error.message : String(error));
+            process.exit(1);
+          }
         }
 
         const maybeMax = maxAtomicArg ? (() => { try { return BigInt(maxAtomicArg); } catch { return undefined; } })() : undefined;
