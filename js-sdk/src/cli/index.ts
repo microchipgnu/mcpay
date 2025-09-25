@@ -74,27 +74,35 @@ program
         process.exit(1);
       }
 
-      //console.log(`Starting MCP server...`);
-      // console.log(`Connecting to ${serverUrls.length} server(s): ${serverUrls.join(', ')}`);
-      if (evmPkArg) {
-        console.log(`Using EVM network: ${evmNetwork}`);
-      }
-      if (svmSkArg) {
-        console.log(`Using SVM network: ${svmNetwork}`);
+      // Determine if we're using proxy mode or direct mode
+      const isProxyMode = apiKey && serverUrls.some(url => url.includes('mcpay.tech/v1/mcp'));
+
+      // API key can only be used with proxy mode
+      if (apiKey && !isProxyMode) {
+        console.error('Error: API key can only be used with MCPay proxy URLs (mcpay.tech/v1/mcp/*). Use --evm/--svm for direct payments to other servers.');
+        process.exit(1);
       }
 
-      // Prepare transport options with API key if provided
-      const transportOptions = apiKey ? {
-        requestInit: {
-          headers: {
-            'Authorization': `Bearer ${apiKey}`
+      const proxyUrl = 'https://mcpay.tech/v1/mcp'; // Default proxy endpoint
+      
+      // Prepare transport options for proxy mode
+      let finalUrls = serverUrls;
+      let transportOptions: any = undefined;
+      
+      if (apiKey) {
+        // API key only works with proxy URLs, just add auth header
+        transportOptions = {
+          requestInit: {
+            headers: {
+              'Authorization': `Bearer ${apiKey}`
+            }
           }
-        }
-      } : undefined;
+        };
+      }
 
-      // Optional X402 client configuration
+      // Optional X402 client configuration (only when not using API key)
       let x402ClientConfig: X402ClientConfig | undefined = undefined;
-      if (evmPkArg || svmSkArg) {
+      if (!apiKey && (evmPkArg || svmSkArg)) {
         const walletObj: Record<string, unknown> = {};
         if (evmPkArg) {
           const pk = evmPkArg.trim();
@@ -125,7 +133,7 @@ program
         };
       }
 
-      const serverConnections = createServerConnections(serverUrls, serverType, transportOptions);
+      const serverConnections = createServerConnections(finalUrls, serverType, transportOptions);
 
       await startStdioServer({
         serverConnections,
