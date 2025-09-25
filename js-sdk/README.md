@@ -285,7 +285,7 @@ const handler = createMcpPaidHandler(async (server) => {
     'Say hello to someone',
     { price: 0.05, currency: 'USD' },
     { name: z.string().describe('Your name') },
-    { paymentHint: true },
+    {},
     async ({ name }) => ({ 
       content: [{ type: 'text', text: `Hello, ${name}!` }] 
     })
@@ -296,8 +296,7 @@ const handler = createMcpPaidHandler(async (server) => {
     'solana-devnet': 'So11111111111111111111111111111111111111112'
   },
   facilitator: {
-    mcpayApiUrl: process.env.MCPAY_API_URL || 'https://mcpay.fun',
-    apiKey: process.env.MCPAY_API_KEY || ''
+    url: "FACILITATOR_URL"
   }
 });
 

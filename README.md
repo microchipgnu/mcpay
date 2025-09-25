@@ -111,7 +111,7 @@ This repo includes a Next.js app (`app/`) that powers the website, registry, bui
   - `/build` is a chat-driven builder. It calls `POST /api/chat`, which spins up an MCP client via streamable HTTP transport, discovers tools, and streams preview links and session data back to the UI.
 
 - Monetizer proxy (x402)
-  - `ALL /mcp/:id/*` forwards MCP JSON-RPC over HTTP to the upstream server URL stored for `:id`.
+  - `ALL /v1/mcp/:id/*` forwards MCP JSON-RPC over HTTP to the upstream server URL stored for `:id`.
   - If a tool is monetized, the route returns `402` with `accepts` payment requirements unless a valid `X-PAYMENT` header is present. When provided, payment is verified and settled, analytics are recorded, then the original request is retried upstream.
   - Extras: header scrubbing, basic caching for GETs, lightweight rate limiting, optional auto‑signing for managed wallets or API‑key callers.
 
@@ -135,14 +135,17 @@ Environment is validated via `app/src/lib/gateway/env.ts` (Zod). See that file f
 
 ### Option A — Connect to a paid MCP server (CLI)
 
-Start an MCP stdio proxy to one or more remote MCP servers. Use either an API key or a private key.
+Start an MCP stdio proxy to one or more remote MCP servers. Use either an API key or a wallet private key.
 
 ```bash
 # Using an API key (recommended)
-npx mcpay server --urls https://mcpay.tech/mcp/05599356-7a27-4519-872a-2ebb22467470 --api-key mcpay_YOUR_API_KEY
+npx mcpay connect --urls https://mcpay.tech/v1/mcp/05599356-7a27-4519-872a-2ebb22467470 --api-key mcpay_YOUR_API_KEY
 
-# Or using a wallet private key (x402 payments)
-npx mcpay server --urls https://mcpay.tech/mcp/05599356-7a27-4519-872a-2ebb22467470 --private-key 0xYOUR_PRIVATE_KEY
+# Or using an EVM wallet private key (x402 payments)
+npx mcpay connect --urls https://mcpay.tech/v1/mcp/05599356-7a27-4519-872a-2ebb22467470 --evm 0xYOUR_PRIVATE_KEY --evm-network base-sepolia
+
+# Or using an SVM wallet secret key (x402 payments)
+npx mcpay connect --urls https://mcpay.tech/v1/mcp/05599356-7a27-4519-872a-2ebb22467470 --svm YOUR_SECRET_KEY --svm-network solana-devnet
 ```
 
 You can pass multiple URLs via a comma‑separated list to `--urls`.
@@ -151,20 +154,28 @@ You can pass multiple URLs via a comma‑separated list to `--urls`.
 
 ```ts
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
-import { createPaymentTransport } from 'mcpay/client'
-import { privateKeyToAccount } from 'viem/accounts'
+import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js'
+import { withX402Client } from 'mcpay/client'
+import { createSigner } from 'x402/types'
 
-const account = privateKeyToAccount(process.env.PRIVATE_KEY!) // dev only; secure in prod
-const url = new URL('https://mcpay.tech/mcp/05599356-7a27-4519-872a-2ebb22467470')
+// Create signer for EVM network
+const evmSigner = await createSigner('base-sepolia', process.env.EVM_PRIVATE_KEY!) // dev only; secure in prod
+const url = new URL('https://mcpay.tech/v1/mcp/05599356-7a27-4519-872a-2ebb22467470')
 
-const transport = createPaymentTransport(url, account, {
-  // limit max on‑chain value (base units, e.g. 6‑decimals for USDC)
-  maxPaymentValue: BigInt(0.1 * 10 ** 6)
-})
+// Create transport
+const transport = new StreamableHTTPClientTransport(url)
 
+// Initialize MCP client
 const client = new Client({ name: 'my-mcp-client', version: '1.0.0' }, { capabilities: {} })
 await client.connect(transport)
-const tools = await client.listTools()
+
+// Wrap client with X402 payment capabilities
+const paymentClient = withX402Client(client, {
+  wallet: { evm: evmSigner },
+  maxPaymentValue: BigInt(0.1 * 10 ** 6) // limit max on‑chain value (base units, e.g. 6‑decimals for USDC)
+})
+
+const tools = await paymentClient.listTools()
 console.log('Available tools:', tools)
 ```
 
@@ -175,34 +186,41 @@ console.log('Available tools:', tools)
 Install:
 
 ```bash
-npm i mcpay   # pnpm add mcpay / yarn add mcpay
+npm i mcpay   # pnpm add mcpay / yarn add mcpay / bun add mcpay
 ```
 
 Features:
 
 * Automatic `402` handling (x402 pattern).
 * Works with plain HTTP **and** MCP servers.
-* Pluggable wallet/transport; supports multiple chains/tokens.
+* Pluggable wallet/transport; supports multiple chains/tokens (EVM & SVM).
 * Includes a **CLI** for local/prod proxying.
+* Support for Base, Avalanche, IoTeX, Sei (EVM) and Solana (SVM) networks.
 
 See **[js-sdk/README.md](./js-sdk/README.md)** for API details.
 
 ### Building monetized server (NextJS)
 
 ```ts
-import { createPaidMcpHandler } from 'mcpay/handler';
+import { createMcpPaidHandler } from 'mcpay/handler';
 import { z } from 'zod';
 
-const handler = createPaidMcpHandler(async (server) => {
+const handler = createMcpPaidHandler(async (server) => {
   server.paidTool(
     'hello',
+    'Say hello to someone',
     { price: 0.05, currency: 'USD' },
     { name: z.string().describe('Your name') },
+    {}, //annotations
     async ({ name }) => ({ content: [{ type: 'text', text: `Hello, ${name}!` }] })
   );
 }, {
-  mcpay: {
-    apiKey: process.env.MCPAY_API_KEY || ''
+  recipient: {
+    'base-sepolia': '0x1234567890abcdef1234567890abcdef12345678',
+    'solana-devnet': 'So11111111111111111111111111111111111111112'
+  },
+  facilitator: {
+    url: "FACILITATOR_URL"
   }
 });
 
@@ -223,9 +241,9 @@ Start a local stdio proxy to remote MCP servers:
       "command": "npx",
       "args": [
         "mcpay",
-        "server",
+        "connect",
         "--urls",
-        "https://mcpay.tech/mcp/05599356-7a27-4519-872a-2ebb22467470",
+        "https://mcpay.tech/v1/mcp/05599356-7a27-4519-872a-2ebb22467470",
         "--api-key",
         "mcpay_YOUR_API_KEY"
       ]
@@ -234,7 +252,7 @@ Start a local stdio proxy to remote MCP servers:
 }
 ```
 
-Run `mcpay server --help` for all flags.
+Run `mcpay connect --help` for all flags.
 
 ---
 
