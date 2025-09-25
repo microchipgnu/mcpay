@@ -1,25 +1,23 @@
 #!/usr/bin/env node
 
-import { config } from "dotenv";
 import { Command } from "commander";
-import type { Hex } from "viem";
-import { privateKeyToAccount } from "viem/accounts";
-import { createServerConnections, ServerType, startStdioServer } from '../server/stdio/start-stdio-server';
-import { scaffoldServer, listTemplates } from './scaffold';
+import { config } from "dotenv";
+import { createSigner } from "x402/types";
+import packageJson from '../../package.json';
+import type { X402ClientConfig } from "../client/with-x402-client";
+import { ServerType, startStdioServer } from '../server/stdio/start-stdio-server';
+import {  SupportedEVMNetworks,  SupportedSVMNetworks } from "x402/types";
 
 config();
 
 interface ServerOptions {
   urls: string;
-  privateKey?: string;
   apiKey?: string;
-}
-
-interface ScaffoldOptions {
-  template: string;
-  name: string;
-  directory?: string;
-  example?: boolean;
+  x402MaxAtomic?: string;
+  evm?: string;
+  svm?: string;
+  evmNetwork?: string;
+  svmNetwork?: string;
 }
 
 const program = new Command();
@@ -27,98 +25,142 @@ const program = new Command();
 program
   .name('mcpay')
   .description('MCPay CLI - MCP servers with payment capabilities')
-  .version('0.0.2');
+  .version(packageJson.version);
 
 program
-  .command('scaffold')
-  .description('Scaffold a new MCP server from templates')
-  .requiredOption('-t, --template <template>', 'Template to use (basic, agent, financialdatasets, pinata, agent-cdp)')
-  .requiredOption('-n, --name <name>', 'Name for the new server project')
-  .option('-d, --directory <directory>', 'Directory to create the project in (defaults to current directory)')
-  .option('-e, --example', 'Use the full example implementation instead of basic template')
-  .action(async (options: ScaffoldOptions) => {
-    try {
-      await scaffoldServer({
-        template: options.template,
-        name: options.name,
-        directory: options.directory,
-        useExample: options.example
-      });
-    } catch (error) {
-      console.error('Failed to scaffold server:', error);
-      process.exit(1);
-    }
-  });
-
-program
-  .command('list')
-  .description('List available MCP server templates')
-  .action(() => {
-    listTemplates();
-  });
-
-program
-  .command('server')
+  .command('connect')
   .description('Start an MCP stdio server with payment transport')
   .requiredOption('-u, --urls <urls>', 'Comma-separated list of server URLs')
-  .option('-k, --private-key <key>', 'Private key for wallet (or set PRIVATE_KEY env var)')
   .option('-a, --api-key <key>', 'API key for authentication (or set API_KEY env var). Get yours at https://mcpay.tech')
+  .option('--max-atomic <value>', 'Max payment in atomic units (e.g. 100000 for 0.1 USDC). Env: X402_MAX_ATOMIC')
+  .option('--evm <privateKey>', 'EVM private key (0x...) (env: EVM_PRIVATE_KEY)')
+  .option('--svm <secretKey>', 'SVM secret key (base58/hex) (env: SVM_SECRET_KEY)')
+  .option('--evm-network <network>', 'EVM network (base-sepolia, base, avalanche-fuji, avalanche, iotex, sei, sei-testnet). Default: base-sepolia (env: EVM_NETWORK)')
+  .option('--svm-network <network>', 'SVM network (solana-devnet, solana). Default: solana-devnet (env: SVM_NETWORK)')
   .action(async (options: ServerOptions) => {
     try {
-      const privateKeyString = options.privateKey || process.env.PRIVATE_KEY;
       const apiKey = options.apiKey || process.env.API_KEY;
-      
-      if (!privateKeyString && !apiKey) {
-        console.error('Error: Either a private key or API key is required. Use --private-key/--api-key or set PRIVATE_KEY/API_KEY environment variables.');
+      const maxAtomicArg = options.x402MaxAtomic || process.env.X402_MAX_ATOMIC;
+      const evmPkArg = options.evm || process.env.EVM_PRIVATE_KEY;
+      const svmSkArg = options.svm || process.env.SVM_SECRET_KEY;
+      const evmNetwork = (options.evmNetwork || process.env.EVM_NETWORK || 'base-sepolia') as typeof SupportedEVMNetworks[number];
+      const svmNetwork = (options.svmNetwork || process.env.SVM_NETWORK || 'solana-devnet') as typeof SupportedSVMNetworks[number];
+
+      if (!apiKey && !evmPkArg && !svmSkArg) {
+        console.error('Error: Provide either an API key for proxying or a signer with --evm/--svm (or env EVM_PRIVATE_KEY/SVM_SECRET_KEY).');
         process.exit(1);
       }
 
-      let account;
-      let serverType: ServerType;
-      
-      if (privateKeyString) {
-        // Validate and cast to Hex type
-        if (!privateKeyString.startsWith('0x') || privateKeyString.length !== 66) {
-          console.error('Error: Private key must be a valid hex string starting with 0x and 64 characters long.');
-          process.exit(1);
-        }
+      // Validate networks only for wallet types that are provided
+      const supportedEvmNetworks = SupportedEVMNetworks;
+      const supportedSvmNetworks = SupportedSVMNetworks;
 
-        const privateKey = privateKeyString as Hex;
-        account = privateKeyToAccount(privateKey);
-        serverType = ServerType.Payment;
-        // console.log('Using payment transport (private key provided)');
-      } else {
-        serverType = ServerType.HTTPStream;
-        // console.log('Using HTTP transport (no private key provided)');
+      if (evmPkArg && !supportedEvmNetworks.includes(evmNetwork)) {
+        console.error(`Error: Invalid EVM network '${evmNetwork}'. Supported networks: ${supportedEvmNetworks.join(', ')}`);
+        process.exit(1);
       }
 
+      if (svmSkArg && !supportedSvmNetworks.includes(svmNetwork)) {
+        console.error(`Error: Invalid SVM network '${svmNetwork}'. Supported networks: ${supportedSvmNetworks.join(', ')}`);
+        process.exit(1);
+      }
+
+      const serverType = ServerType.HTTPStream;
+
       const serverUrls = options.urls.split(',').map((url: string) => url.trim());
-      
+
       if (serverUrls.length === 0) {
         console.error('Error: At least one server URL is required.');
         process.exit(1);
       }
-      
-      //console.log(`Starting MCP server...`);
-      // console.log(`Connecting to ${serverUrls.length} server(s): ${serverUrls.join(', ')}`);
 
-      // Prepare transport options with API key if provided
-      const transportOptions = apiKey ? { 
-        requestInit: {
-          headers: { 
-            'Authorization': `Bearer ${apiKey}` 
-          }
+      // Determine if we're using proxy mode or direct mode
+      // API keys can be used with any proxy endpoint, not just mcpay.tech
+      const isProxyMode = apiKey && serverUrls.some(url => 
+        url.includes('/v1/mcp') || url.includes('mcpay.tech') || url.includes('proxy')
+      );
+
+      // API key can only be used with proxy mode
+      if (apiKey && !isProxyMode) {
+        console.error('Error: API key can only be used with proxy URLs (containing /v1/mcp, mcpay.tech, or proxy). Use --evm/--svm for direct payments to other servers.');
+        process.exit(1);
+      }
+      
+      // Create individual server connections with appropriate transport options
+      // Only apply API key authentication to proxy URLs
+      const serverConnections = serverUrls.map(url => {
+        const isProxyUrl = url.includes('/v1/mcp') || url.includes('mcpay.tech') || url.includes('proxy');
+        
+        let transportOptions: any = undefined;
+        if (apiKey && isProxyUrl) {
+          // Only apply API key to proxy URLs
+          transportOptions = {
+            requestInit: {
+              headers: {
+                'Authorization': `Bearer ${apiKey}`
+              }
+            }
+          };
         }
-      } : undefined;
-      
-      const serverConnections = createServerConnections(serverUrls, serverType, transportOptions);
-      
-      await startStdioServer({
-        serverConnections,
-        account,
+        
+        return {
+          url,
+          serverType,
+          transportOptions
+        };
       });
 
-      // console.log(`Successfully connected to ${serverUrls.length} servers`);
+      // Optional X402 client configuration (only when not using API key)
+      let x402ClientConfig: X402ClientConfig | undefined = undefined;
+      if (!apiKey && (evmPkArg || svmSkArg)) {
+        const walletObj: Record<string, unknown> = {};
+        
+        if (evmPkArg) {
+          const pk = evmPkArg.trim();
+          if (!pk.startsWith('0x') || pk.length !== 66) {
+            console.error('Error: Invalid --evm private key. Must be 0x-prefixed 64-hex.');
+            process.exit(1);
+          }
+          
+          try {
+            walletObj.evm = await createSigner(evmNetwork, pk);
+          } catch (error) {
+            console.error(`Error: Failed to create EVM signer for network '${evmNetwork}':`, error instanceof Error ? error.message : String(error));
+            process.exit(1);
+          }
+        }
+
+        if (svmSkArg) {
+          const sk = svmSkArg.trim();
+          if (!sk) {
+            console.error('Error: Invalid --svm secret key.');
+            process.exit(1);
+          }
+          
+          try {
+            walletObj.svm = await createSigner(svmNetwork, sk);
+          } catch (error) {
+            console.error(`Error: Failed to create SVM signer for network '${svmNetwork}':`, error instanceof Error ? error.message : String(error));
+            process.exit(1);
+          }
+        }
+
+        const maybeMax = maxAtomicArg ? (() => { try { return BigInt(maxAtomicArg); } catch { return undefined; } })() : undefined;
+
+        x402ClientConfig = {
+          wallet: walletObj as X402ClientConfig['wallet'],
+          ...(maybeMax !== undefined ? { maxPaymentValue: maybeMax } : {}),
+          confirmationCallback: async (payment) => {
+            return true;
+          }
+        };
+      }
+
+      await startStdioServer({
+        serverConnections,
+        x402ClientConfig,
+      });
+
     } catch (error) {
       console.error('Failed to start server:', error);
       process.exit(1);
@@ -129,7 +171,7 @@ program
   .command('version')
   .description('Show version information')
   .action(() => {
-    console.log('mcpay-sdk version 0.0.2');
+    console.log('mcpay-sdk version ' + packageJson.version);
   });
 
 // Parse command line arguments
