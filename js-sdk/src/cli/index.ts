@@ -5,7 +5,7 @@ import { config } from "dotenv";
 import { createSigner } from "x402/types";
 import packageJson from '../../package.json';
 import type { X402ClientConfig } from "../client/with-x402-client";
-import { createServerConnections, ServerType, startStdioServer } from '../server/stdio/start-stdio-server';
+import { ServerType, startStdioServer } from '../server/stdio/start-stdio-server';
 import {  SupportedEVMNetworks,  SupportedSVMNetworks } from "x402/types";
 
 config();
@@ -75,30 +75,40 @@ program
       }
 
       // Determine if we're using proxy mode or direct mode
-      const isProxyMode = apiKey && serverUrls.some(url => url.includes('mcpay.tech/v1/mcp'));
+      // API keys can be used with any proxy endpoint, not just mcpay.tech
+      const isProxyMode = apiKey && serverUrls.some(url => 
+        url.includes('/v1/mcp') || url.includes('mcpay.tech') || url.includes('proxy')
+      );
 
       // API key can only be used with proxy mode
       if (apiKey && !isProxyMode) {
-        console.error('Error: API key can only be used with MCPay proxy URLs (mcpay.tech/v1/mcp/*). Use --evm/--svm for direct payments to other servers.');
+        console.error('Error: API key can only be used with proxy URLs (containing /v1/mcp, mcpay.tech, or proxy). Use --evm/--svm for direct payments to other servers.');
         process.exit(1);
       }
-
-      const proxyUrl = 'https://mcpay.tech/v1/mcp'; // Default proxy endpoint
       
-      // Prepare transport options for proxy mode
-      let finalUrls = serverUrls;
-      let transportOptions: any = undefined;
-      
-      if (apiKey) {
-        // API key only works with proxy URLs, just add auth header
-        transportOptions = {
-          requestInit: {
-            headers: {
-              'Authorization': `Bearer ${apiKey}`
+      // Create individual server connections with appropriate transport options
+      // Only apply API key authentication to proxy URLs
+      const serverConnections = serverUrls.map(url => {
+        const isProxyUrl = url.includes('/v1/mcp') || url.includes('mcpay.tech') || url.includes('proxy');
+        
+        let transportOptions: any = undefined;
+        if (apiKey && isProxyUrl) {
+          // Only apply API key to proxy URLs
+          transportOptions = {
+            requestInit: {
+              headers: {
+                'Authorization': `Bearer ${apiKey}`
+              }
             }
-          }
+          };
+        }
+        
+        return {
+          url,
+          serverType,
+          transportOptions
         };
-      }
+      });
 
       // Optional X402 client configuration (only when not using API key)
       let x402ClientConfig: X402ClientConfig | undefined = undefined;
@@ -145,8 +155,6 @@ program
           }
         };
       }
-
-      const serverConnections = createServerConnections(finalUrls, serverType, transportOptions);
 
       await startStdioServer({
         serverConnections,
