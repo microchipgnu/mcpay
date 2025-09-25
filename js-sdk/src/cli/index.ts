@@ -51,16 +51,16 @@ program
         process.exit(1);
       }
 
-      // Validate networks
+      // Validate networks only for wallet types that are provided
       const supportedEvmNetworks = SupportedEVMNetworks;
       const supportedSvmNetworks = SupportedSVMNetworks;
 
-      if (!supportedEvmNetworks.includes(evmNetwork)) {
+      if (evmPkArg && !supportedEvmNetworks.includes(evmNetwork)) {
         console.error(`Error: Invalid EVM network '${evmNetwork}'. Supported networks: ${supportedEvmNetworks.join(', ')}`);
         process.exit(1);
       }
 
-      if (!supportedSvmNetworks.includes(svmNetwork)) {
+      if (svmSkArg && !supportedSvmNetworks.includes(svmNetwork)) {
         console.error(`Error: Invalid SVM network '${svmNetwork}'. Supported networks: ${supportedSvmNetworks.join(', ')}`);
         process.exit(1);
       }
