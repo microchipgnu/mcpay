@@ -1,13 +1,12 @@
 #!/usr/bin/env node
 
 import { Command } from "commander";
-import fs from "node:fs";
-import path from "node:path";
 import { config } from "dotenv";
-import packageJson from '../../package.json';
-import { createServerConnections, ServerType, startStdioServer } from '../server/stdio/start-stdio-server';
-import type { X402ClientConfig } from "../client/with-x402-client";
 import { createSigner } from "x402/types";
+import packageJson from '../../package.json';
+import type { X402ClientConfig } from "../client/with-x402-client";
+import { createServerConnections, ServerType, startStdioServer } from '../server/stdio/start-stdio-server';
+import {  SupportedEVMNetworks,  SupportedSVMNetworks } from "x402/types";
 
 config();
 
@@ -17,6 +16,8 @@ interface ServerOptions {
   x402MaxAtomic?: string;
   evm?: string;
   svm?: string;
+  evmNetwork?: string;
+  svmNetwork?: string;
 }
 
 const program = new Command();
@@ -34,39 +35,63 @@ program
   .option('--max-atomic <value>', 'Max payment in atomic units (e.g. 100000 for 0.1 USDC). Env: X402_MAX_ATOMIC')
   .option('--evm <privateKey>', 'EVM private key (0x...) (env: EVM_PRIVATE_KEY)')
   .option('--svm <secretKey>', 'SVM secret key (base58/hex) (env: SVM_SECRET_KEY)')
+  .option('--evm-network <network>', 'EVM network (base-sepolia, base, avalanche-fuji, avalanche, iotex, sei, sei-testnet). Default: base-sepolia (env: EVM_NETWORK)')
+  .option('--svm-network <network>', 'SVM network (solana-devnet, solana). Default: solana-devnet (env: SVM_NETWORK)')
   .action(async (options: ServerOptions) => {
     try {
       const apiKey = options.apiKey || process.env.API_KEY;
       const maxAtomicArg = options.x402MaxAtomic || process.env.X402_MAX_ATOMIC;
       const evmPkArg = options.evm || process.env.EVM_PRIVATE_KEY;
       const svmSkArg = options.svm || process.env.SVM_SECRET_KEY;
-      
+      const evmNetwork = (options.evmNetwork || process.env.EVM_NETWORK || 'base-sepolia') as typeof SupportedEVMNetworks[number];
+      const svmNetwork = (options.svmNetwork || process.env.SVM_NETWORK || 'solana-devnet') as typeof SupportedSVMNetworks[number];
+
       if (!apiKey && !evmPkArg && !svmSkArg) {
         console.error('Error: Provide either an API key for proxying or a signer with --evm/--svm (or env EVM_PRIVATE_KEY/SVM_SECRET_KEY).');
         process.exit(1);
       }
 
+      // Validate networks
+      const supportedEvmNetworks = SupportedEVMNetworks;
+      const supportedSvmNetworks = SupportedSVMNetworks;
+
+      if (!supportedEvmNetworks.includes(evmNetwork)) {
+        console.error(`Error: Invalid EVM network '${evmNetwork}'. Supported networks: ${supportedEvmNetworks.join(', ')}`);
+        process.exit(1);
+      }
+
+      if (!supportedSvmNetworks.includes(svmNetwork)) {
+        console.error(`Error: Invalid SVM network '${svmNetwork}'. Supported networks: ${supportedSvmNetworks.join(', ')}`);
+        process.exit(1);
+      }
+
       const serverType = ServerType.HTTPStream;
-      
+
       const serverUrls = options.urls.split(',').map((url: string) => url.trim());
-      
+
       if (serverUrls.length === 0) {
         console.error('Error: At least one server URL is required.');
         process.exit(1);
       }
-      
+
       //console.log(`Starting MCP server...`);
       // console.log(`Connecting to ${serverUrls.length} server(s): ${serverUrls.join(', ')}`);
+      if (evmPkArg) {
+        console.log(`Using EVM network: ${evmNetwork}`);
+      }
+      if (svmSkArg) {
+        console.log(`Using SVM network: ${svmNetwork}`);
+      }
 
       // Prepare transport options with API key if provided
-      const transportOptions = apiKey ? { 
+      const transportOptions = apiKey ? {
         requestInit: {
-          headers: { 
-            'Authorization': `Bearer ${apiKey}` 
+          headers: {
+            'Authorization': `Bearer ${apiKey}`
           }
         }
       } : undefined;
-      
+
       // Optional X402 client configuration
       let x402ClientConfig: X402ClientConfig | undefined = undefined;
       if (evmPkArg || svmSkArg) {
@@ -77,7 +102,7 @@ program
             console.error('Invalid --evm private key. Must be 0x-prefixed 64-hex.');
             process.exit(1);
           }
-          walletObj.evm = await createSigner("base-sepolia", pk);
+          walletObj.evm = await createSigner(evmNetwork, pk);
         }
 
         if (svmSkArg) {
@@ -86,7 +111,7 @@ program
             console.error('Invalid --svm secret key.');
             process.exit(1);
           }
-          walletObj.svm = await createSigner("solana-devnet", sk);
+          walletObj.svm = await createSigner(svmNetwork, sk);
         }
 
         const maybeMax = maxAtomicArg ? (() => { try { return BigInt(maxAtomicArg); } catch { return undefined; } })() : undefined;
@@ -99,9 +124,9 @@ program
           }
         };
       }
-      
+
       const serverConnections = createServerConnections(serverUrls, serverType, transportOptions);
-      
+
       await startStdioServer({
         serverConnections,
         x402ClientConfig,
