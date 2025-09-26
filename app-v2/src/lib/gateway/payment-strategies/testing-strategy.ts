@@ -21,7 +21,7 @@ import type { UnifiedNetwork } from "@/lib/commons/networks";
 import { createWalletClient, http } from "viem";
 import { base, baseSepolia, seiTestnet } from "viem/chains";
 import { privateKeyToAccount } from "viem/accounts";
-import { createPaymentHeader, type ExtendedPaymentRequirements } from "@/types/x402";
+import { createSigner } from "x402/types";
 
 export class TestingSigningStrategy implements PaymentSigningStrategy {
   name = "Testing";
@@ -84,6 +84,8 @@ export class TestingSigningStrategy implements PaymentSigningStrategy {
         transport: http(),
         chain: viemChain,
       });
+
+      const signer = createSigner()
 
       const signedPayment = await createPaymentHeader(
         walletClient.account,
