@@ -11,16 +11,63 @@
  * - CDP SDK must be properly configured
  */
 
-import { getCDPNetworks, getNetworkConfig, type UnifiedNetwork } from "@/lib/commons/networks";
+import { getCDPNetworks, type UnifiedNetwork } from "@/lib/commons/networks";
 import { getCDPAccount } from "@/lib/gateway/3rd-parties/cdp";
 import { txOperations, withTransaction } from "@/lib/gateway/db/actions";
 import type { PaymentSigningContext, PaymentSigningResult, PaymentSigningStrategy } from "@/lib/gateway/payment-strategies/index";
 import { x402Version } from "@/lib/gateway/payments";
 import { type CDPNetwork, type CDPWalletMetadata, type Wallet } from "@/types";
-import { createPaymentHeader, type ExtendedPaymentRequirements } from "@/types/x402";
-import { createWalletClient, http } from "viem";
+import { Account, Chain, Client, createWalletClient, http, PublicActions, publicActions, RpcSchema, Transport, WalletActions } from "viem";
 import { toAccount } from "viem/accounts";
-import { base, baseSepolia, seiTestnet } from "viem/chains";
+import { avalancheFuji, base, baseSepolia, polygon, polygonAmoy, sei, seiTestnet } from "viem/chains";
+import { createPaymentHeader } from "x402/client";
+import { PaymentRequirements } from "x402/types";
+
+export type SignerWallet<
+  chain extends Chain = Chain,
+  transport extends Transport = Transport,
+  account extends Account = Account,
+> = Client<
+  transport,
+  chain,
+  account,
+  RpcSchema,
+  PublicActions<transport, chain, account> & WalletActions<chain, account>
+>;
+
+function getChainFromNetwork(network: string | undefined): Chain {
+    if (!network) {
+      throw new Error("NETWORK environment variable is not set");
+    }
+  
+    switch (network) {
+      case "base":
+        return base;
+      case "base-sepolia":
+        return baseSepolia;
+      case "avalanche-fuji":
+        return avalancheFuji;
+      case "sei":
+        return sei;
+      case "sei-testnet":
+        return seiTestnet;
+      case "polygon":
+        return polygon;
+      case "polygon-amoy":
+        return polygonAmoy;
+      default:
+        throw new Error(`Unsupported network: ${network}`);
+    }
+  }
+
+export function createSignerFromAccount(network: string, account: Account): SignerWallet<Chain> {
+    const chain = getChainFromNetwork(network);
+    return createWalletClient({
+      chain,
+      transport: http(),
+      account: account,
+    }).extend(publicActions);
+  }
 
 export class CDPSigningStrategy implements PaymentSigningStrategy {
     name = "CDP";
@@ -35,7 +82,7 @@ export class CDPSigningStrategy implements PaymentSigningStrategy {
             // Check if network is supported by CDP
             const network = context.toolCall.payment.network as UnifiedNetwork;
             const cdpNetworks = getCDPNetworks();
-            
+
             if (!cdpNetworks.includes(network)) {
                 console.log(`[CDP Strategy] Network ${network} not supported by CDP`);
                 return false;
@@ -149,10 +196,10 @@ export class CDPSigningStrategy implements PaymentSigningStrategy {
 
     private isNetworkCompatible(walletNetwork: string | undefined, targetNetwork: UnifiedNetwork): boolean {
         if (!walletNetwork) return false;
-        
+
         // Direct match
         if (walletNetwork === targetNetwork) return true;
-        
+
         // CDP networks that might be stored in different formats
         const cdpNetworks = getCDPNetworks();
         return cdpNetworks.includes(walletNetwork as CDPNetwork) && cdpNetworks.includes(targetNetwork);
@@ -160,7 +207,7 @@ export class CDPSigningStrategy implements PaymentSigningStrategy {
 
     private async signWithCDPWallet(
         wallet: Wallet,
-        paymentRequirement: ExtendedPaymentRequirements,
+        paymentRequirement: PaymentRequirements,
         network: CDPNetwork
     ): Promise<PaymentSigningResult> {
         try {
@@ -180,16 +227,9 @@ export class CDPSigningStrategy implements PaymentSigningStrategy {
             // Get the CDP account instance
             const cdpAccount = await getCDPAccount(accountId, network);
 
-            // Get the appropriate viem chain for wallet client
-            const viemChain = this.getViemChain(network);
+            const signer = createSignerFromAccount(network, toAccount(cdpAccount))
             
-            const walletClient = createWalletClient({
-                account: toAccount(cdpAccount),
-                transport: http(),
-                chain: viemChain
-            });
-
-            const signedPayment = await createPaymentHeader(walletClient.account, x402Version, paymentRequirement);
+            const signedPayment = await createPaymentHeader(signer, x402Version, paymentRequirement);
 
             console.log(`[CDP Strategy] Signed payment:`, JSON.stringify(signedPayment, null, 2));
             console.log(`[CDP Strategy] Encoded payment:`, signedPayment);
@@ -205,24 +245,6 @@ export class CDPSigningStrategy implements PaymentSigningStrategy {
                 success: false,
                 error: `CDP wallet signing failed: ${error instanceof Error ? error.message : 'Unknown error'}`
             };
-        }
-    }
-
-    private getViemChain(network: CDPNetwork) {
-        // const networkConfig = getNetworkConfig(network);
-        
-        // Return appropriate viem chain based on network
-        switch (network) {
-            case 'base':
-                return base;
-            case 'base-sepolia':
-                return baseSepolia;
-            case 'sei-testnet':
-                return seiTestnet;
-            default:
-                // Fallback to base sepolia for unknown networks
-                console.warn(`[CDP Strategy] Unknown network ${network}, using base-sepolia chain`);
-                return baseSepolia;
         }
     }
 } 

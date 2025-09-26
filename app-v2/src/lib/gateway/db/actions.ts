@@ -23,10 +23,9 @@
  */
 
 import {
-    addRevenueToCurrency,
-    fromBaseUnits, getBlockchainArchitecture
+    getBlockchainArchitecture
 } from '@/lib/commons';
-import { type BlockchainArchitecture, type RevenueByCurrency } from '@/types/blockchain';
+import { type BlockchainArchitecture } from '@/types/blockchain';
 
 import { createCDPAccount } from '@/lib/gateway/3rd-parties/cdp';
 import db from "@/lib/gateway/db";
@@ -44,12 +43,11 @@ import {
     users,
     userWallets,
     verification,
-    webhooks,
-    type RevenueDetails
+    webhooks
 } from "@/lib/gateway/db/schema";
 import { PricingEntry } from '@/types/payments';
 import { type CDPNetwork } from '@/types/wallet';
-import { and, desc, eq, isNull, count, sum, avg, sql, gte, lt, exists, or } from "drizzle-orm";
+import { and, avg, count, desc, eq, exists, gte, isNull, lt, or, sql, sum } from "drizzle-orm";
 
 // Define proper transaction type
 export type TransactionType = Parameters<Parameters<typeof db['transaction']>[0]>[0];
