@@ -1,18 +1,9 @@
-// Main SDK exports for programmatic usage
-export { 
-    PaymentTransport, 
-    createPaymentTransport,
-    type PaymentTransportOptions 
-} from './mcp/payment-http-transport.js';
-
 export { 
     startStdioServer,
     createServerConnections,
     ServerType,
     type ServerConnection 
 } from './server/stdio/start-stdio-server.js';
-
-export { createPaidMcpHandler } from './handler/paid-mcp-server.js';
 
 export { proxyServer } from './server/stdio/proxy-server.js';
 
