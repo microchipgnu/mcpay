@@ -12,11 +12,6 @@
     "db:generate-migrations": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:studio": "drizzle-kit studio",
-    "e2e:install": "playwright install --with-deps",
-    "e2e:test": "playwright test",
-    "e2e:codegen": "playwright codegen",
-    "e2e:ui": "playwright test --ui",
-    "e2e:show-report": "playwright show-report",
     "migrate": "node scripts/drizzle-migrate.cjs",
     "account:generate": "tsx scripts/gen-accounts.ts",
     "account:add-managed": "tsx scripts/add-managed-and-fund.ts"

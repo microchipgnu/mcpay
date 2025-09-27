@@ -9,20 +9,18 @@
  * - Supports EVM test networks that we map to viem chains.
  */
 
-import env from "@/lib/gateway/env";
-import { getConfig } from "@/lib/gateway/payment-strategies/config";
+import type { UnifiedNetwork } from "@/lib/commons/networks";
+import { createSignerFromAccount } from "@/lib/commons/signer";
 import type {
   PaymentSigningContext,
   PaymentSigningResult,
   PaymentSigningStrategy,
 } from "@/lib/gateway/payment-strategies";
+import { getConfig } from "@/lib/gateway/payment-strategies/config";
 import { x402Version } from "@/lib/gateway/payments";
-import type { UnifiedNetwork } from "@/lib/commons/networks";
-import { createWalletClient, http } from "viem";
-import { base, baseSepolia, seiTestnet } from "viem/chains";
 import { privateKeyToAccount } from "viem/accounts";
+import { base, baseSepolia, seiTestnet } from "viem/chains";
 import { createPaymentHeader } from "x402/client";
-import { createSigner } from "x402/types";
 
 export class TestingSigningStrategy implements PaymentSigningStrategy {
   name = "Testing";
@@ -80,13 +78,7 @@ export class TestingSigningStrategy implements PaymentSigningStrategy {
 
       const account = privateKeyToAccount(privateKey);
 
-      const walletClient = createWalletClient({
-        account,
-        transport: http(),
-        chain: viemChain,
-      });
-
-      const signer = await createSigner(network, privateKey)
+      const signer = createSignerFromAccount(network, account)
 
       const signedPayment = await createPaymentHeader(
         signer,
