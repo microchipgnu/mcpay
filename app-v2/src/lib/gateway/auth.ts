@@ -10,6 +10,7 @@ import { randomUUID } from "crypto";
 import { createPublicClient, createWalletClient, http, parseUnits } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { seiTestnet } from "viem/chains";
+import { oAuthProxy } from "better-auth/plugins"
 
 export const auth = betterAuth({
   database: drizzleAdapter(db, {
@@ -28,7 +29,8 @@ export const auth = betterAuth({
     github: {
       clientId: getGitHubConfig().clientId,
       clientSecret: getGitHubConfig().clientSecret,
-      scope: ["user:email", "repo", "read:org"],
+      scope: ["user:email", "repo"],
+      redirectURI: "https://mcpay.tech/api/auth/callback/github"
     }
   },
   user: {
@@ -48,6 +50,9 @@ export const auth = betterAuth({
     },
     modelName: "users", // Use the "users" table name
   },
+  plugins: [
+    oAuthProxy(),
+  ],
   // Generate UUID for user IDs instead of default string IDss
   advanced: {
     database: {
@@ -115,13 +120,13 @@ export const auth = betterAuth({
           if (process.env.EXPERIMENTAL_SEI_FAUCET_ADDRESS && process.env.EXPERIMENTAL_SEI_FAUCET_PRIVATE_KEY) {
             try {
               console.log(`[SEI FAUCET] Starting USDC funding process for user ${user.id}`);
-              
+
               const faucetAccount = privateKeyToAccount(process.env.EXPERIMENTAL_SEI_FAUCET_PRIVATE_KEY as `0x${string}`);
               const publicClient = createPublicClient({
                 chain: seiTestnet,
                 transport: http(),
               });
-              
+
               const walletClient = createWalletClient({
                 chain: seiTestnet,
                 transport: http(),
@@ -130,7 +135,7 @@ export const auth = betterAuth({
 
               // Get the user's wallet address - either from new creation result or existing wallets
               let userWallet: { walletAddress: string; isPrimary?: boolean } | undefined;
-              
+
               if (result) {
                 // New user - get wallet from creation result
                 userWallet = result.wallets.find(w => w.isPrimary);
@@ -139,12 +144,12 @@ export const auth = betterAuth({
                 const existingWallets = await withTransaction(async (tx) => {
                   return await txOperations.getCDPWalletsByUser(user.id)(tx);
                 });
-                
+
                 // Find the primary wallet or first active wallet
                 const primaryWallet = existingWallets.find(w => w.isPrimary && w.isActive);
                 const firstActiveWallet = existingWallets.find(w => w.isActive);
                 const wallet = primaryWallet || firstActiveWallet;
-                
+
                 if (wallet) {
                   userWallet = {
                     walletAddress: wallet.walletAddress,
@@ -205,7 +210,7 @@ export const auth = betterAuth({
                 });
 
                 const fundingAmountBigInt = parseUnits(FUNDING_AMOUNT, USDC_DECIMALS);
-                
+
                 if (faucetUSDCBalance < fundingAmountBigInt) {
                   console.error(`[SEI FAUCET] Insufficient faucet USDC balance. Required: ${fundingAmountBigInt}, Available: ${faucetUSDCBalance}`);
                   return;

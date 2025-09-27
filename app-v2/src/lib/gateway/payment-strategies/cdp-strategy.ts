@@ -12,62 +12,15 @@
  */
 
 import { getCDPNetworks, type UnifiedNetwork } from "@/lib/commons/networks";
+import { createSignerFromAccount } from "@/lib/commons/signer";
 import { getCDPAccount } from "@/lib/gateway/3rd-parties/cdp";
 import { txOperations, withTransaction } from "@/lib/gateway/db/actions";
 import type { PaymentSigningContext, PaymentSigningResult, PaymentSigningStrategy } from "@/lib/gateway/payment-strategies/index";
 import { x402Version } from "@/lib/gateway/payments";
 import { type CDPNetwork, type CDPWalletMetadata, type Wallet } from "@/types";
-import { Account, Chain, Client, createWalletClient, http, PublicActions, publicActions, RpcSchema, Transport, WalletActions } from "viem";
 import { toAccount } from "viem/accounts";
-import { avalancheFuji, base, baseSepolia, polygon, polygonAmoy, sei, seiTestnet } from "viem/chains";
 import { createPaymentHeader } from "x402/client";
 import { PaymentRequirements } from "x402/types";
-
-export type SignerWallet<
-  chain extends Chain = Chain,
-  transport extends Transport = Transport,
-  account extends Account = Account,
-> = Client<
-  transport,
-  chain,
-  account,
-  RpcSchema,
-  PublicActions<transport, chain, account> & WalletActions<chain, account>
->;
-
-function getChainFromNetwork(network: string | undefined): Chain {
-    if (!network) {
-      throw new Error("NETWORK environment variable is not set");
-    }
-  
-    switch (network) {
-      case "base":
-        return base;
-      case "base-sepolia":
-        return baseSepolia;
-      case "avalanche-fuji":
-        return avalancheFuji;
-      case "sei":
-        return sei;
-      case "sei-testnet":
-        return seiTestnet;
-      case "polygon":
-        return polygon;
-      case "polygon-amoy":
-        return polygonAmoy;
-      default:
-        throw new Error(`Unsupported network: ${network}`);
-    }
-  }
-
-export function createSignerFromAccount(network: string, account: Account): SignerWallet<Chain> {
-    const chain = getChainFromNetwork(network);
-    return createWalletClient({
-      chain,
-      transport: http(),
-      account: account,
-    }).extend(publicActions);
-  }
 
 export class CDPSigningStrategy implements PaymentSigningStrategy {
     name = "CDP";
