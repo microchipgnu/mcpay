@@ -74,7 +74,8 @@ export function withX402<S extends McpServer>(
               network.includes("sepolia") ||
               network.includes("fuji") ||
               network.includes("devnet") ||
-              network.includes("testnet")
+              network.includes("testnet") ||
+              network.includes("amoy")
             );
           };
 
