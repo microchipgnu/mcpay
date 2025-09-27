@@ -174,42 +174,46 @@ export default function Navbar() {
                   </SheetClose>
                 </div>
 
-                {/* Bottom: centered theme + socials */}
-                <div className="absolute inset-x-0 bottom-0 p-5">
-                  <div className="flex items-center justify-center gap-2">
-                    <Button
-                      variant="link"
-                      size="icon"
-                      aria-label="Toggle theme"
-                      onClick={toggleTheme}
-                      className="text-muted-foreground hover:text-foreground cursor-pointer"
+                {/* Bottom: left-aligned socials stacked vertically */}
+                <div className="absolute inset-x-0 bottom-0 p-6">
+                  <nav className="flex flex-col items-start">
+                    <Button 
+                      asChild 
+                      variant="link" 
+                      className="h-8 px-2 font-mono text-[13px] tracking-wide text-muted-foreground hover:text-foreground hover:underline hover:decoration-dotted underline-offset-2"
                     >
-                      {isDark ? <Sun className="h-5 w-5 text-amber-500" /> : <Moon className="h-5 w-5" />}
+                      <Link href="https://x.com/mcpaytech" target="_blank" rel="noreferrer">
+                        X
+                      </Link>
                     </Button>
-
-                    <nav className="flex items-center">
-                      <Button asChild variant="link" className={linkClasses}>
-                        <Link href="https://docs.mcpay.tech" target="_blank" rel="noreferrer">
-                          DOCS
-                        </Link>
-                      </Button>
-                      <Button asChild variant="link" className={linkClasses}>
-                        <Link href="https://github.com/microchipgnu/mcpay" target="_blank" rel="noreferrer">
-                          GITHUB
-                        </Link>
-                      </Button>
-                      <Button asChild variant="link" className={linkClasses}>
-                        <Link href="https://t.me/mcpay_tech" target="_blank" rel="noreferrer">
-                          TELEGRAM
-                        </Link>
-                      </Button>
-                      <Button asChild variant="link" className={linkClasses}>
-                        <Link href="https://x.com/mcpaytech" target="_blank" rel="noreferrer">
-                          X
-                        </Link>
-                      </Button>
-                    </nav>
-                  </div>
+                    <Button 
+                      asChild 
+                      variant="link" 
+                      className="h-8 px-2 font-mono text-[13px] tracking-wide text-muted-foreground hover:text-foreground hover:underline hover:decoration-dotted underline-offset-2"
+                    >
+                      <Link href="https://t.me/mcpay_tech" target="_blank" rel="noreferrer">
+                        TELEGRAM
+                      </Link>
+                    </Button>
+                    <Button 
+                      asChild 
+                      variant="link" 
+                      className="h-8 px-2 font-mono text-[13px] tracking-wide text-muted-foreground hover:text-foreground hover:underline hover:decoration-dotted underline-offset-2"
+                    >
+                      <Link href="https://github.com/microchipgnu/mcpay" target="_blank" rel="noreferrer">
+                        GITHUB
+                      </Link>
+                    </Button>
+                    <Button 
+                      asChild 
+                      variant="link" 
+                      className="h-8 px-2 font-mono text-[13px] tracking-wide text-muted-foreground hover:text-foreground hover:underline hover:decoration-dotted underline-offset-2"
+                    >
+                      <Link href="https://docs.mcpay.tech" target="_blank" rel="noreferrer">
+                        DOCS
+                      </Link>
+                    </Button>
+                  </nav>
                 </div>
               </SheetContent>
             </Sheet>

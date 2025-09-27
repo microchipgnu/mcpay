@@ -122,7 +122,16 @@ export default function Footer() {
                                 variant="link"
                                 className="h-8 px-2 font-mono text-[13px] tracking-wide text-muted-foreground hover:text-foreground hover:underline hover:decoration-dotted underline-offset-2"
                             >
-                                <Link href="https://github.com/your-org-or-user" target="_blank" rel="noreferrer">
+                                <Link href="https://docs.mcpay.tech" target="_blank" rel="noreferrer">
+                                    DOCS
+                                </Link>
+                            </Button>
+                            <Button
+                                asChild
+                                variant="link"
+                                className="h-8 px-2 font-mono text-[13px] tracking-wide text-muted-foreground hover:text-foreground hover:underline hover:decoration-dotted underline-offset-2"
+                            >
+                                <Link href="https://github.com/microchipgnu/mcpay" target="_blank" rel="noreferrer">
                                     GITHUB
                                 </Link>
                             </Button>
@@ -131,7 +140,7 @@ export default function Footer() {
                                 variant="link"
                                 className="h-8 px-2 font-mono text-[13px] tracking-wide text-muted-foreground hover:text-foreground hover:underline hover:decoration-dotted underline-offset-2"
                             >
-                                <Link href="https://t.me/your-handle" target="_blank" rel="noreferrer">
+                                <Link href="https://t.me/mcpay_tech" target="_blank" rel="noreferrer">
                                     TELEGRAM
                                 </Link>
                             </Button>
@@ -140,7 +149,7 @@ export default function Footer() {
                                 variant="link"
                                 className="h-8 px-2 font-mono text-[13px] tracking-wide text-muted-foreground hover:text-foreground hover:underline hover:decoration-dotted underline-offset-2"
                             >
-                                <Link href="https://x.com/your-handle" target="_blank" rel="noreferrer">
+                                <Link href="https://x.com/mcpaytech" target="_blank" rel="noreferrer">
                                     X
                                 </Link>
                             </Button>
