@@ -1860,6 +1860,12 @@ export const txOperations = {
         });
     },
 
+    getPaymentBySignature: (signature: string) => async (tx: TransactionType) => {
+        return await tx.query.payments.findFirst({
+            where: eq(payments.signature, signature)
+        });
+    },
+
     // Latest payments (for explorer)
     listLatestPayments: (limit = 24, offset = 0, options?: { status?: string }) => async (tx: TransactionType) => {
         const whereClause = options?.status ? eq(payments.status, options.status) : undefined;
