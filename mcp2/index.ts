@@ -1,8 +1,7 @@
-import { withProxy, LoggingHook, X402MonetizationHook, AuthHeadersHook } from "mcpay/handler";
-import type { Network, Price } from "x402/types";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
-import { handle } from "hono/vercel";
+import { AuthHeadersHook, LoggingHook, withProxy, X402MonetizationHook } from "mcpay/handler";
+import type { Network, Price } from "x402/types";
 
 export const runtime = 'nodejs';
 
