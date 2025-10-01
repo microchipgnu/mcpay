@@ -4,8 +4,15 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js"
 import { PricingEntry } from "@/types/payments"
 import { toBaseUnits, AmountConversionError } from "@/lib/commons"
 import { STABLECOIN_CONFIGS, getNetworkTokens, type UnifiedNetwork } from "@/lib/commons/networks"
-import { PaymentConfig } from "mcpay/handler"
 import { nanoid } from "nanoid"
+
+type PaymentConfig = {
+  type: 'simple' | 'advanced'
+  price: number
+  currency?: string
+  network?: string
+  recipient?: string
+}
 
 // Server metadata type definition
 export interface MCPServerMetadata {

@@ -57,7 +57,7 @@ export const urlUtils = {
   
   // Generate MCP server URL
   getMcpUrl: (serverId: string) => {
-    return `${window.location.origin}/mcp/${serverId}`
+    return `${window.location.origin}/v1/mcp?id=${serverId}`
   },
 }
 

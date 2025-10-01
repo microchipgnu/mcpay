@@ -22,7 +22,6 @@ import { type Network } from "@/types/blockchain"
 import { PricingEntry } from "@/types/payments"
 import { InputProperty, MCPClient, MCPToolFromClient, MCPToolsCollection, ToolExecutionModalProps, ToolInputSchema, type ToolFromMcpServerWithStats } from "@/types/mcp"
 import { type UserWallet } from "@/types/wallet"
-import { experimental_createMCPClient } from "ai"
 import {
   AlertCircle,
   CheckCircle,
@@ -35,16 +34,28 @@ import {
   Wallet,
   Wrench
 } from "lucide-react"
-import { createPaymentTransport } from "mcpay/client"
+import { withX402Client } from "mcpay/client"
+import { createSignerFromViemAccount } from "mcpay/utils"
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { toast } from "sonner"
-import { privateKeyToAccount } from "viem/accounts"
+import { Account, privateKeyToAccount } from "viem/accounts"
 import { useAccount, useChainId, useWalletClient } from "wagmi"
+import { Client } from "@modelcontextprotocol/sdk/client/index.js";
+import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js"
 
 // Helper function to format wallet address for display
 const formatWalletAddress = (address: string): string => {
   if (!address) return ''
   return `${address.slice(0, 6)}...${address.slice(-4)}`
+}
+
+// Consistent, filterable logger for this component
+const LOG_PREFIX = "[MCPay][ToolExecutionModal]"
+const log = {
+  info: (...args: unknown[]) => console.log(LOG_PREFIX, ...args),
+  warn: (...args: unknown[]) => console.warn(LOG_PREFIX, ...args),
+  error: (...args: unknown[]) => console.error(LOG_PREFIX, ...args),
+  debug: (...args: unknown[]) => console.debug(LOG_PREFIX, ...args),
 }
 
 // =============================================================================
@@ -98,7 +109,7 @@ export function ToolExecutionModal({ isOpen, onClose, tool, serverId, url }: Too
   const { address: connectedWalletAddress, isConnected: isBrowserWalletConnected } = useAccount()
   const chainId = useChainId()
   const themeClasses = getThemeClasses(isDark)
-  
+
   // State for selected wallet (defaults to primary wallet)
   const [selectedWallet, setSelectedWallet] = useState<UserWallet | null>(null)
   const [walletPopoverOpen, setWalletPopoverOpen] = useState(false)
@@ -118,19 +129,19 @@ export function ToolExecutionModal({ isOpen, onClose, tool, serverId, url }: Too
   const activeWallet = selectedWallet || primaryWallet
   const walletAddress = activeWallet?.walletAddress
   const hasAccountWallets = hasWallets() && !!walletAddress
-  
+
   // Check if selected wallet requires browser connection
   const requiresBrowserConnection = activeWallet?.walletType === 'external'
   const hasWalletClient = !!walletClient
   const needsBrowserConnection = requiresBrowserConnection && (!isBrowserWalletConnected || connectedWalletAddress?.toLowerCase() !== walletAddress?.toLowerCase())
   const needsWalletClient = requiresBrowserConnection // Only external wallets need wagmi wallet client
-  
+
   // Overall connection status
   const isConnected = hasAccountWallets && (!needsWalletClient || hasWalletClient) && !needsBrowserConnection
-  
+
   // Create stable tool reference to avoid infinite loops
   const toolInputSchemaString = useMemo(() => JSON.stringify(tool?.inputSchema), [tool?.inputSchema])
-  
+
   const stableTool = useMemo(() => {
     if (!tool) return null
     return tool as ToolFromMcpServerWithStats & {
@@ -142,7 +153,7 @@ export function ToolExecutionModal({ isOpen, onClose, tool, serverId, url }: Too
   const [toolInputs, setToolInputs] = useState<Record<string, unknown>>({})
   const [execution, setExecution] = useState<ToolExecution>({ status: 'idle' })
   const [isMobile, setIsMobile] = useState(false)
-  const [mcpClient, setMcpClient] = useState<MCPClient | null>(null)
+  const [mcpClient, setMcpClient] = useState<Client | null>(null)
   const [mcpToolsCollection, setMcpToolsCollection] = useState<MCPToolsCollection>({})
   const [isInitialized, setIsInitialized] = useState(false)
   const [isSwitchingNetwork, setIsSwitchingNetwork] = useState(false)
@@ -175,10 +186,10 @@ export function ToolExecutionModal({ isOpen, onClose, tool, serverId, url }: Too
     const currentNetwork = getCurrentNetwork()
 
     if (!requiredNetwork) return true // Free tools don't require specific network
-    
+
     // Managed wallets don't need network switching - handled server-side
     if (activeWallet?.walletType === 'managed') return true
-    
+
     return requiredNetwork === currentNetwork
   }, [getRequiredNetwork, getCurrentNetwork, activeWallet?.walletType])
 
@@ -192,23 +203,23 @@ export function ToolExecutionModal({ isOpen, onClose, tool, serverId, url }: Too
     setExecution({ status: 'idle' }) // Clear any previous errors
 
     try {
-      console.log(`[Network Switch] Starting switch to ${requiredNetwork}`)
-      
+      log.info(`[Network Switch] Starting switch to ${requiredNetwork}`)
+
       // Get network info from unified system
 
       const networkInfo = getNetworkInfo(requiredNetwork as Network)
-      console.log(`[Network Switch] Network info:`, networkInfo)
+      log.debug(`[Network Switch] Network info:`, networkInfo)
 
       await switchToNetwork(requiredNetwork as Network)
-      console.log(`[Network Switch] Successfully switched to ${requiredNetwork}`)
+      log.info(`[Network Switch] Successfully switched to ${requiredNetwork}`)
 
       // Clear any previous errors after successful switch
       if (execution.status === 'error') {
         setExecution({ status: 'idle' })
       }
     } catch (error) {
-      console.error('[Network Switch] Failed to switch network:', error)
-      console.error('[Network Switch] Error details:', {
+      log.error('[Network Switch] Failed to switch network:', error)
+      log.error('[Network Switch] Error details:', {
         message: error instanceof Error ? error.message : String(error),
         requiredNetwork,
         error
@@ -347,7 +358,7 @@ export function ToolExecutionModal({ isOpen, onClose, tool, serverId, url }: Too
     if (toolChanged || walletChanged) {
       if (toolChanged) setPreviousToolId(stableTool.id)
       if (walletChanged) setPreviousWalletId(currentWalletId)
-      
+
       setIsInitialized(false)
       setIsSwitchingNetwork(false)
     }
@@ -421,41 +432,28 @@ export function ToolExecutionModal({ isOpen, onClose, tool, serverId, url }: Too
           throw new Error("Either server ID or URL must be provided")
         }
 
-        // Create a viem-compatible Account object that x402 can use
-        let account
-        
+        log.info(`Initializing MCP client for tool=${stableTool.name} walletType=${activeWallet?.walletType} url=${String(mcpUrl)}`)
+
+        const mcpClient = new Client({ name: "mcpay-client", version: "1.0.0" })
+        const networkForSigner = getRequiredNetwork() || getCurrentNetwork() || 'base'
+        let evmSigner: ReturnType<typeof createSignerFromViemAccount> | undefined
+
         if (activeWallet?.walletType === 'external') {
-          // For external wallets, use the wagmi wallet client
-          if (!walletClient) {
+          if (!walletClient?.account) {
             throw new Error("Wallet client required for external wallets")
           }
-          account = walletClient
-          console.log("Using external wallet client:", walletClient);
-          console.log("Wallet client chain info:", walletClient.chain);
+          evmSigner = createSignerFromViemAccount(networkForSigner, walletClient.account as Account)
+          log.info(`Using external wallet signer on network=${networkForSigner}`, { address: walletClient.account.address })
         } else {
-          // For managed wallets, create a dummy account for transport initialization
-          // The actual payment signing will be intercepted and handled server-side via CDP
-          // We use a dummy private key just to create a valid viem account structure
-          const dummyPrivateKey = '0x0000000000000000000000000000000000000000000000000000000000000001'
-          const dummyAccount = privateKeyToAccount(dummyPrivateKey)
-          
-          // Override the address to match the managed wallet address
-          account = {
-            ...dummyAccount,
-            address: walletAddress as `0x${string}`,
-          }
-          
-          console.log("Using managed wallet with dummy account (server-side payment):", {
-            address: account.address,
-            type: 'managed',
+          // Managed wallets: do not set signer; server will auto-sign via CDP
+          log.info("Using managed wallet - client-side signing disabled; server will auto-sign if needed", {
+            address: walletAddress,
             walletType: activeWallet?.walletType
-          });
+          })
         }
 
-        const transport = createPaymentTransport(new URL(mcpUrl), account, {
-          maxPaymentValue: BigInt(0.1 * 10 ** 6), // 0.1 USDC max
+        const transport = new StreamableHTTPClientTransport(new URL(mcpUrl), {
           requestInit: {
-            // Add headers to help server identify managed wallet requests
             headers: {
               'X-Wallet-Type': activeWallet?.walletType || 'unknown',
               'X-Wallet-Address': walletAddress || '',
@@ -464,36 +462,77 @@ export function ToolExecutionModal({ isOpen, onClose, tool, serverId, url }: Too
           }
         });
 
-        // Create MCP client
-        const client = await experimental_createMCPClient({
-          transport: transport,
-        })
+        await mcpClient.connect(transport)
+        log.info("MCP client connected")
 
-        console.log("MCP client created", client)
+        // Wrap with x402 only when we have a signer (external wallet)
+        const augmentedClient = evmSigner
+          ? withX402Client(mcpClient, {
+              wallet: { evm: evmSigner },
+              maxPaymentValue: BigInt(0.1 * 10 ** 6), // 0.1 USDC max
+              confirmationCallback: async (accepts) => {
+                // Prefer requirement matching selected pricing/network if available
+                const requiredNetwork = getRequiredNetwork()
+                if (requiredNetwork) {
+                  const match = accepts.find((a) => a.network === requiredNetwork && a.scheme === 'exact')
+                  if (match) return { requirement: match }
+                }
+                // Otherwise pick the first exact requirement
+                const firstExact = accepts.find((a) => a.scheme === 'exact')
+                return firstExact ? { requirement: firstExact } : true
+              }
+            })
+          : mcpClient
 
-        // Get available tools
-        const tools = await client.tools()
-        console.log("Available MCP tools:", tools)
+        // Get available tools and build a callable tools collection
+        const toolsResult = await (augmentedClient as unknown as Client).listTools()
+        log.info("Available MCP tools:", toolsResult?.tools?.map(t => t.name))
 
-        setMcpClient(client)
-        setMcpToolsCollection(tools)
+        const toolsCollection: MCPToolsCollection = {}
+        for (const t of toolsResult.tools) {
+          const toolName = t.name
+          toolsCollection[toolName] = {
+            name: toolName,
+            description: t.description,
+            inputSchema: { jsonSchema: t.inputSchema as unknown },
+            execute: async (params: Record<string, unknown>, options: { toolCallId: string; messages: unknown[] }) => {
+              log.info(`[Execute] Calling tool`, { tool: toolName, params })
+              const res = await (augmentedClient as unknown as Client).callTool({
+                name: toolName,
+                arguments: params,
+                toolCallId: options.toolCallId,
+              })
+              // Attempt to extract a useful result from MCP response content
+              const textItem = Array.isArray((res as any)?.content)
+                ? (res as any).content.find((c: any) => c?.type === 'text')
+                : undefined
+              if (textItem?.text) {
+                try {
+                  const parsed = JSON.parse(textItem.text)
+                  log.info(`[Execute] Parsed JSON result`, { tool: toolName })
+                  return parsed
+                } catch {
+                  log.info(`[Execute] Non-JSON text result`, { tool: toolName })
+                  return textItem.text
+                }
+              }
+              log.info(`[Execute] Raw MCP result returned`, { tool: toolName })
+              return res
+            }
+          } as MCPToolFromClient
+        }
+
+        setMcpClient(mcpClient)
+        setMcpToolsCollection(toolsCollection)
         setIsInitialized(true)
         setExecution({ status: 'idle' })
-
-        console.log(`MCP client initialized for tool: ${stableTool.name}`)
-        console.log(`Available tools: ${Object.keys(tools).join(', ')}`)
-
-        // Check if the current tool is available in MCP
-        if (tools[stableTool.name]) {
-          console.log(`Current tool found in MCP:`, tools[stableTool.name])
-          const mcpTool = tools[stableTool.name] as unknown as MCPToolFromClient
-          console.log(`Provider options:`, mcpTool)
-          console.log(`Current tool schema:`, mcpTool.inputSchema || mcpTool.parameters)
-        } else {
-          console.warn(`Warning: Tool "${stableTool.name}" not found in MCP server tools`)
+        log.info(`MCP client initialized for tool: ${stableTool.name}`)
+        log.debug(`Tools collection keys: ${Object.keys(toolsCollection).join(', ')}`)
+        if (!toolsCollection[stableTool.name]) {
+          log.warn(`Tool not found in MCP server tools: ${stableTool.name}`)
         }
       } catch (error) {
-        console.error("Failed to initialize MCP client:", error)
+        log.error("Failed to initialize MCP client:", error)
         setExecution({
           status: 'error',
           error: error instanceof Error ? error.message : 'Failed to initialize MCP client'
@@ -545,11 +584,8 @@ export function ToolExecutionModal({ isOpen, onClose, tool, serverId, url }: Too
         throw new Error(`Tool "${stableTool.name}" not found in MCP server`)
       }
 
-      console.log(`[Tool Execution] Starting execution for: ${stableTool.name}`)
-      console.log(`[Tool Execution] Wallet type: ${activeWallet?.walletType}`)
-      console.log(`[Tool Execution] Wallet address: ${walletAddress}`)
-      console.log(`[Tool Execution] Tool inputs:`, toolInputs)
-      console.log(`[Tool Execution] MCP tool schema:`, mcpTool.parameters?.jsonSchema || mcpTool.inputSchema?.jsonSchema)
+      log.info(`[Execute] Starting`, { tool: stableTool.name, walletType: activeWallet?.walletType, walletAddress, inputs: toolInputs })
+      log.debug(`[Execute] Schema`, mcpTool.parameters?.jsonSchema || mcpTool.inputSchema?.jsonSchema)
 
       // Execute the tool using the MCP client's callTool method
       const result = await mcpTool.execute?.(toolInputs, {
@@ -557,16 +593,16 @@ export function ToolExecutionModal({ isOpen, onClose, tool, serverId, url }: Too
         messages: []
       })
 
-      console.log(`[Tool Execution] Execution successful:`, result)
+      log.info(`[Execute] Success`, { tool: stableTool.name })
 
       // Try to extract transaction ID from result if available
       let transactionId: string | undefined
       if (typeof result === 'object' && result !== null) {
         const resultObj = result as Record<string, unknown>
-        transactionId = resultObj.transactionId as string || 
-                      resultObj.txId as string || 
-                      resultObj.hash as string ||
-                      resultObj.transaction_id as string
+        transactionId = resultObj.transactionId as string ||
+          resultObj.txId as string ||
+          resultObj.hash as string ||
+          resultObj.transaction_id as string
       }
 
       setExecution({
@@ -575,8 +611,8 @@ export function ToolExecutionModal({ isOpen, onClose, tool, serverId, url }: Too
         transactionId
       })
     } catch (error) {
-      console.error("[Tool Execution] Execution failed:", error)
-      
+      log.error("[Execute] Failed:", error)
+
       // Enhanced error handling for managed wallets
       if (activeWallet?.walletType === 'managed' && error instanceof Error) {
         if (error.message.includes('CDP') || error.message.includes('managed')) {
@@ -628,30 +664,30 @@ export function ToolExecutionModal({ isOpen, onClose, tool, serverId, url }: Too
 
   // Recursive function to render object fields with nested properties
   const renderObjectField = (
-    inputName: string, 
-    inputProp: InputProperty, 
-    currentValue: unknown, 
+    inputName: string,
+    inputProp: InputProperty,
+    currentValue: unknown,
     isRequired: boolean,
     pathPrefix: string
   ): React.ReactElement => {
     const objectValue = (typeof currentValue === 'object' && currentValue !== null) ? currentValue as Record<string, unknown> : {}
     const fullPath = pathPrefix ? `${pathPrefix}.${inputName}` : inputName
-    
+
     // If the object has defined properties, render individual fields
     if (inputProp.properties && Object.keys(inputProp.properties).length > 0) {
       const objectRequiredFields = inputProp.required || []
-      
-             const updateObjectProperty = (propertyName: string, value: unknown) => {
-         const newObject = { ...objectValue }
-         if (value === '' || value === null || value === undefined) {
-           delete newObject[propertyName]
-         } else {
-           newObject[propertyName] = value
-         }
-         // Update the correct input path - if pathPrefix is empty, use inputName directly
-         const targetPath = pathPrefix ? fullPath : inputName
-         updateToolInput(targetPath, newObject)
-       }
+
+      const updateObjectProperty = (propertyName: string, value: unknown) => {
+        const newObject = { ...objectValue }
+        if (value === '' || value === null || value === undefined) {
+          delete newObject[propertyName]
+        } else {
+          newObject[propertyName] = value
+        }
+        // Update the correct input path - if pathPrefix is empty, use inputName directly
+        const targetPath = pathPrefix ? fullPath : inputName
+        updateToolInput(targetPath, newObject)
+      }
 
       return (
         <div key={fullPath} className="space-y-3">
@@ -667,23 +703,23 @@ export function ToolExecutionModal({ isOpen, onClose, tool, serverId, url }: Too
               </p>
             )}
           </div>
-          
+
           <div className="ml-4 pl-4 border-l-2 border-gray-200 dark:border-gray-700 space-y-3">
             {Object.entries(inputProp.properties).map(([propertyName, propertySchema]) => {
               const propertyValue = objectValue[propertyName]
               const isPropertyRequired = objectRequiredFields.includes(propertyName)
               const propertyPath = `${fullPath}.${propertyName}`
-              
+
               // Handle nested objects recursively
               if (propertySchema.type === 'object') {
                 return renderObjectField(propertyName, propertySchema, propertyValue, isPropertyRequired, fullPath)
               }
-              
+
               // Handle arrays
               if (propertySchema.type === 'array') {
                 return renderArrayField(propertyName, propertySchema, propertyValue, isPropertyRequired, propertyPath, updateObjectProperty)
               }
-              
+
               // Handle primitive types
               return renderPrimitiveField(propertyName, propertySchema, propertyValue, isPropertyRequired, updateObjectProperty)
             })}
@@ -691,7 +727,7 @@ export function ToolExecutionModal({ isOpen, onClose, tool, serverId, url }: Too
         </div>
       )
     }
-    
+
     // Fallback to JSON editor for objects without defined schema
     return renderJsonEditor(inputName, inputProp, currentValue, isRequired, fullPath)
   }
@@ -706,7 +742,7 @@ export function ToolExecutionModal({ isOpen, onClose, tool, serverId, url }: Too
     updateProperty: (name: string, value: unknown) => void
   ): React.ReactElement => {
     const arrayValue = Array.isArray(currentValue) ? currentValue : []
-    
+
     const addArrayItem = () => {
       const newArray = [...arrayValue, '']
       updateProperty(propertyName, newArray)
@@ -789,8 +825,8 @@ export function ToolExecutionModal({ isOpen, onClose, tool, serverId, url }: Too
           </label>
           <select
             className={`w-full px-3 py-2 rounded-md border text-sm ${isDark
-                ? "bg-gray-700 border-gray-600 text-white"
-                : "bg-white border-gray-300 text-gray-900"
+              ? "bg-gray-700 border-gray-600 text-white"
+              : "bg-white border-gray-300 text-gray-900"
               }`}
             value={String(fieldValue)}
             onChange={(e) => updateProperty(propertyName, e.target.value)}
@@ -919,7 +955,7 @@ export function ToolExecutionModal({ isOpen, onClose, tool, serverId, url }: Too
       } catch (e) {
         error = e instanceof Error ? e.message : 'Invalid JSON'
       }
-      
+
       setJsonEditorStates(prev => ({
         ...prev,
         [editorKey]: { value, error }
@@ -938,9 +974,8 @@ export function ToolExecutionModal({ isOpen, onClose, tool, serverId, url }: Too
           onChange={(e) => handleJsonChange(e.target.value)}
           placeholder={`Enter ${inputName} as JSON object`}
           rows={4}
-          className={`font-mono text-sm ${themeClasses.input} ${
-            currentState.error ? 'border-red-500 focus:border-red-500' : ''
-          }`}
+          className={`font-mono text-sm ${themeClasses.input} ${currentState.error ? 'border-red-500 focus:border-red-500' : ''
+            }`}
         />
         {currentState.error && (
           <p className="text-xs text-red-500">
@@ -1039,8 +1074,8 @@ export function ToolExecutionModal({ isOpen, onClose, tool, serverId, url }: Too
           </label>
           <select
             className={`w-full px-3 py-2 rounded-md border text-sm ${isDark
-                ? "bg-gray-700 border-gray-600 text-white"
-                : "bg-white border-gray-300 text-gray-900"
+              ? "bg-gray-700 border-gray-600 text-white"
+              : "bg-white border-gray-300 text-gray-900"
               }`}
             value={String(currentValue)}
             onChange={(e) => updateToolInput(inputName, e.target.value)}
@@ -1152,7 +1187,7 @@ export function ToolExecutionModal({ isOpen, onClose, tool, serverId, url }: Too
 
   const renderPricingSection = () => {
     const activePricing = getActivePricing()
-    
+
     if (!stableTool?.isMonetized || !activePricing.length) {
       return (
         <div className="space-y-2">
@@ -1185,10 +1220,10 @@ export function ToolExecutionModal({ isOpen, onClose, tool, serverId, url }: Too
               <span className="font-medium text-sm">{formatCurrency(amount, selectedPricing?.assetAddress || '', selectedPricing?.network || '')}</span>
               <span className="text-gray-600 dark:text-gray-400 text-sm">on {selectedPricing?.network}</span>
             </div>
-            
+
             {hasMultipleTiers && (
               <Popover open={pricingPopoverOpen} onOpenChange={setPricingPopoverOpen}>
-                                  <PopoverTrigger asChild>
+                <PopoverTrigger asChild>
                   <Button
                     type="button"
                     variant="outline"
@@ -1212,20 +1247,19 @@ export function ToolExecutionModal({ isOpen, onClose, tool, serverId, url }: Too
                               setSelectedPricingTier(index)
                               setPricingPopoverOpen(false)
                             }}
-                            className={`p-3 rounded-lg border cursor-pointer transition-all duration-200 ${
-                              selectedPricingTier === index
-                                ? 'border-blue-500 bg-blue-50 dark:bg-blue-500/10' 
+                            className={`p-3 rounded-lg border cursor-pointer transition-all duration-200 ${selectedPricingTier === index
+                                ? 'border-blue-500 bg-blue-50 dark:bg-blue-500/10'
                                 : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700/30'
-                            }`}
+                              }`}
                           >
                             <div className="flex items-center justify-between">
                               <div className="space-y-1">
-                                                                 <div className="flex items-center gap-2">
-                                   <span className="font-medium text-sm">
-                                     {formatCurrency(tierAmount, pricing.assetAddress, pricing.network)}
-                                   </span>
-                                   <span className="text-xs text-gray-500">on {pricing.network}</span>
-                                 </div>
+                                <div className="flex items-center gap-2">
+                                  <span className="font-medium text-sm">
+                                    {formatCurrency(tierAmount, pricing.assetAddress, pricing.network)}
+                                  </span>
+                                  <span className="text-xs text-gray-500">on {pricing.network}</span>
+                                </div>
                               </div>
                               {selectedPricingTier === index && (
                                 <CheckCircle className="w-4 h-4 text-blue-500" />
@@ -1281,7 +1315,7 @@ export function ToolExecutionModal({ isOpen, onClose, tool, serverId, url }: Too
                 </div>
               )}
             </div>
-            
+
             <div className="flex items-center gap-2">
               {needsBrowserConnection && (
                 <ConnectButton />
@@ -1316,11 +1350,10 @@ export function ToolExecutionModal({ isOpen, onClose, tool, serverId, url }: Too
                                 setSelectedWallet(wallet)
                                 setWalletPopoverOpen(false)
                               }}
-                              className={`p-3 rounded-lg border cursor-pointer transition-all duration-200 ${
-                                selectedWallet?.id === wallet.id
-                                  ? 'border-blue-500 bg-blue-50 dark:bg-blue-500/10' 
+                              className={`p-3 rounded-lg border cursor-pointer transition-all duration-200 ${selectedWallet?.id === wallet.id
+                                  ? 'border-blue-500 bg-blue-50 dark:bg-blue-500/10'
                                   : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700/30'
-                              }`}
+                                }`}
                             >
                               <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-2">
@@ -1357,7 +1390,7 @@ export function ToolExecutionModal({ isOpen, onClose, tool, serverId, url }: Too
   const renderPaymentPreview = () => {
     const activePricing = getActivePricing()
     if (!stableTool?.isMonetized || !activePricing.length || !isConnected) return null
-    
+
     const selectedPricing = activePricing[selectedPricingTier] || activePricing[0]
     const amount = parseFloat(selectedPricing.maxAmountRequiredRaw) / Math.pow(10, selectedPricing.tokenDecimals)
 
@@ -1375,53 +1408,53 @@ export function ToolExecutionModal({ isOpen, onClose, tool, serverId, url }: Too
     if (!hasAccountWallets) {
       return { icon: AlertCircle, text: "Wallet Required", variant: "warning" as const }
     }
-    
+
     if (needsBrowserConnection) {
       return { icon: AlertCircle, text: "Connection Required", variant: "warning" as const }
     }
-    
+
     if (!isInitialized && execution.status !== 'error') {
       return { icon: Loader2, text: "Initializing...", variant: "info" as const, animate: true }
     }
-    
+
     if (execution.status === 'error') {
       return { icon: AlertCircle, text: "Error", variant: "error" as const }
     }
-    
+
     if (stableTool?.isMonetized && !isOnCorrectNetwork() && activeWallet?.walletType !== 'managed') {
       return { icon: RefreshCw, text: "Network Switch Required", variant: "warning" as const }
     }
-    
+
     if (isSwitchingNetwork) {
       return { icon: Loader2, text: "Switching Network...", variant: "info" as const, animate: true }
     }
-    
+
     if (execution.status === 'executing') {
       return { icon: Loader2, text: "Executing...", variant: "info" as const, animate: true }
     }
-    
+
     if (execution.status === 'initializing') {
       return { icon: Loader2, text: "Initializing...", variant: "info" as const, animate: true }
     }
-    
+
     if (isInitialized && mcpToolsCollection[stableTool?.name || ''] && isConnected) {
       return { icon: CheckCircle, text: "Ready to Execute", variant: "success" as const }
     }
-    
+
     return { icon: AlertCircle, text: "Not Ready", variant: "warning" as const }
   }
 
   const renderStatusChip = () => {
     const status = getStatusIndicator()
     const Icon = status.icon
-    
+
     const variantClasses = {
       success: "text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20",
-      warning: "text-yellow-600 dark:text-yellow-400 bg-yellow-50 dark:bg-yellow-900/20", 
+      warning: "text-yellow-600 dark:text-yellow-400 bg-yellow-50 dark:bg-yellow-900/20",
       error: "text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20",
       info: "text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20"
     }
-    
+
     return (
       <div className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${variantClasses[status.variant]}`}>
         <Icon className={`h-3 w-3 ${status.animate ? 'animate-spin' : ''}`} />
@@ -1456,7 +1489,7 @@ export function ToolExecutionModal({ isOpen, onClose, tool, serverId, url }: Too
 
   const renderErrorWithRetry = () => {
     if (execution.status !== 'error' || !execution.error) return null
-    
+
     return (
       <div className={`p-3 rounded-lg border ${themeClasses.background.error}`}>
         <div className="flex items-start justify-between gap-3">
@@ -1589,7 +1622,7 @@ export function ToolExecutionModal({ isOpen, onClose, tool, serverId, url }: Too
               {formatResult()}
             </pre>
           </div>
-          
+
           {/* Transaction Info & New Query */}
           <div className="space-y-3 pt-2">
             {execution.transactionId && (
@@ -1597,7 +1630,7 @@ export function ToolExecutionModal({ isOpen, onClose, tool, serverId, url }: Too
                 Transaction ID: <span className="font-mono">{execution.transactionId}</span>
               </div>
             )}
-            
+
             <div className="flex justify-center">
               <Button
                 variant="outline"
@@ -1654,7 +1687,7 @@ export function ToolExecutionModal({ isOpen, onClose, tool, serverId, url }: Too
         {/* Error with Retry */}
         {renderErrorWithRetry()}
 
-                {/* Payment Preview */}
+        {/* Payment Preview */}
         {renderPaymentPreview()}
 
         {/* Execute Button */}
@@ -1702,21 +1735,21 @@ export function ToolExecutionModal({ isOpen, onClose, tool, serverId, url }: Too
     return (
       <Drawer open={isOpen} onOpenChange={onClose}>
         <DrawerContent className={`max-h-[85vh] ${themeClasses.modal}`}>
-                  <DrawerHeader>
-          <div className="flex items-center justify-between">
-            <DrawerTitle className="flex items-center gap-2">
-              <Wrench className="h-5 w-5" />
-              {stableTool?.name || 'Run Tool'}
-            </DrawerTitle>
-            {stableTool && renderStatusChip()}
-          </div>
-          <DrawerDescription>
-            {stableTool 
-              ? (isInitialized && (mcpToolsCollection[stableTool.name] as MCPToolFromClient)?.description) || stableTool.description
-              : 'Configure and execute'
-            }
-          </DrawerDescription>
-        </DrawerHeader>
+          <DrawerHeader>
+            <div className="flex items-center justify-between">
+              <DrawerTitle className="flex items-center gap-2">
+                <Wrench className="h-5 w-5" />
+                {stableTool?.name || 'Run Tool'}
+              </DrawerTitle>
+              {stableTool && renderStatusChip()}
+            </div>
+            <DrawerDescription>
+              {stableTool
+                ? (isInitialized && (mcpToolsCollection[stableTool.name] as MCPToolFromClient)?.description) || stableTool.description
+                : 'Configure and execute'
+              }
+            </DrawerDescription>
+          </DrawerHeader>
           <div className="px-4 pb-6 overflow-y-auto">
             {renderContent()}
           </div>
@@ -1737,7 +1770,7 @@ export function ToolExecutionModal({ isOpen, onClose, tool, serverId, url }: Too
             {stableTool && renderStatusChip()}
           </div>
           <DialogDescription>
-            {stableTool 
+            {stableTool
               ? (isInitialized && (mcpToolsCollection[stableTool.name] as MCPToolFromClient)?.description) || stableTool.description
               : 'Configure and execute'
             }

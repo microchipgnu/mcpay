@@ -43,13 +43,20 @@ import { auth } from "@/lib/gateway/auth";
 import { extractApiKey, hashApiKey } from "@/lib/gateway/auth-utils";
 import { txOperations, withTransaction } from "@/lib/gateway/db/actions";
 import { attemptAutoSign } from "@/lib/gateway/payment-strategies";
-import { createExactPaymentRequirements, decodePayment, settle, verifyPayment, x402Version } from "@/lib/gateway/payments";
 import { PricingEntry, type AuthType, type MCPTool, type ToolCall, type UserWithWallet } from "@/types";
-import { settleResponseHeader, SupportedNetwork } from "@/types/x402";
 import { Hono, type Context } from "hono";
 import { handle } from "hono/vercel";
+import { settleResponseHeader } from "x402/types";
+import { decodePayment as decodeX402Payment } from "x402/schemes";
+import { findMatchingPaymentRequirements } from "x402/shared";
+import type { PaymentPayload, PaymentRequirements, Network, Resource } from "x402/types";
+import { useFacilitator } from "x402/verify";
+import { getFacilitatorUrl } from "@/lib/gateway/env";
 
 export const runtime = 'nodejs'
+
+// x402 version used for verification/settlement
+const x402Version = 1;
 
 // Configuration for rate limiting and caching
 const RATE_LIMIT_CONFIG = {
@@ -1120,30 +1127,32 @@ async function processPayment(params: {
         };
     }
 
-    const humanReadableAmount = fromBaseUnits(
-        pickedPricing?.maxAmountRequiredRaw || "0",
-        pickedPricing?.tokenDecimals || 6
-    );
-
-    const paymentRequirements = [
-        createExactPaymentRequirements(
-            humanReadableAmount,
-            pickedPricing?.network as SupportedNetwork,
-            `mcpay://${toolCall.name}`,
-            `Execution of ${toolCall.name}`,
-            payTo as `0x${string}`
-        ),
+    const accepts: PaymentRequirements[] = [
+        {
+            scheme: 'exact',
+            network: (pickedPricing?.network || '') as Network,
+            maxAmountRequired: pickedPricing?.maxAmountRequiredRaw || '0',
+            payTo: payTo as `0x${string}`,
+            asset: pickedPricing?.assetAddress || '',
+            maxTimeoutSeconds: 300,
+            resource: `mcpay://${toolCall.name}`,
+            mimeType: 'application/json',
+            description: `Execution of ${toolCall.name}`,
+        }
     ];
-    console.log(`[${new Date().toISOString()}] Created payment requirements: ${JSON.stringify(paymentRequirements, null, 2)}`);
+    console.log(`[${new Date().toISOString()}] Created payment requirements (x402): ${JSON.stringify(accepts, null, 2)}`);
 
     // Extract payer information from payment header (if exists)
     let payerAddress = '';
 
     if (paymentHeader) {
         try {
-            const decodedPayment = decodePayment(paymentHeader);
-            // Extract the payer address from decoded payment
-            payerAddress = decodedPayment.payload.authorization.from;
+            const decodedPayment = decodeX402Payment(paymentHeader);
+            // Extract the payer address from decoded payment (EVM authorization only)
+            const payloadAny = decodedPayment.payload as any;
+            if (payloadAny && payloadAny.authorization && typeof payloadAny.authorization.from === 'string') {
+                payerAddress = payloadAny.authorization.from;
+            }
             console.log(`[${new Date().toISOString()}] Extracted payer address from payment: ${payerAddress}`);
 
             // Get or create user with the payer address
@@ -1156,52 +1165,50 @@ async function processPayment(params: {
         }
     }
 
-    const paymentResult = await verifyPayment(c, paymentRequirements);
-    console.log(`[${new Date().toISOString()}] Payment verification result: ${JSON.stringify(paymentResult, null, 2)}`);
-
-    // If verifyPayment returns a Response object, it means there was an error and the response was already prepared
-    if (paymentResult instanceof Response) {
-        console.log(`[${new Date().toISOString()}] Payment verification returned error response, returning it`);
-        return paymentResult;
+    // Official x402 verification flow
+    const token = c.req.header("X-PAYMENT");
+    if (!token) {
+        c.status(402);
+        return c.json({
+            x402Version,
+            error: "X-PAYMENT header is required",
+            accepts,
+        });
     }
 
-    if (!paymentResult) {
-        console.log(`[${new Date().toISOString()}] Payment verification failed, returning early`);
+    let decodedPayment: PaymentPayload;
+    try {
+        decodedPayment = decodeX402Payment(token);
+        decodedPayment.x402Version = x402Version;
+    } catch {
+        c.status(402);
+        return c.json({
+            x402Version,
+            error: "Invalid or malformed payment header",
+            accepts,
+        });
+    }
 
-        // Record failed payment attempt in analytics
-        if (toolCall.toolId && toolCall.serverId) {
-            await withTransaction(async (tx) => {
-                // Record tool usage with error status
-                await txOperations.recordToolUsage({
-                    toolId: ensureString(toolCall.toolId),
-                    userId: extractedUser?.id,
-                    responseStatus: 'payment_failed',
-                    executionTimeMs: Date.now() - startTime,
-                    ipAddress: c.req.header('x-forwarded-for') || c.req.header('x-real-ip'),
-                    userAgent: c.req.header('user-agent'),
-                    requestData: {
-                        toolName: toolCall.name,
-                        args: toolCall.args,
-                        // Add authentication method tracking for failed payments too
-                        authMethod: await getAuthMethod(c, extractedUser)
-                    },
-                    result: {
-                        error: "Payment verification failed",
-                        status: "payment_failed"
-                    }
-                })(tx);
+    const selected = findMatchingPaymentRequirements(accepts, decodedPayment);
+    if (!selected) {
+        c.status(402);
+        return c.json({
+            x402Version,
+            error: "UNABLE_TO_MATCH_PAYMENT_REQUIREMENTS",
+            accepts,
+        });
+    }
 
-                // Analytics are now computed in real-time from database views
-                // No need to manually update analytics data
-            });
-        }
-
-        return {
-            success: false,
-            error: "Payment verification failed",
-            user: extractedUser || undefined,
-            pickedPricing: pickedPricing || undefined
-        };
+    const { verify } = useFacilitator({ url: getFacilitatorUrl(selected.network) as Resource });
+    const vr = await verify(decodedPayment, selected);
+    if (!vr.isValid) {
+        c.status(402);
+        return c.json({
+            x402Version,
+            error: vr.invalidReason,
+            accepts,
+            payer: vr.payer,
+        });
     }
 
     try {
@@ -1215,8 +1222,9 @@ async function processPayment(params: {
             };
         }
 
-        const decodedPayment = decodePayment(payment);
-        const paymentRequirement = paymentRequirements[0];
+        const decodedPayment = decodeX402Payment(payment);
+        decodedPayment.x402Version = x402Version;
+        const paymentRequirement = findMatchingPaymentRequirements(accepts, decodedPayment);
 
         if (!paymentRequirement) {
             console.log(`[${new Date().toISOString()}] No payment requirement available for settlement`);
@@ -1233,10 +1241,8 @@ async function processPayment(params: {
 
         let settleResponse;
         try {
-            settleResponse = await settle(
-                decodedPayment,
-                paymentRequirement
-            );
+            const { settle } = useFacilitator({ url: getFacilitatorUrl(paymentRequirement.network) as Resource });
+            settleResponse = await settle(decodedPayment, paymentRequirement);
             console.log(`[${new Date().toISOString()}] Settlement successful: ${JSON.stringify(settleResponse, null, 2)}`);
         } catch (settleError) {
             console.error(`[${new Date().toISOString()}] Settlement failed:`, settleError);
@@ -1361,26 +1367,24 @@ verbs.forEach(verb => {
                         accepts: [],
                     });
                 }
-                // Convert price from base units to human-readable amount
-                const humanReadableAmount = fromBaseUnits(
-                    toolCall.pricing[0].maxAmountRequiredRaw,
-                    toolCall.pricing[0].tokenDecimals
-                );
-
-                const paymentRequirements = [
-                    createExactPaymentRequirements(
-                        humanReadableAmount,
-                        toolCall.pricing[0].network as SupportedNetwork,
-                        `mcpay://${toolCall.name}`,
-                        `Execution of ${toolCall.name}`,
-                        payTo as `0x${string}`
-                    ),
+                const errorAccepts: PaymentRequirements[] = [
+                    {
+                        scheme: 'exact',
+                        network: toolCall.pricing[0].network as Network,
+                        maxAmountRequired: toolCall.pricing[0].maxAmountRequiredRaw,
+                        payTo: payTo as `0x${string}`,
+                        asset: toolCall.pricing[0].assetAddress,
+                        maxTimeoutSeconds: 300,
+                        resource: `mcpay://${toolCall.name}`,
+                        mimeType: 'application/json',
+                        description: `Execution of ${toolCall.name}`,
+                    }
                 ];
 
                 return c.json({
                     x402Version,
                     error: paymentResultObj.error,
-                    accepts: paymentRequirements,
+                    accepts: errorAccepts,
                 });
             }
 

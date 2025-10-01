@@ -12,11 +12,11 @@
  */
 
 import { getCDPNetworks, type UnifiedNetwork } from "@/lib/commons/networks";
-import { createSignerFromAccount } from "@/lib/commons/signer";
+import { createSignerFromViemAccount } from "mcpay/utils";
 import { getCDPAccount } from "@/lib/gateway/3rd-parties/cdp";
 import { txOperations, withTransaction } from "@/lib/gateway/db/actions";
 import type { PaymentSigningContext, PaymentSigningResult, PaymentSigningStrategy } from "@/lib/gateway/payment-strategies/index";
-import { x402Version } from "@/lib/gateway/payments";
+import { x402Version } from "@/lib/gateway/x402";
 import { type CDPNetwork, type CDPWalletMetadata, type Wallet } from "@/types";
 import { toAccount } from "viem/accounts";
 import { createPaymentHeader } from "x402/client";
@@ -180,7 +180,7 @@ export class CDPSigningStrategy implements PaymentSigningStrategy {
             // Get the CDP account instance
             const cdpAccount = await getCDPAccount(accountId, network);
 
-            const signer = createSignerFromAccount(network, toAccount(cdpAccount))
+            const signer = createSignerFromViemAccount(network, toAccount(cdpAccount))
             
             const signedPayment = await createPaymentHeader(signer, x402Version, paymentRequirement);
 

@@ -10,14 +10,14 @@
  */
 
 import type { UnifiedNetwork } from "@/lib/commons/networks";
-import { createSignerFromAccount } from "@/lib/commons/signer";
+import { createSignerFromViemAccount } from "mcpay/utils";
 import type {
   PaymentSigningContext,
   PaymentSigningResult,
   PaymentSigningStrategy,
 } from "@/lib/gateway/payment-strategies";
 import { getConfig } from "@/lib/gateway/payment-strategies/config";
-import { x402Version } from "@/lib/gateway/payments";
+import { x402Version } from "@/lib/gateway/x402";
 import { privateKeyToAccount } from "viem/accounts";
 import { base, baseSepolia, seiTestnet } from "viem/chains";
 import { createPaymentHeader } from "x402/client";
@@ -78,7 +78,7 @@ export class TestingSigningStrategy implements PaymentSigningStrategy {
 
       const account = privateKeyToAccount(privateKey);
 
-      const signer = createSignerFromAccount(network, account)
+      const signer = createSignerFromViemAccount(network, account)
 
       const signedPayment = await createPaymentHeader(
         signer,

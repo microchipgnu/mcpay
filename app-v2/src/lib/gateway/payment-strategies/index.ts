@@ -20,9 +20,8 @@ import { CDPSigningStrategy } from "@/lib/gateway/payment-strategies/cdp-strateg
 import { TestingSigningStrategy } from "@/lib/gateway/payment-strategies/testing-strategy";
 import { isTest } from "@/lib/gateway/env";
 import { getConfig, type PaymentStrategyConfig } from "@/lib/gateway/payment-strategies/config";
-import { createExactPaymentRequirements } from "@/lib/gateway/payments";
-import type { ExtendedPaymentRequirements, SupportedNetwork } from "@/types/x402";
 import type { Context } from "hono";
+import type { Network, PaymentRequirements } from "x402/types";
 
 
 // Type definitions
@@ -44,7 +43,7 @@ export interface PaymentSigningContext {
         name?: string;
         displayName?: string;
     };
-    paymentRequirements: ExtendedPaymentRequirements[];
+    paymentRequirements: PaymentRequirements[];
 }
 
 export interface PaymentSigningResult {
@@ -170,14 +169,31 @@ async function performAutoSigning(
     // Ensure resource is a valid URL format
     const resourceUrl = toolCall.payment.resource
     
-    const paymentRequirements = [
-        createExactPaymentRequirements(
-            toolCall.payment.maxAmountRequired,
-            toolCall.payment.network as SupportedNetwork,
-            resourceUrl as `${string}://${string}`,
-            toolCall.payment.description,
-            payTo as `0x${string}`
-        ),
+    const paymentRequirements: PaymentRequirements[] = [
+        {
+            scheme: "exact",
+            network: toolCall.payment.network as Network,
+            maxAmountRequired: toolCall.payment.maxAmountRequired,
+            payTo: payTo as `0x${string}`,
+            asset: toolCall.payment.asset,
+            description: toolCall.payment.description,
+            resource: resourceUrl as `${string}://${string}`,
+            mimeType: "application/json",
+            maxTimeoutSeconds: 300,
+            extra: undefined,
+        },
+        {
+            scheme: "exact",
+            network: toolCall.payment.network as Network,
+            maxAmountRequired: toolCall.payment.maxAmountRequired,
+            payTo: payTo as `0x${string}`,
+            asset: toolCall.payment.asset,
+            description: toolCall.payment.description,
+            resource: resourceUrl as `${string}://${string}`,
+            mimeType: "application/json",
+            maxTimeoutSeconds: 300,
+            extra: undefined,
+        }
     ];
     
     const context: PaymentSigningContext = {
