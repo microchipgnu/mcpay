@@ -452,6 +452,8 @@ export function ToolExecutionModal({ isOpen, onClose, tool, serverId, url }: Too
           })
         }
 
+        evmSigner = createSignerFromViemAccount(networkForSigner, walletClient?.account as Account)
+
         const transport = new StreamableHTTPClientTransport(new URL(mcpUrl), {
           requestInit: {
             headers: {
@@ -472,6 +474,7 @@ export function ToolExecutionModal({ isOpen, onClose, tool, serverId, url }: Too
               maxPaymentValue: BigInt(0.1 * 10 ** 6), // 0.1 USDC max
               confirmationCallback: async (accepts) => {
                 // Prefer requirement matching selected pricing/network if available
+                alert(`accepts: ${JSON.stringify(accepts)}`)
                 const requiredNetwork = getRequiredNetwork()
                 if (requiredNetwork) {
                   const match = accepts.find((a) => a.network === requiredNetwork && a.scheme === 'exact')

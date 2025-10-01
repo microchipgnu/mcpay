@@ -6,7 +6,9 @@ import { handle } from "hono/vercel";
 
 export const runtime = 'nodejs';
 
-const proxy = withProxy([new LoggingHook()]);
+const proxy = withProxy([
+    new LoggingHook(),
+]);
 
 const app = new Hono();
 app.use("*", cors());

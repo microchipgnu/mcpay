@@ -79,9 +79,14 @@ export function withProxy(hooks: Hook[]) {
             });
         }
 
+        const url = new URL(req.url);
         const extra: RequestExtra = {
             requestId: crypto.randomUUID(),
             sessionId: body.params?._meta?.sessionId,
+            originalUrl: req.url,
+            targetUrl,
+            inboundHeaders: new Headers(req.headers),
+            serverId: url.searchParams.get("id"),
         };
 
         // REQUEST hooks (forward)
@@ -106,10 +111,23 @@ export function withProxy(hooks: Hook[]) {
             }
         }
 
+        // Prepare upstream headers (start from inbound headers)
+        const forwardHeaders = new Headers(req.headers);
+        // Allow hooks to mutate upstream headers before forwarding
+        for (const h of hooks) {
+            if (h.prepareUpstreamHeaders) {
+                try {
+                    await h.prepareUpstreamHeaders(forwardHeaders, currentReq, extra);
+                } catch {
+                    // Ignore header hook errors to avoid blocking
+                }
+            }
+        }
+
         // send upstream
         const upstream = await fetch(targetUrl, {
             method: req.method,
-            headers: req.headers,
+            headers: forwardHeaders,
             // Preserve the original JSON-RPC envelope while forwarding modified params
             body: JSON.stringify({
                 ...originalRpc,
