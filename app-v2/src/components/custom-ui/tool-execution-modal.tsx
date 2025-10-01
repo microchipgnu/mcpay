@@ -16,6 +16,7 @@ import {
   formatTokenAmount,
   getNetworkByChainId,
   getTokenInfo,
+  normalizeLegacyNetwork,
 } from "@/lib/commons"
 import { getNetworkInfo } from "@/lib/commons/tokens"
 import { type Network } from "@/types/blockchain"
@@ -35,13 +36,14 @@ import {
   Wrench
 } from "lucide-react"
 import { withX402Client } from "mcpay/client"
-import { createSignerFromViemAccount } from "mcpay/utils"
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { toast } from "sonner"
 import { Account, privateKeyToAccount } from "viem/accounts"
 import { useAccount, useChainId, useWalletClient } from "wagmi"
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js"
+import type { MultiNetworkSigner } from "x402/types"
+import { createInjectedSigner } from "@/lib/client/signer"
 
 // Helper function to format wallet address for display
 const formatWalletAddress = (address: string): string => {
@@ -159,6 +161,7 @@ export function ToolExecutionModal({ isOpen, onClose, tool, serverId, url }: Too
   const [isSwitchingNetwork, setIsSwitchingNetwork] = useState(false)
   const [showPrettyJson, setShowPrettyJson] = useState(true)
   const [jsonEditorStates, setJsonEditorStates] = useState<Record<string, { value: string; error: string | null }>>({})
+  const [pendingNetwork, setPendingNetwork] = useState<string | null>(null)
 
   // =============================================================================
   // NETWORK UTILITIES
@@ -173,13 +176,16 @@ export function ToolExecutionModal({ isOpen, onClose, tool, serverId, url }: Too
     const activePricing = getActivePricing()
     if (!activePricing.length) return null
     const selectedPricing = activePricing[selectedPricingTier] || activePricing[0]
-    return selectedPricing.network
+    // Normalize legacy/network aliases to unified format
+    return normalizeLegacyNetwork(selectedPricing.network) || selectedPricing.network
   }, [getActivePricing, selectedPricingTier])
 
   const getCurrentNetwork = useCallback((): string | null => {
+    // If a switch just succeeded, optimistically use that until wagmi updates chainId
+    if (pendingNetwork) return pendingNetwork
     const network = chainId ? getNetworkByChainId(chainId) : undefined
     return typeof network === 'string' ? network : null
-  }, [chainId])
+  }, [chainId, pendingNetwork])
 
   const isOnCorrectNetwork = useCallback((): boolean => {
     const requiredNetwork = getRequiredNetwork()
@@ -210,8 +216,13 @@ export function ToolExecutionModal({ isOpen, onClose, tool, serverId, url }: Too
       const networkInfo = getNetworkInfo(requiredNetwork as Network)
       log.debug(`[Network Switch] Network info:`, networkInfo)
 
-      await switchToNetwork(requiredNetwork as Network)
+      const switched = await switchToNetwork(requiredNetwork as Network)
+      if (!switched) {
+        throw new Error(`Switch request failed or was rejected. Ensure your wallet supports ${requiredNetwork} and approve the request.`)
+      }
       log.info(`[Network Switch] Successfully switched to ${requiredNetwork}`)
+      toast.success(`Switched to ${requiredNetwork}`)
+      setPendingNetwork(requiredNetwork)
 
       // Clear any previous errors after successful switch
       if (execution.status === 'error') {
@@ -233,6 +244,15 @@ export function ToolExecutionModal({ isOpen, onClose, tool, serverId, url }: Too
       setIsSwitchingNetwork(false)
     }
   }
+
+  // Clear optimistic pending network once wagmi reports the new chainId
+  useEffect(() => {
+    if (!pendingNetwork) return
+    const current = chainId ? getNetworkByChainId(chainId) : undefined
+    if (typeof current === 'string' && current === pendingNetwork) {
+      setPendingNetwork(null)
+    }
+  }, [chainId, pendingNetwork])
 
   // Reset pricing tier when active pricing changes
   useEffect(() => {
@@ -427,7 +447,7 @@ export function ToolExecutionModal({ isOpen, onClose, tool, serverId, url }: Too
         if (url) {
           mcpUrl = new URL(url)
         } else if (serverId) {
-          mcpUrl = new URL(urlUtils.getMcpUrl(serverId))
+          mcpUrl = new URL(urlUtils.getMcpUrl(serverId, true))
         } else {
           throw new Error("Either server ID or URL must be provided")
         }
@@ -436,13 +456,14 @@ export function ToolExecutionModal({ isOpen, onClose, tool, serverId, url }: Too
 
         const mcpClient = new Client({ name: "mcpay-client", version: "1.0.0" })
         const networkForSigner = getRequiredNetwork() || getCurrentNetwork() || 'base'
-        let evmSigner: ReturnType<typeof createSignerFromViemAccount> | undefined
+        let evmSigner: MultiNetworkSigner['evm'] | undefined
 
         if (activeWallet?.walletType === 'external') {
           if (!walletClient?.account) {
             throw new Error("Wallet client required for external wallets")
           }
-          evmSigner = createSignerFromViemAccount(networkForSigner, walletClient.account as Account)
+          // Build a signer that uses the injected provider for signing (no direct RPC to mainnet.base.org)
+          evmSigner = createInjectedSigner(networkForSigner, walletClient.account as Account) as unknown as MultiNetworkSigner['evm']
           log.info(`Using external wallet signer on network=${networkForSigner}`, { address: walletClient.account.address })
         } else {
           // Managed wallets: do not set signer; server will auto-sign via CDP
@@ -452,7 +473,6 @@ export function ToolExecutionModal({ isOpen, onClose, tool, serverId, url }: Too
           })
         }
 
-        evmSigner = createSignerFromViemAccount(networkForSigner, walletClient?.account as Account)
 
         const transport = new StreamableHTTPClientTransport(new URL(mcpUrl), {
           requestInit: {
@@ -466,24 +486,14 @@ export function ToolExecutionModal({ isOpen, onClose, tool, serverId, url }: Too
 
         await mcpClient.connect(transport)
         log.info("MCP client connected")
+        log.info(`[${new Date().toISOString()}] evmSigner: ${JSON.stringify(evmSigner)}`)
 
         // Wrap with x402 only when we have a signer (external wallet)
         const augmentedClient = evmSigner
           ? withX402Client(mcpClient, {
               wallet: { evm: evmSigner },
               maxPaymentValue: BigInt(0.1 * 10 ** 6), // 0.1 USDC max
-              confirmationCallback: async (accepts) => {
-                // Prefer requirement matching selected pricing/network if available
-                alert(`accepts: ${JSON.stringify(accepts)}`)
-                const requiredNetwork = getRequiredNetwork()
-                if (requiredNetwork) {
-                  const match = accepts.find((a) => a.network === requiredNetwork && a.scheme === 'exact')
-                  if (match) return { requirement: match }
-                }
-                // Otherwise pick the first exact requirement
-                const firstExact = accepts.find((a) => a.scheme === 'exact')
-                return firstExact ? { requirement: firstExact } : true
-              }
+              confirmationCallback: async (accepts) => true
             })
           : mcpClient
 
@@ -506,17 +516,34 @@ export function ToolExecutionModal({ isOpen, onClose, tool, serverId, url }: Too
                 toolCallId: options.toolCallId,
               })
               // Attempt to extract a useful result from MCP response content
-              const textItem = Array.isArray((res as any)?.content)
-                ? (res as any).content.find((c: any) => c?.type === 'text')
-                : undefined
-              if (textItem?.text) {
+              const isRecord = (v: unknown): v is Record<string, unknown> =>
+                typeof v === 'object' && v !== null
+              const hasContentArray = (v: unknown): v is { content: unknown[] } =>
+                isRecord(v) && Array.isArray((v as Record<string, unknown>)['content'])
+              const content: unknown[] | undefined = hasContentArray(res) ? res.content : undefined
+              let text: string | undefined
+              if (Array.isArray(content)) {
+                for (const item of content) {
+                  if (isRecord(item)) {
+                    const typeValue = item['type']
+                    if (typeof typeValue === 'string' && typeValue === 'text') {
+                      const textValue = item['text']
+                      if (typeof textValue === 'string') {
+                        text = textValue
+                        break
+                      }
+                    }
+                  }
+                }
+              }
+              if (typeof text === 'string') {
                 try {
-                  const parsed = JSON.parse(textItem.text)
+                  const parsed = JSON.parse(text)
                   log.info(`[Execute] Parsed JSON result`, { tool: toolName })
                   return parsed
                 } catch {
                   log.info(`[Execute] Non-JSON text result`, { tool: toolName })
-                  return textItem.text
+                  return text
                 }
               }
               log.info(`[Execute] Raw MCP result returned`, { tool: toolName })

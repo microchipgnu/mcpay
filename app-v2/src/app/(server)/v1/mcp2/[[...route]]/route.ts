@@ -1,5 +1,6 @@
 import { withProxy } from "@/lib/gateway/proxy";
 import { AuthHeadersHook } from "@/lib/gateway/proxy/hooks/auth-headers-hook";
+import { LoggingHook } from "@/lib/gateway/proxy/hooks/logging-hook";
 import { X402MonetizationHook } from "@/lib/gateway/proxy/hooks/x402-hook";
 import { withTransaction, txOperations } from "@/lib/gateway/db/actions";
 import type { PricingEntry } from "@/types/payments";
@@ -39,7 +40,7 @@ function pickPreferredNetwork(networks: Set<string>): string | undefined {
 }
 
 async function buildMonetizationForTarget(targetUrl: string): Promise<{
-    prices: Record<string, { amount: string; asset: { address: string; decimals?: number } }>;
+    prices: Record<string, string>;
     recipient: Partial<Record<Network, string>>;
 } | null> {
     try {
@@ -52,7 +53,7 @@ async function buildMonetizationForTarget(targetUrl: string): Promise<{
             return await txOperations.listMcpToolsByServer(server.id)(tx);
         });
 
-        console.log(`[${new Date().toISOString()}] Tools: ${JSON.stringify(tools)}`);
+        // Removed console.log for tools
 
         const availableNetworks = new Set<string>();
         for (const t of tools) {
@@ -64,17 +65,36 @@ async function buildMonetizationForTarget(targetUrl: string): Promise<{
         const preferredNetwork = pickPreferredNetwork(availableNetworks);
         if (!preferredNetwork) return null;
 
-        const prices: Record<string, { amount: string; asset: { address: string; decimals?: number } }> = {};
+        const prices: Record<string, string> = {};
         for (const t of tools) {
             const pricing = (t.pricing as PricingEntry[] | null) || [];
             const active = pricing.filter((p) => p && p.active === true);
             if (!active.length) continue;
             const selected = active.find((p) => p.network === preferredNetwork) || active[0];
-            if (!selected || !selected.assetAddress || !selected.maxAmountRequiredRaw) continue;
-            prices[t.name as string] = {
-                amount: String(selected.maxAmountRequiredRaw),
-                asset: { address: String(selected.assetAddress), decimals: Number(selected.tokenDecimals) }
-            };
+            if (!selected || !selected.maxAmountRequiredRaw) continue;
+
+            // Convert base units (e.g., USDC 6 decimals) to a US dollar string like "$0.01"
+            const raw = String(selected.maxAmountRequiredRaw);
+            const decimals = Number(selected.tokenDecimals ?? 6);
+
+            // Ensure non-negative integer string
+            const rawSanitized = raw.replace(/^\+/, "");
+            if (!/^\d+$/.test(rawSanitized)) continue;
+
+            const zeroes = "0".repeat(Math.max(decimals - rawSanitized.length, 0));
+            const padded = zeroes + rawSanitized;
+            const integerPart = padded.slice(0, Math.max(padded.length - decimals, 0)) || "0";
+            const fractionalPartFull = (padded.slice(-decimals) || "").padStart(decimals, "0");
+
+            // Trim trailing zeros but keep at least two decimal places for readability
+            let fractional = fractionalPartFull.replace(/0+$/, "");
+            if (fractional.length < 2) fractional = fractionalPartFull.slice(0, Math.max(2, Math.min(decimals, fractionalPartFull.length)));
+
+            const formatted = fractional && Number(fractional) !== 0
+                ? `${integerPart}.${fractional}`
+                : `${integerPart}.00`;
+
+            prices[t.name as string] = `$${formatted}`;
         }
 
         const recipient: Partial<Record<Network, string>> = {};
@@ -93,9 +113,9 @@ app.use("*", cors());
 app.all("/*", async (c) => {
     const targetUrl = await resolveTargetUrl(c.req.raw);
 
-    console.log(`[${new Date().toISOString()}] Target URL: ${targetUrl}`);
+    // Removed console.log for Target URL
 
-    let prices: Record<string, any> = {};
+    let prices: Record<string, string> = {};
     let recipient: Partial<Record<Network, string>> | { evm: RecipientWithTestnet } = {
         evm: { address: "0x0000000000000000000000000000000000000000", isTestnet: false },
     };
@@ -108,15 +128,15 @@ app.all("/*", async (c) => {
         }
     }
 
-    console.log(`[${new Date().toISOString()}] Recipient: ${JSON.stringify(recipient)}`);
-    console.log(`[${new Date().toISOString()}] Prices: ${JSON.stringify(prices)}`);
+    // Removed console.log for Recipient and Prices
 
     const proxy = withProxy([
+        new LoggingHook(),
         new X402MonetizationHook({
             recipient: recipient,
             prices,
             facilitator: {
-                url: "https://x402.org/facilitator",
+                url: "https://facilitator.x402.rs",
             },
         }),
         new AuthHeadersHook(),

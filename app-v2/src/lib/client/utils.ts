@@ -14,7 +14,7 @@ export const textUtils = {
   // Sanitize text for display - removes potentially dangerous characters
   sanitizeForDisplay: (text: string, maxLength: number = 100): string => {
     if (!text || typeof text !== 'string') return ''
-    
+
     // Remove HTML tags and dangerous characters
     const sanitized = text
       .replace(/<[^>]*>?/gm, '') // Remove HTML tags
@@ -23,15 +23,15 @@ export const textUtils = {
       .replace(/data:/gi, '') // Remove data: URLs
       .replace(/vbscript:/gi, '') // Remove vbscript: URLs
       .trim()
-    
+
     // Truncate if too long
     if (sanitized.length > maxLength) {
       return sanitized.substring(0, maxLength) + '...'
     }
-    
+
     return sanitized
   },
-  
+
 }
 
 // API Configuration
@@ -45,29 +45,49 @@ export const API_CONFIG = {
 export const urlUtils = {
   // Get the API base URL
   getApiBaseUrl: () => API_CONFIG.baseUrl,
-  
+
   // Get the MCP base URL
   getMcpBaseUrl: () => API_CONFIG.mcpBaseUrl,
-  
+
   // Generate API endpoint URL
   getApiUrl: (endpoint: string) => {
     const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`
     return `${API_CONFIG.baseUrl}${cleanEndpoint}`
   },
-  
+
+  getMcp2Url: () => {
+    return `${window.location.origin}/v1/mcp2`
+  },
+
   // Generate MCP server URL
-  getMcpUrl: (serverId: string) => {
-    return `${window.location.origin}/v1/mcp2?id=${serverId}`
+  getMcpUrl: (serverIdOrUrl: string, usesMpc2 = false) => {
+    if (typeof window === "undefined" || !window.location?.origin) {
+      throw new Error("window.location.origin is not available")
+    }
+    const origin = window.location.origin.replace(/\/$/, "")
+    if (usesMpc2) {
+      const encodedServerId = encodeURIComponent(serverIdOrUrl)
+      // Compose the target MCP2 URL
+      const mcp2Url = `${urlUtils.getMcp2Url()}?id=${encodedServerId}`
+      // Base64 encode the MCP2 URL
+      const base64Mcp2Url = btoa(mcp2Url)
+      // Compose the MCP proxy URL with the base64-encoded target-url param
+      return `${origin}/v1/mcp?target-url=${encodeURIComponent(base64Mcp2Url)}`
+    } else {
+      // Just encode the serverId directly as the target-url param
+      const base64ServerId = btoa(serverIdOrUrl)
+      return `${origin}/v1/mcp?target-url=${encodeURIComponent(base64ServerId)}`
+    }
   },
 }
 
 // API utility function with proper error handling
 export async function apiCall<T = unknown>(
-  endpoint: string, 
+  endpoint: string,
   options: RequestInit = {}
 ): Promise<T> {
   const url = urlUtils.getApiUrl(endpoint)
-  
+
   const defaultHeaders = {
     'Content-Type': 'application/json',
     ...options.headers,
@@ -91,7 +111,7 @@ export async function apiCall<T = unknown>(
     if (!response.ok) {
       let errorMessage = `HTTP error! status: ${response.status}`
       let errorDetails: unknown = null
-      
+
       try {
         const errorData = await response.json()
         errorMessage = errorData.error || errorData.message || errorMessage
@@ -112,14 +132,14 @@ export async function apiCall<T = unknown>(
     return await response.json()
   } catch (error) {
     clearTimeout(timeoutId)
-    
+
     if (error instanceof Error) {
       if (error.name === 'AbortError') {
         throw new Error('Request timeout - please try again')
       }
       throw error
     }
-    
+
     throw new Error('An unknown error occurred')
   }
 }

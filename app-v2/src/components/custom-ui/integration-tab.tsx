@@ -96,7 +96,7 @@ export function IntegrationTab({ serverData, onTabChange }: IntegrationTabProps)
   const generateCursorDeepLink = (apiKey: string) => {
     if (!serverData) return ''
     
-    const mcpUrl = urlUtils.getMcpUrl(serverData.serverId)
+    const mcpUrl = urlUtils.getMcpUrl(serverData.serverId, true)
     const config = { 
       url: `${mcpUrl}?apiKey=${apiKey}`
     }
@@ -194,7 +194,7 @@ export function IntegrationTab({ serverData, onTabChange }: IntegrationTabProps)
                       "mcpay",
                       "server",
                       "--urls",
-                      urlUtils.getMcpUrl(serverData.serverId),
+                      urlUtils.getMcpUrl(serverData.serverId, true),
                       "--api-key",
                       "mcpay_YOUR_API_KEY_HERE"
                     ]
@@ -217,7 +217,7 @@ export function IntegrationTab({ serverData, onTabChange }: IntegrationTabProps)
                       "mcpay",
                       "server",
                       "--urls",
-                      urlUtils.getMcpUrl(serverData.serverId),
+                      urlUtils.getMcpUrl(serverData.serverId, true),
                       "--private-key",
                       "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"
                     ]
@@ -232,10 +232,10 @@ export function IntegrationTab({ serverData, onTabChange }: IntegrationTabProps)
               language: 'bash',
               copyable: true,
               code: `# Using API Key (recommended)
-npx mcpay server --urls ${urlUtils.getMcpUrl(serverData.serverId)} --api-key mcpay_YOUR_API_KEY_HERE
+npx mcpay server --urls ${urlUtils.getMcpUrl(serverData.serverId, true)} --api-key mcpay_YOUR_API_KEY_HERE
 
 # Using Private Key (alternative)
-npx mcpay server --urls ${urlUtils.getMcpUrl(serverData.serverId)} --private-key YOUR_PRIVATE_KEY`
+npx mcpay server --urls ${urlUtils.getMcpUrl(serverData.serverId, true)} --private-key YOUR_PRIVATE_KEY`
             }
           ]
         },
@@ -258,7 +258,7 @@ import { privateKeyToAccount } from 'viem/accounts'
 
 // Initialize account from private key
 const account = privateKeyToAccount('0x1234567890abcdef...')
-const url = new URL('${urlUtils.getMcpUrl(serverData.serverId)}')
+const url = new URL('${urlUtils.getMcpUrl(serverData.serverId, true)}')
 
 // Create payment-enabled transport
 const transport = createPaymentTransport(url, account, {

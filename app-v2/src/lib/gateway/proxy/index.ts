@@ -3,12 +3,19 @@ import { Hook, RequestExtra } from "./hooks";
 import { CallToolRequest, CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 
 async function resolveTargetUrl(req: Request): Promise<string | null> {
-    // First, try to get target URL from header or query param
-    const directUrl = req.headers.get("x-mcpay-target-url")
+    // First, try to get target URL from header or query param (base64-encoded)
+    const directUrlEncoded = req.headers.get("x-mcpay-target-url")
         ?? new URL(req.url).searchParams.get("target-url");
 
-    if (directUrl) {
-        return directUrl;
+    if (directUrlEncoded) {
+        try {
+            // The value is base64-encoded, so decode it
+            // decodeURIComponent in case it was URL-encoded as well
+            const decoded = atob(decodeURIComponent(directUrlEncoded));
+            return decoded;
+        } catch (e) {
+            // If decoding fails, treat as invalid and fall through
+        }
     }
 
     // Second, try to resolve from ID parameter (like route.ts does)

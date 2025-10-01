@@ -468,13 +468,13 @@ export default function ServerDashboard() {
                   <div className="flex items-start gap-2">
                     <code className={`flex-1 text-sm p-3 rounded-md font-mono break-all overflow-hidden ${isDark ? "bg-gray-700 text-gray-300" : "bg-gray-100 text-gray-800"
                       }`}>
-                      {urlUtils.getMcpUrl(serverData.serverId)}
+                      {urlUtils.getMcpUrl(serverData.serverId, true)}
                     </code>
                     <Button
                       size="sm"
                       variant="outline"
                       onClick={() => {
-                        copyToClipboard(urlUtils.getMcpUrl(serverData.serverId))
+                        copyToClipboard(urlUtils.getMcpUrl(serverData.serverId, true))
                         toast.success("MCP URL copied to clipboard")
                       }}
                       title="Copy MCP URL"

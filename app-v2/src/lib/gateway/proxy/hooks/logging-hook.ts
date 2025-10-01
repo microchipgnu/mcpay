@@ -9,6 +9,7 @@ export class LoggingHook implements Hook {
     }
     async processCallToolResult(res: CallToolResult, req: CallToolRequest, extra: RequestExtra) {
         console.log(`[${extra.requestId}] Response from: ${req.params.name}`);
+        console.log(`[${extra.requestId}] Response: ${JSON.stringify(res, null, 2)}`);
         // Do not mutate the response shape; pass through unchanged to preserve JSON-RPC envelope expectations
         return { resultType: "continue" as const, response: res };
     }
