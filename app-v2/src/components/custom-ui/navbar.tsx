@@ -56,15 +56,8 @@ export default function Navbar() {
             </Link>
           </div>
 
-          {/* Center (desktop only): BUILD / BROWSE / MONETIZE */}
+          {/* Center (desktop only): BROWSE / MONETIZE */}
           <div className="hidden sm:flex justify-center items-center gap-8">
-            <Button
-              asChild
-              variant="link"
-              className={`${linkClasses} ${pathname === "/build" ? activeLinkClasses : ""}`}
-            >
-              <Link href="/build">BUILD</Link>
-            </Button>
             <Button
               asChild
               variant="link"
@@ -148,14 +141,6 @@ export default function Navbar() {
 
                 {/* Links */}
                 <div className="px-8 pt-6 space-y-8">
-                  <SheetClose asChild>
-                    <Link
-                      href="/build"
-                      className="block font-mono tracking-wide text-lg text-muted-foreground hover:text-foreground"
-                    >
-                      BUILD
-                    </Link>
-                  </SheetClose>
                   <SheetClose asChild>
                     <Link
                       href="/servers"
