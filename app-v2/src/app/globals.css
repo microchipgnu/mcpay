@@ -1,5 +1,5 @@
 @import 'highlight.js/styles/github.css' screen and (prefers-color-scheme: light);
-@import 'highlight.js/styles/github-dark.css' screen and (prefers-color-scheme: dark);
+@import 'highlight.js/styles/github-gist.css' screen and (prefers-color-scheme: dark);
 
 @import "tailwindcss";
 @import "tw-animate-css";
