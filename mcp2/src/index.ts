@@ -2,114 +2,39 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { AuthHeadersHook, LoggingHook, withProxy, X402MonetizationHook } from "mcpay/handler";
 import type { Network, Price } from "x402/types";
+import { redisStore, type StoredServerConfig } from "./db/redis.js";
+import { config } from 'dotenv';
+
+config();
 
 export const runtime = 'nodejs';
 
 type RecipientWithTestnet = { address: string; isTestnet?: boolean };
-// ----------------------------
-// Lightweight JSON file store
-// ----------------------------
-type StoredTool = {
-    name: string;
-    pricing: Price[];
-};
 
-type StoredServerConfig = {
-    id: string;
-    mcpOrigin: string;
-    requireAuth?: boolean;
-    authHeaders?: Record<string, string>;
-    receiverAddressByNetwork?: Partial<Record<Network, string>>;
-    tools?: StoredTool[];
-};
-
-type StoreShape = {
-    serversById: Record<string, StoredServerConfig>;
-    serverIdByOrigin: Record<string, string>;
-};
-
-const STORE_PATH = `${import.meta.dir}/mcp-store.json`;
-let store: StoreShape = { serversById: {}, serverIdByOrigin: {} };
-let saveScheduled = false;
-
-async function fileExists(path: string): Promise<boolean> {
+// Initialize Redis store
+async function initializeStore(): Promise<void> {
     try {
-        await Bun.file(path).text();
-        return true;
-    } catch {
-        return false;
+        await redisStore.connect();
+        console.log(`[${new Date().toISOString()}] Redis store initialized successfully`);
+    } catch (error) {
+        console.error(`[${new Date().toISOString()}] Failed to initialize Redis store:`, error);
+        throw error;
     }
-}
-
-async function loadStore(): Promise<void> {
-    try {
-        if (!(await fileExists(STORE_PATH))) {
-            store = { serversById: {}, serverIdByOrigin: {} };
-            await Bun.write(STORE_PATH, JSON.stringify(store, null, 2));
-            return;
-        }
-        const text = await Bun.file(STORE_PATH).text();
-        const parsed = JSON.parse(text) as StoreShape;
-        // Basic shape guard
-        if (parsed && typeof parsed === 'object' && parsed.serversById && parsed.serverIdByOrigin) {
-            store = parsed;
-        }
-    } catch {
-        // reset on parse errors
-        store = { serversById: {}, serverIdByOrigin: {} };
-    }
-}
-
-async function saveStore(): Promise<void> {
-    try {
-        await Bun.write(STORE_PATH, JSON.stringify(store, null, 2));
-    } catch {
-        // ignore write failures
-    }
-}
-
-function scheduleSave(): void {
-    if (saveScheduled) return;
-    saveScheduled = true;
-    setTimeout(() => {
-        saveScheduled = false;
-        void saveStore();
-    }, 25);
-}
-
-function upsertServerConfig(input: Partial<StoredServerConfig> & { id: string; mcpOrigin: string }): StoredServerConfig {
-    const current = store.serversById[input.id] ?? { id: input.id, mcpOrigin: input.mcpOrigin } as StoredServerConfig;
-    const merged: StoredServerConfig = {
-        ...current,
-        ...input,
-        // merge nested fields
-        authHeaders: { ...(current.authHeaders ?? {}), ...(input.authHeaders ?? {}) },
-        receiverAddressByNetwork: { ...(current.receiverAddressByNetwork ?? {}), ...(input.receiverAddressByNetwork ?? {}) },
-        tools: input.tools ?? current.tools ?? [],
-    };
-    store.serversById[merged.id] = merged;
-    store.serverIdByOrigin[merged.mcpOrigin] = merged.id;
-    scheduleSave();
-    return merged;
-}
-
-function getServerById(id: string): StoredServerConfig | null {
-    return store.serversById[id] ?? null;
-}
-
-function getServerByOrigin(origin: string): StoredServerConfig | null {
-    const id = store.serverIdByOrigin[origin];
-    if (!id) return null;
-    return getServerById(id);
 }
 
 // Resolve upstream target MCP origin from header/query (base64) or store by server id
 async function resolveTargetUrl(req: Request): Promise<string | null> {
+    console.log(`[${new Date().toISOString()}] Resolving target URL for request: ${req.url}`);
     const url = new URL(req.url);
     const id = url.searchParams.get("id");
+    console.log(`[${new Date().toISOString()}] ID: ${id}`);
     if (id) {
-        const server = getServerById(id);
-        if (server?.mcpOrigin) return server.mcpOrigin;
+        const server = await redisStore.getServerById(id);
+        console.log(`[${new Date().toISOString()}] Server: ${JSON.stringify(server)}`);
+        if (server?.mcpOrigin) {
+            console.log(`[${new Date().toISOString()}] Found server by ID: ${id}, returning MCP origin: ${server.mcpOrigin}`);
+            return server.mcpOrigin;
+        }
     }
 
     const directEncoded = req.headers.get("x-mcpay-target-url") ?? url.searchParams.get("target-url");
@@ -130,27 +55,42 @@ async function buildMonetizationForTarget(targetUrl: string): Promise<{
     recipient: Partial<Record<Network, string>>;
 } | null> {
     try {
-        const server = getServerByOrigin(targetUrl);
+        const server = await redisStore.getServerByOrigin(targetUrl);
         if (!server) return null;
 
         const tools = server.tools ?? [];
 
-        // Build recipients directly from configured map
+        // Build recipients from the new recipient structure
         const recipient: Partial<Record<Network, string>> = {};
-        const map = server.receiverAddressByNetwork ?? {};
-        for (const [net, addr] of Object.entries(map)) {
-            if (addr) recipient[net as Network] = String(addr);
+        
+        // Handle the new recipient format: { evm: { address: string, isTestnet?: boolean } }
+        if (server.recipient?.evm?.address) {
+            // For now, we'll use a generic network key since we're simplifying to EVM
+            // In a real implementation, you might want to map testnet vs mainnet to specific networks
+            const networkKey = server.recipient.evm.isTestnet ? 'base-sepolia' : 'base';
+            recipient[networkKey as Network] = server.recipient.evm.address;
         }
+        
+        // Fallback to old receiverAddressByNetwork if it exists (for backwards compatibility)
+        if (!Object.keys(recipient).length && server.receiverAddressByNetwork) {
+            const map = server.receiverAddressByNetwork ?? {};
+            for (const [net, addr] of Object.entries(map)) {
+                if (addr) recipient[net as Network] = String(addr);
+            }
+        }
+        
         // If there are no recipients configured, monetization cannot be applied
         if (!Object.keys(recipient).length) return null;
 
-        // Build prices per tool using the first provided Price entry
+        // Build prices per tool - now pricing is a simple string like "$0.01"
         const prices: Record<string, Price> = {};
         for (const t of tools) {
-            const pricing = (t.pricing as Price[] | null) || [];
-            const selected = pricing[0];
-            if (selected === undefined || selected === null) continue;
-            prices[t.name as string] = selected;
+            const pricing = t.pricing;
+            if (typeof pricing === 'string' && pricing.startsWith('$')) {
+                // Convert string price like "$0.01" to a Price object
+                // For now, we'll create a simple price structure
+                prices[t.name as string] = pricing as any; // The x402 system should handle string prices
+            }
         }
 
         return { prices, recipient };
@@ -159,8 +99,8 @@ async function buildMonetizationForTarget(targetUrl: string): Promise<{
     }
 }
 
-// Boot the store at startup
-void loadStore();
+// Initialize Redis store at startup
+void initializeStore();
 
 const app = new Hono();
 app.use("*", cors());
@@ -182,31 +122,54 @@ app.post("/register", async (c) => {
         mcpOrigin,
         requireAuth: (body as any).requireAuth === true,
         authHeaders: (body as any).authHeaders ?? {},
+        // Support both old and new recipient formats for backwards compatibility
         receiverAddressByNetwork: (body as any).receiverAddressByNetwork ?? {},
+        recipient: (body as any).recipient ?? undefined,
         tools: Array.isArray((body as any).tools) ? (body as any).tools : [],
+        metadata: (body as Record<string, unknown>).metadata ?? {},
     } as StoredServerConfig;
 
-    const saved = upsertServerConfig(input as StoredServerConfig);
-    return c.json({ ok: true, id: saved.id });
+    try {
+        const saved = await redisStore.upsertServerConfig(input as StoredServerConfig);
+        return c.json({ ok: true, id: saved.id });
+    } catch (error) {
+        console.error(`[${new Date().toISOString()}] Error registering server:`, error);
+        return c.json({ error: "failed_to_save" }, 500);
+    }
 });
 
 // Admin: list or fetch stored servers
 app.get("/servers", async (c) => {
-    const list = Object.values(store.serversById).map((s) => ({ id: s.id, mcpOrigin: s.mcpOrigin }));
-    return c.json({ servers: list });
+    try {
+        const list = await redisStore.getAllServers();
+        return c.json({ servers: list });
+    } catch (error) {
+        console.error(`[${new Date().toISOString()}] Error listing servers:`, error);
+        return c.json({ error: "failed_to_list" }, 500);
+    }
 });
 
-app.get("/servers/:id", async (c) => {
-    const id = c.req.param("id");
-    const s = id ? getServerById(id) : null;
-    if (!s) return c.json({ error: "not_found" }, 404);
-    return c.json(s);
-});
+// app.get("/servers/:id", async (c) => {
+//     const id = c.req.param("id");
+//     try {
+//         const s = id ? await redisStore.getServerById(id) : null;
+//         if (!s) return c.json({ error: "not_found" }, 404);
+
+//         // Hide mcpOrigin and authHeaders
+//         const { mcpOrigin, authHeaders, ...rest } = s;
+//         return c.json(rest);
+//     } catch (error) {
+//         console.error(`[${new Date().toISOString()}] Error getting server:`, error);
+//         return c.json({ error: "failed_to_get" }, 500);
+//     }
+// });
 
 // Proxy endpoint: /mcp?id=<ID>
 app.all("/mcp", async (c) => {
+    console.log(`[${new Date().toISOString()}] Handling request to ${c.req.url}`);
     const original = c.req.raw;
     const targetUrl = await resolveTargetUrl(original);
+    console.log(`[${new Date().toISOString()}] Target URL: ${targetUrl}`);
 
     let prices: Record<string, Price> = {};
     let recipient: Partial<Record<Network, string>> | { evm: RecipientWithTestnet } = {
@@ -245,7 +208,7 @@ app.all("/mcp", async (c) => {
         new AuthHeadersHook(async (_req, extra) => {
             const serverId = extra.serverId;
             if (!serverId) return null;
-            const mcpConfig = getServerById(serverId);
+            const mcpConfig = await redisStore.getServerById(serverId);
             if (!mcpConfig?.authHeaders || mcpConfig.requireAuth !== true) return null;
             const result: Record<string, string> = {};
             for (const [key, value] of Object.entries(mcpConfig.authHeaders)) {
@@ -260,5 +223,6 @@ app.all("/mcp", async (c) => {
 
 export default {
     app,
+    port: 3035,
     fetch: app.fetch,
 }
