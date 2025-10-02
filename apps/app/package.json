@@ -31,6 +31,7 @@
     "@radix-ui/react-slot": "^1.2.3",
     "@radix-ui/react-tabs": "^1.1.12",
     "@radix-ui/react-tooltip": "^1.2.7",
+    "@tailwindcss/postcss": "^4.1.14",
     "@vercel/analytics": "^1.5.0",
     "@vercel/kv": "^3.0.0",
     "ai": "5.0.0-beta.20",
@@ -61,14 +62,14 @@
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
+    "@playwright/test": "^1.47.2",
     "@types/node": "^22.15.29",
     "@types/pg": "^8.15.2",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@types/react-syntax-highlighter": "^15.5.13",
     "drizzle-kit": "^0.31.1",
     "tsx": "^4.19.4",
-    "typescript": "^5.8.3",
-    "@types/react-syntax-highlighter": "^15.5.13",
-    "@playwright/test": "^1.47.2"
+    "typescript": "^5.8.3"
   }
 }

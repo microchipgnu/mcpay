@@ -1,5 +1,5 @@
-import { withProxy } from "@/lib/gateway/proxy";
-import { LoggingHook } from "@/lib/gateway/proxy/hooks/logging-hook";
+import { withProxy } from "mcpay/handler";
+import { LoggingHook } from "mcpay/handler";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { handle } from "hono/vercel";
