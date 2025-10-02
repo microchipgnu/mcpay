@@ -14,7 +14,8 @@
     "db:studio": "drizzle-kit studio",
     "migrate": "node scripts/drizzle-migrate.cjs",
     "account:generate": "tsx scripts/gen-accounts.ts",
-    "account:add-managed": "tsx scripts/add-managed-and-fund.ts"
+    "account:add-managed": "tsx scripts/add-managed-and-fund.ts",
+    "servers:list": "tsx scripts/get-list-of-servers.ts"
   },
   "dependencies": {
     "@coinbase/cdp-sdk": "^1.26.0",

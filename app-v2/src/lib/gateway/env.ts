@@ -52,6 +52,9 @@ const envSchema = z.object({
 
   // Port configuration
   PORT: z.string().default('3000').transform((val) => parseInt(val, 10)),
+
+  // MCP2 Configuration
+  MCP2_URL: z.url().default('http://localhost:3035/mcp'),
 });
 
 // Parse and validate environment variables

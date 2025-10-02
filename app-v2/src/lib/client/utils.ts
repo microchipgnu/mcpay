@@ -4,6 +4,7 @@ import { type ApiError } from "@/types/api"
 import { McpServerWithStats, ServerCreateData, ServerRegistrationData, ServerSummaryAnalytics, DailyServerAnalytics, ComprehenstiveAnalytics } from "@/types/mcp"
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
+import env from "@/lib/gateway/env";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -56,7 +57,7 @@ export const urlUtils = {
   },
 
   getMcp2Url: () => {
-    return `${window.location.origin}/v1/mcp2`
+    return env.MCP2_URL;
   },
 
   // Generate MCP server URL
