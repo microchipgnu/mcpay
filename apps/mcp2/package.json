@@ -12,6 +12,7 @@
     "dotenv": "^17.2.3",
     "hono": "^4.9.9",
     "mcpay": "workspace:*",
+    "x402": "^0.6.5",
     "zod": "^4.1.11"
   },
   "devDependencies": {
