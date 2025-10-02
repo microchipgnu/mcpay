@@ -1,5 +1,5 @@
 @import 'highlight.js/styles/github.css' screen and (prefers-color-scheme: light);
-@import 'highlight.js/styles/github-gist.css' screen and (prefers-color-scheme: dark);
+@import 'highlight.js/styles/github-dark.css' screen and (prefers-color-scheme: dark);
 
 @import "tailwindcss";
 @import "tw-animate-css";
@@ -44,6 +44,11 @@
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
+  /* inline gray tokens for scrollbar usage */
+  --color-gray-200: var(--gray-200);
+  --color-gray-400: var(--gray-400);
+  --color-gray-600: var(--gray-600);
+  --color-gray-800: var(--gray-800);
 }
 
 :root {
@@ -66,6 +71,11 @@
   --border: oklch(0.93 0.01 256);
   --input: oklch(0.922 0 0);
   --ring: oklch(0.708 0 0);
+  /* gray palette tokens */
+  --gray-200: #e5e7eb;
+  --gray-400: #9ca3af;
+  --gray-600: #4b5563;
+  --gray-800: #1f2937;
   --chart-1: oklch(0.646 0.222 41.116);
   --chart-2: oklch(0.6 0.118 184.704);
   --chart-3: oklch(0.398 0.07 227.392);
@@ -127,27 +137,27 @@
     width: 8px;
   }
   ::-webkit-scrollbar-track {
-    background-color: theme('colors.gray.200');
+    background-color: var(--color-gray-200);
   }
   ::-webkit-scrollbar-thumb {
-    background-color: theme('colors.gray.400');
+    background-color: var(--color-gray-400);
     border-radius: 4px;
   }
   /* Dark‑mode overrides */
   .dark ::-webkit-scrollbar-track {
-    background-color: theme('colors.gray.800');
+    background-color: var(--color-gray-800);
   }
   .dark ::-webkit-scrollbar-thumb {
-    background-color: theme('colors.gray.600');
+    background-color: var(--color-gray-600);
   }
 
   /* Firefox */
   * {
     scrollbar-width: thin;
-    scrollbar-color: theme('colors.gray.400') theme('colors.gray.200');
+    scrollbar-color: var(--color-gray-400) var(--color-gray-200);
   }
   .dark * {
-    scrollbar-color: theme('colors.gray.600') theme('colors.gray.800');
+    scrollbar-color: var(--color-gray-600) var(--color-gray-800);
   }
 
   .font-host {
