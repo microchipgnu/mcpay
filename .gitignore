@@ -16,6 +16,7 @@
 # next.js
 /.next/
 /out/
+apps/*/.next/
 
 # production
 /build
@@ -40,10 +41,14 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# Playwright / test artifacts (app)
-app/tests/e2e/artifacts/
-app/playwright-report/
-app/test-results/
+# Playwright / test artifacts (apps)
+apps/*/tests/e2e/artifacts/
+apps/*/playwright-report/
+apps/*/test-results/
 # Next build output used by tests
-app/.next/
+apps/*/.next/
 tests/e2e/artifacts/
+
+# build output
+packages/*/dist/
+.turbo/
