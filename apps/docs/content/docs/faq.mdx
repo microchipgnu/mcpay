@@ -1,0 +1,158 @@
+---
+title: "FAQ"
+description: "Common questions about MCPay, x402, and paid MCP/HTTP tools"
+---
+
+## General
+
+**What is MCPay?**  
+MCPay is a **payment layer for MCP and HTTP servers**. It implements the [x402 protocol](https://x402.org), which lets any client (human app or AI agent) call a tool, get payment requirements with price metadata, pay on-chain, and retry automatically.
+
+**Do I have to use MCP?**  
+Yes.
+
+**Who is MCPay for?**  
+- **Providers** who want to **monetize per-call access** to their APIs/tools.  
+- **Agents/Integrators** who need **programmatic, per-request payments** without API keys or subscriptions.  
+- **Builders** who want the **fastest path** to ship a paid MCP server.
+
+**What’s the MCPay Registry?**  
+A public catalog of MCP servers and their priced tools. It shows metadata, usage stats, and integration snippets. Browse at [Servers](/servers).
+
+**What is MCPay Build?**  
+A builder tool that lets you **define tools, preview them live, set prices, and one-click deploy** to GitHub + Vercel. Under the hood it runs on an MCP server.  
+- Builder UI: [mcpay.tech/build](https://mcpay.tech/build)  
+- Example Build server: [mcpay.tech/servers/23e2ab26-7808-4984-855c-ec6a7dc97c3a](https://mcpay.tech/servers/23e2ab26-7808-4984-855c-ec6a7dc97c3a)
+
+---
+
+## How it works
+
+**What is x402 and the 402 flow?**  
+1. Client calls a protected route/tool.  
+2. Service responds with `402` and metadata (`asset, amount, destination, memo, expiry`).  
+3. Client (or MCPay proxy/SDK) **pays on-chain**.  
+4. Request is retried with payment proof.  
+5. Response succeeds.  
+
+**Is this “Stripe for agents”?**  
+It has a similar goal — enabling monetization — but different mechanics: no API keys, no subscriptions, no dashboards. It’s **pay-per-call at protocol level**, natively understood by agents.
+
+**Can humans also pay?**  
+Yes. If the request comes from a browser, wallet extensions or embedded wallets can complete the same 402 payment flow.
+
+---
+
+## Pricing & Business
+
+**What pricing models are supported?**  
+- **Flat per call** (default).  
+- **Tiered or per-tool** pricing.  
+- **Dynamic pricing** <span style={{ 
+    display: "inline-block", 
+    background: "#fff3e0", 
+    color: "#ff9800", 
+    fontWeight: 600, 
+    fontStyle: "italic", 
+    borderRadius: "4px", 
+    padding: "2px 8px", 
+    marginLeft: "6px", 
+    fontSize: "0.95em",
+    border: "1px solid #ff9800"
+}}>coming soon</span>
+
+**Does MCPay take a cut?**  
+No by default — payments are routed **directly to your wallet**. If you use managed wallets or optional hosted features, platform fees may apply.
+
+**Do you support revenue splits?**  
+Splits can be implemented by emitting multiple accepted destinations in 402 metadata, or handled off-chain. Native splits are on the roadmap. <span style={{ 
+    display: "inline-block", 
+    background: "#fff3e0", 
+    color: "#ff9800", 
+    fontWeight: 600, 
+    fontStyle: "italic", 
+    borderRadius: "4px", 
+    padding: "2px 8px", 
+    marginLeft: "6px", 
+    fontSize: "0.95em",
+    border: "1px solid #ff9800"
+}}>coming soon</span>
+
+---
+
+## Payments, Wallets & Chains
+
+import { SupportedEVMNetworks,  SupportedSVMNetworks } from "x402/types";
+
+**Which chains/tokens are supported?**  
+
+Stablecoins (like **USDC**) on all supported networks.  
+
+Currently supported EVM networks: {SupportedEVMNetworks.map((network, i) => (<span key={network}>{network}{i !== SupportedEVMNetworks.length - 1 ? ', ' : ''}</span>))}
+
+Solana and other SVM networks: {SupportedSVMNetworks.map((network, i) => (<span key={network}>{network}{i !== SupportedSVMNetworks.length - 1 ? ', ' : ''}</span>))}
+
+**What wallets can be used?**  
+- **EOAs** via private key (for dev/test).  
+- **CDP/embedded wallets** (better UX).  
+- **Browser wallets** for humans.  
+
+**How do I cap spend?**  
+Set `maxPaymentValue` in the SDK (denominated in base units, e.g. 6 decimals for USDC). This ensures per-call spend cannot exceed a limit.
+
+---
+
+## Security & Reliability
+
+**Do you store private keys?**  
+- In SDK mode, keys remain on your server/client.  
+- With managed wallets, keys stay with the wallet provider; MCPay only verifies proofs.
+
+**Rate limits & DoS?**  
+The proxy includes **basic rate limiting**, header scrubbing, and GET caching. Standard API security (WAF, throttling) is still recommended.
+
+---
+
+## SDK, CLI & DevEx
+
+**Which languages are supported?**  
+Official **TypeScript SDK + CLI**. Any language can integrate by handling `402` and sending back an `X-PAYMENT` proof.
+
+**How do I integrate quickly?**  
+With the CLI:  
+
+```bash
+npx mcpay server --urls https://mcpay.tech/mcp/<id> --private-key 0xYOUR_KEY
+```
+
+**How do I define paid tools in code?**
+
+Check the SDK [here](/quickstart/sdk)
+
+```ts
+import { createMcpPaidHandler } from "mcpay/handler"
+
+export const paidMcp = createMcpPaidHandler(
+  async (server) => {
+    server.paidTool(
+      "hello",
+      "say hello",
+      "$0.001",
+      {},
+      async () => ({ content: [{ type: "text", text: "Hello, world!" }] })
+    )
+  },
+  {
+    recipient: { evm: { address: "0xYOUR_ADDRESS" } }
+  }
+)
+
+```
+
+---
+
+## Legal
+
+**Are you affiliated with the APIs I wrap?**
+
+No. MCPay is an integration layer. Wrapped APIs remain independent and subject to their own terms.
