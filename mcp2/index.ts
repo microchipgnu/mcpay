@@ -125,13 +125,6 @@ async function resolveTargetUrl(req: Request): Promise<string | null> {
     return null;
 }
 
-function pickPreferredNetwork(networks: Set<string>): string | undefined {
-    const preference = ["base", "base-sepolia", "sei-testnet", "avalanche", "avalanche-fuji", "iotex"];
-    for (const n of preference) if (networks.has(n)) return n;
-    const first = networks.values().next();
-    return first.done ? undefined : first.value;
-}
-
 async function buildMonetizationForTarget(targetUrl: string): Promise<{
     prices: Record<string, Price>;
     recipient: Partial<Record<Network, string>>;
@@ -246,7 +239,7 @@ app.all("/mcp", async (c) => {
             recipient: recipient,
             prices,
             facilitator: {
-                url: "https://facilitator.x402.rs",
+                url: "https://facilitator.mcpay.tech",
             },
         }),
         new AuthHeadersHook(async (_req, extra) => {

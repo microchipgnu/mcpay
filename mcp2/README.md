@@ -1,4 +1,6 @@
-# mcp2
+# mcp2 (mcpa2.mcpay.tech)
+
+MCP2 is a x402 monetization wrapper for MCP servers with the goal of enabling non-monetized servers to create one or more links with different monetization strategies.
 
 To install dependencies:
 
