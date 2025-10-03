@@ -9,5 +9,3 @@
   "updateInternalDependencies": "patch",
   "ignore": ["@mcpay/app", "@mcpay/mcp2", "docs"]
 }
-
-

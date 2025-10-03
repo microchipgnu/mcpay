@@ -4,12 +4,14 @@
   "type": "module",
   "scripts": {
     "migrate:upstash": "tsx scripts/migrate-to-upstash.ts",
-    "start": "tsx src/index.ts"
+    "start": "tsx src/index.ts",
+    "dev": "tsx src/index.ts"
   },
   "dependencies": {
     "@upstash/redis": "^1.34.0",
     "ai": "5.0.0-beta.20",
     "dotenv": "^17.2.3",
+    "get-port": "^7.1.0",
     "hono": "^4.9.9",
     "mcpay": "workspace:*",
     "x402": "^0.6.5",

@@ -4,6 +4,7 @@ import { AuthHeadersHook, LoggingHook, withProxy, X402MonetizationHook } from "m
 import type { Network, Price } from "x402/types";
 import { redisStore, type StoredServerConfig } from "./db/redis.js";
 import { config } from 'dotenv';
+import getPort from "get-port";
 
 config();
 
@@ -221,8 +222,11 @@ app.all("/mcp", async (c) => {
     return proxy(reqForProxy);
 });
 
+const portPromise = getPort({ port: process.env.PORT ? Number(process.env.PORT) : 3035 });
+const port = await portPromise;
+
 export default {
     app,
-    port: 3035,
+    port: port,
     fetch: app.fetch,
 }
