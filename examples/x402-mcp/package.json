@@ -1,5 +1,5 @@
 {
-  "name": "@examples/x402-mcp-micro",
+  "name": "x402-mcp",
   "module": "index.ts",
   "type": "module",
   "private": true,
@@ -13,7 +13,7 @@
   },
   "dependencies": {
     "@coinbase/x402": "^0.6.3",
-    "@modelcontextprotocol/sdk": "^1.18.1",
+    "@modelcontextprotocol/sdk": "^1.18.2",
     "ai": "^5.0.40",
     "hono": "^4.9.6",
     "mcp-handler": "^1.0.2",
