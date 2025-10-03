@@ -1,4 +1,4 @@
-import type { ExtendedPaymentRequirements } from "@/types/x402";
+import type { PaymentRequirements } from "x402/types";
 
 export interface PaymentSigningContext {
   toolCall: {
@@ -18,7 +18,7 @@ export interface PaymentSigningContext {
     name?: string;
     displayName?: string;
   };
-  paymentRequirements: ExtendedPaymentRequirements[];
+  paymentRequirements: PaymentRequirements[];
 }
 
 export interface PaymentSigningResult {

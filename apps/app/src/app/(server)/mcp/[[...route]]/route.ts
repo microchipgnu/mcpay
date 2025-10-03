@@ -50,7 +50,8 @@ import { settleResponseHeader } from "x402/types";
 import { decodePayment as decodeX402Payment } from "x402/schemes";
 import { findMatchingPaymentRequirements } from "x402/shared";
 import type { PaymentPayload, PaymentRequirements, Network, Resource } from "x402/types";
-import { useFacilitator } from "x402/verify";
+// useFacilitator is not a React hook; alias to avoid hooks rule confusion in server file
+import { useFacilitator as createFacilitatorClient } from "x402/verify";
 import { getFacilitatorUrl } from "@/lib/gateway/env";
 
 export const runtime = 'nodejs'
@@ -1149,9 +1150,10 @@ async function processPayment(params: {
         try {
             const decodedPayment = decodeX402Payment(paymentHeader);
             // Extract the payer address from decoded payment (EVM authorization only)
-            const payloadAny = decodedPayment.payload as any;
-            if (payloadAny && payloadAny.authorization && typeof payloadAny.authorization.from === 'string') {
-                payerAddress = payloadAny.authorization.from;
+            const payload = decodedPayment.payload as PaymentPayload["payload"];
+            const maybeAuth: unknown = (payload as unknown as { authorization?: { from?: unknown } })?.authorization;
+            if (maybeAuth && typeof (maybeAuth as { from?: unknown }).from === 'string') {
+                payerAddress = (maybeAuth as { from: string }).from;
             }
             console.log(`[${new Date().toISOString()}] Extracted payer address from payment: ${payerAddress}`);
 
@@ -1199,7 +1201,7 @@ async function processPayment(params: {
         });
     }
 
-    const { verify } = useFacilitator({ url: getFacilitatorUrl(selected.network) as Resource });
+    const { verify } = createFacilitatorClient({ url: getFacilitatorUrl(selected.network) as Resource });
     const vr = await verify(decodedPayment, selected);
     if (!vr.isValid) {
         c.status(402);
@@ -1241,7 +1243,7 @@ async function processPayment(params: {
 
         let settleResponse;
         try {
-            const { settle } = useFacilitator({ url: getFacilitatorUrl(paymentRequirement.network) as Resource });
+            const { settle } = createFacilitatorClient({ url: getFacilitatorUrl(paymentRequirement.network) as Resource });
             settleResponse = await settle(decodedPayment, paymentRequirement);
             console.log(`[${new Date().toISOString()}] Settlement successful: ${JSON.stringify(settleResponse, null, 2)}`);
         } catch (settleError) {
