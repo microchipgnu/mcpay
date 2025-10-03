@@ -11,7 +11,7 @@ export const getClient = async () => {
 
   const EVM_PRIVATE_KEY = process.env.EVM_PRIVATE_KEY as string;
   const SOLANA_PRIVATE_KEY = process.env.SOLANA_PRIVATE_KEY as string;
-  const MCP_SERVER_URL = "http://localhost:3000/mcp"
+  const MCP_SERVER_URL = "http://localhost:3010/mcp"
 
   const transport = new StreamableHTTPClientTransport(new URL(MCP_SERVER_URL));
 

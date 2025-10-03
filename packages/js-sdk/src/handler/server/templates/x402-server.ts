@@ -1,7 +1,7 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import createMcpHandlerWithPlugins, { makePlugins, type ServerOptions as BaseServerOptions } from "../index";
-import { withX402 } from "../plugins/with-x402";
-import type { X402AugmentedServer, X402Config } from "../plugins/with-x402";
+import createMcpHandlerWithPlugins, { makePlugins, type ServerOptions as BaseServerOptions } from "../index.js";
+import { withX402 } from "../plugins/with-x402.js";
+import type { X402AugmentedServer, X402Config } from "../plugins/with-x402.js";
 
 type HandlerConfig = Parameters<typeof createMcpHandlerWithPlugins>[2];
 export type PaidServerOptions = Omit<BaseServerOptions, "plugins">;
@@ -30,7 +30,7 @@ export function createMcpPaidHandler(
   );
 }
 
-export type { X402Config, X402AugmentedServer, RecipientWithTestnet } from "../plugins/with-x402";
+export type { X402Config, X402AugmentedServer, RecipientWithTestnet } from "../plugins/with-x402.js";
 
 
 

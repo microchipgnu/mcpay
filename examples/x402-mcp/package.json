@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@coinbase/x402": "^0.6.3",
+    "@hono/node-server": "^1.19.5",
     "@modelcontextprotocol/sdk": "^1.18.2",
     "ai": "^5.0.40",
     "hono": "^4.9.6",
@@ -20,8 +21,7 @@
     "mcpay": "workspace:*",
     "x402": "^0.6.5",
     "zod": "3.25.76"
-  }
-  ,
+  },
   "devDependencies": {
     "@types/node": "^20.11.17",
     "tsx": "^4.19.4",

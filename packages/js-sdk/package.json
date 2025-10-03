@@ -1,7 +1,8 @@
 {
   "name": "mcpay",
-  "version": "0.1.7-beta.2",
+  "version": "0.1.7-beta.5",
   "description": "SDK and CLI for MCPay functionality - MCP servers with payment capabilities",
+  "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "bin": {
@@ -23,7 +24,7 @@
       "default": "./dist/utils.js"
     },
     "./server": {
-      "types": "./dist/server.d.ts", 
+      "types": "./dist/server.d.ts",
       "default": "./dist/server.js"
     },
     "./handler": {
@@ -49,7 +50,8 @@
   "author": "",
   "license": "MIT",
   "publishConfig": {
-    "access": "public"
+    "access": "public",
+    "tag": "beta"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",

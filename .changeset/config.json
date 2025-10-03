@@ -5,9 +5,9 @@
   "fixed": [],
   "linked": [],
   "access": "public",
-  "baseBranch": "main",
+  "baseBranch": "monorepo",
   "updateInternalDependencies": "patch",
-  "ignore": ["@mcpay/app", "@mcpay/app-v2", "@mcpay/mcp2"]
+  "ignore": ["@mcpay/app", "@mcpay/mcp2", "docs"]
 }
 
 

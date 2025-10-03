@@ -1,12 +1,13 @@
+import { serve } from "@hono/node-server";
 import { Hono } from "hono";
 import { createMcpPaidHandler } from "mcpay/handler";
 import { z } from "zod";
 
 const app = new Hono();
 
+
 const handler = createMcpPaidHandler(
     (server) => {
-
         server.paidTool(
             "weather",
             "Paid tool",
@@ -47,11 +48,11 @@ const handler = createMcpPaidHandler(
     }
 );
 
-
 app.use("*", (c) => handler(c.req.raw));
 
-export default {
-    app,
+serve({
     fetch: app.fetch,
     port: 3010,
-}
+});
+
+console.log("Server is running on port http://localhost:3010");
