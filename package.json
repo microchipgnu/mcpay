@@ -15,7 +15,17 @@
     "test": "turbo run test",
     "e2e": "turbo run e2e",
     "changeset": "changeset",
-    "release": "changeset version && pnpm -r install --no-frozen-lockfile && changeset publish"
+    "release": "changeset version && pnpm -r install --no-frozen-lockfile && changeset publish",
+    "release:beta:enter": "changeset pre enter beta",
+    "release:beta:add": "changeset add --empty --summary 'Beta prerelease for mcpay' --packages mcpay",
+    "release:beta:version": "changeset version && pnpm -r install --no-frozen-lockfile",
+    "release:beta:publish": "changeset publish",
+    "release:beta": "pnpm release:beta:enter && pnpm release:beta:add && pnpm release:beta:version && pnpm release:beta:publish",
+    "release:exit-pre": "changeset pre exit",
+    "release:stable:add": "changeset add --empty --summary 'Stable release for mcpay' --packages mcpay",
+    "release:stable:version": "changeset version && pnpm -r install --no-frozen-lockfile",
+    "release:stable:publish": "changeset publish",
+    "release:stable": "pnpm release:exit-pre && pnpm release:stable:add && pnpm release:stable:version && pnpm release:stable:publish"
   },
   "devDependencies": {
     "@changesets/cli": "^2.27.10",

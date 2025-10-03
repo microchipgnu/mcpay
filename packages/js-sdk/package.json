@@ -1,6 +1,6 @@
 {
   "name": "mcpay",
-  "version": "0.1.7-beta.5",
+  "version": "0.1.7-beta.6",
   "description": "SDK and CLI for MCPay functionality - MCP servers with payment capabilities",
   "type": "module",
   "main": "dist/index.js",
@@ -36,7 +36,9 @@
     "build": "tsc",
     "dev": "tsc --watch",
     "clean": "rm -rf dist",
-    "prepublishOnly": "npm run clean && npm run build"
+    "prepublishOnly": "npm run clean && npm run build",
+    "release:beta": "pnpm -C ../.. release:beta",
+    "release:stable": "pnpm -C ../.. release:stable"
   },
   "keywords": [
     "mcpay",

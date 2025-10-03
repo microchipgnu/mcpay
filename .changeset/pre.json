@@ -4,9 +4,10 @@
   "initialVersions": {
     "@mcpay/app": "0.1.0",
     "docs": "0.0.0",
-    "mcpay": "0.1.7-beta.4"
+    "mcpay": "0.1.7-beta.6"
   },
   "changesets": [
+    "free-tigers-switch",
     "neat-symbols-accept",
     "ready-cobras-attend"
   ]
