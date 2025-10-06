@@ -1,0 +1,30 @@
+{
+  "name": "@mcpay/auth",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "tsx src/index.ts",
+    "dev": "tsx src/index.ts",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:studio": "drizzle-kit studio"
+  },
+  "dependencies": {
+    "@hono/node-server": "^1.19.5",
+    "better-auth": "^1.2.12",
+    "better-sqlite3": "^12.4.1",
+    "dotenv": "^17.2.3",
+    "drizzle-orm": "^0.44.1",
+    "get-port": "^7.1.0",
+    "hono": "^4.9.9",
+    "zod": "^4.1.11",
+    "mcpay": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/node": "^20.11.17",
+    "drizzle-kit": "^0.31.1",
+    "tsx": "^4.7.1",
+    "typescript": "^5.8.3"
+  }
+}
