@@ -7,6 +7,8 @@ import { getPort, getTrustedOrigins, isDevelopment } from "./env.js";
 import { withProxy } from "mcpay/handler";
 import { LoggingHook } from "mcpay/handler";
 import { oAuthDiscoveryMetadata, oAuthProtectedResourceMetadata, withMcpAuth } from "better-auth/plugins";
+import { CONNECT_HTML } from "./ui/connect.js";
+import { USER_HTML } from "./ui/user.js";
 
 dotenv.config();
 
@@ -137,42 +139,15 @@ app.get("/connect", async (c) => {
     }
 
     // Render a minimal page that initiates social sign-in on the client
-    return c.html(`
-<!doctype html>
-<html lang="en">
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Sign In</title>
-  <body>
-    <h1>Sign In</h1>
-    <p>Please sign in to authorize the application.</p>
-    <button id="gh">Sign in with GitHub</button>
-    <script type="module">
-      const callbackURL = window.location.href;
-      const authBaseURL = window.location.origin + '/api/auth';
-      async function startSignIn() {
-        try {
-          const { createAuthClient } = await import('https://esm.sh/better-auth@1.3.26/client');
-          const { genericOAuthClient } = await import('https://esm.sh/better-auth@1.3.26/client/plugins');
-          const authClient = createAuthClient({
-            baseURL: authBaseURL,
-            fetchOptions: { credentials: 'include' },
-            plugins: [genericOAuthClient()],
-          });
-          await authClient.signIn.social({ provider: 'github', callbackURL });
-        } catch (err) {
-          console.error('Sign-in failed', err);
-          alert('Failed to start sign-in. Check console for details.');
-        }
-      }
-      document.getElementById('gh')?.addEventListener('click', (e) => {
-        e.preventDefault();
-        startSignIn();
-      });
-    </script>
-  </body>
-</html>
-    `);
+    return c.html(
+        CONNECT_HTML
+    );
+});
+
+app.get("/", async (c) => {
+    return c.html(
+        USER_HTML
+    );
 });
 
 app.all("/mcp/*", async (c) => {
