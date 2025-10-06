@@ -8,9 +8,10 @@ async function resolveTargetUrl(req: Request): Promise<string | null> {
 
     if (directUrlEncoded) {
         try {
+
             // The value is base64-encoded, so decode it
             // decodeURIComponent in case it was URL-encoded as well
-            const decoded = atob(decodeURIComponent(directUrlEncoded));
+            const decoded = decodeURIComponent(atob(directUrlEncoded));
             return decoded;
         } catch (e) {
             // If decoding fails, treat as invalid and fall through
@@ -27,6 +28,16 @@ function jsonResponse(obj: unknown, status = 200): Response {
     });
 }
 
+function wrapUpstreamResponse(upstream: Response): Response {
+    // Clone headers to avoid immutable header guards on upstream responses
+    const headers = new Headers(upstream.headers);
+    return new Response(upstream.body, {
+        status: upstream.status,
+        statusText: upstream.statusText,
+        headers,
+    });
+}
+
 export function withProxy(hooks: Hook[]) {
     return async (req: Request): Promise<Response> => {
         const targetUrl = await resolveTargetUrl(req);
@@ -35,24 +46,26 @@ export function withProxy(hooks: Hook[]) {
         }
 
         if (!req.headers.get("content-type")?.includes("json")) {
-            return fetch(targetUrl, {
+            const upstream = await fetch(targetUrl, {
                 method: req.method,
                 headers: req.headers,
                 body: req.body,
                 duplex: 'half'
             } as RequestInit);
+            return wrapUpstreamResponse(upstream);
         }
 
         const body = await req.clone().json().catch((err) => {
             return null;
         });
         if (!body || Array.isArray(body)) {
-            return fetch(targetUrl, {
+            const upstream = await fetch(targetUrl, {
                 method: req.method,
                 headers: req.headers,
                 body: req.body,
                 duplex: 'half'
             } as RequestInit);
+            return wrapUpstreamResponse(upstream);
         }
 
         // Check if this is a tools/call request according to MCP standard
@@ -60,11 +73,12 @@ export function withProxy(hooks: Hook[]) {
 
         // Only process tool calls through hooks
         if (!isToolCall) {
-            return fetch(targetUrl, {
+            const upstream = await fetch(targetUrl, {
                 method: req.method,
                 headers: req.headers,
                 body: JSON.stringify(body)
             });
+            return wrapUpstreamResponse(upstream);
         }
 
         const url = new URL(req.url);
@@ -147,9 +161,9 @@ export function withProxy(hooks: Hook[]) {
                 }
             } catch (e) {
                 return new Response(text, {
-                    status: upstream.status,
-                    statusText: upstream.statusText,
-                    headers: upstream.headers,
+                status: upstream.status,
+                statusText: upstream.statusText,
+                headers: new Headers(upstream.headers),
                 });
             }
         } else if (isJson) {
@@ -158,16 +172,16 @@ export function withProxy(hooks: Hook[]) {
             } catch (e) {
                 const text = await upstream.text().catch(() => "");
                 return new Response(text, {
-                    status: upstream.status,
-                    statusText: upstream.statusText,
-                    headers: upstream.headers,
+                status: upstream.status,
+                statusText: upstream.statusText,
+                headers: new Headers(upstream.headers),
                 });
             }
         } else {
             return new Response(upstream.body, {
                 status: upstream.status,
                 statusText: upstream.statusText,
-                headers: upstream.headers,
+                headers: new Headers(upstream.headers),
             });
         }
 

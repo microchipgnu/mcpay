@@ -5,7 +5,7 @@
   "scripts": {
     "migrate:upstash": "tsx scripts/migrate-to-upstash.ts",
     "start": "tsx src/index.ts",
-    "dev": "tsx src/index.ts"
+    "dev": "tsx --watch src/index.ts"
   },
   "dependencies": {
     "@upstash/redis": "^1.34.0",

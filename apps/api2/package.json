@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "start": "tsx src/index.ts",
-    "dev": "tsx src/index.ts"
+    "dev": "tsx --watch src/index.ts"
   },
   "dependencies": {
     "@hono/node-server": "^1.19.1",
