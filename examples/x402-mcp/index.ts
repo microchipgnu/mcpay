@@ -32,7 +32,7 @@ const handler = createMcpPaidHandler(
     },
     {
         facilitator: {
-            url: "https://facilitator.mcpay.tech"
+            url: "https://facilitator.x402.rs"
         },
         recipient: {
             "evm": {address: "0xc9343113c791cB5108112CFADa453Eef89a2E2A2", isTestnet: true},

@@ -5,7 +5,8 @@ import { auth } from "./lib/auth.js";
 import dotenv from "dotenv";
 import { getPort, getTrustedOrigins, isDevelopment } from "./env.js";
 import { withProxy } from "mcpay/handler";
-import { LoggingHook } from "mcpay/handler";
+import { AuthHeadersHook, LoggingHook } from "mcpay/handler";
+import { X402WalletHook } from "./lib/proxy/hooks/x402-wallet-hook.js";
 import { oAuthDiscoveryMetadata, oAuthProtectedResourceMetadata, withMcpAuth } from "better-auth/plugins";
 import { CONNECT_HTML } from "./ui/connect.js";
 import { USER_HTML } from "./ui/user.js";
@@ -15,21 +16,19 @@ dotenv.config();
 const TRUSTED_ORIGINS = getTrustedOrigins();
 const isDev = isDevelopment();
 const DEFAULT_DEV_ORIGINS = [
-    "http://localhost:3000",
+    "http://localhost:*",
     "http://127.0.0.1:3000",
     "http://localhost:3050",
     "http://127.0.0.1:3050",
     "http://localhost:5173",
     "http://127.0.0.1:5173",
+    "http://localhost:6274"
 ];
 const ALLOWED_ORIGINS = new Set([
     ...(isDev ? DEFAULT_DEV_ORIGINS : []),
     ...TRUSTED_ORIGINS,
 ]);
 
-const withMcpProxy = withProxy([
-    new LoggingHook(),
-]);
 
 const app = new Hono();
 
@@ -46,7 +45,7 @@ app.use("*", cors({
                 if (url.hostname === "localhost" || url.hostname === "127.0.0.1") {
                     return origin;
                 }
-            } catch {}
+            } catch { }
         }
         return "";
     },
@@ -151,7 +150,16 @@ app.get("/", async (c) => {
 });
 
 app.all("/mcp/*", async (c) => {
-    const handler = withMcpAuth(auth, (req, session) => withMcpProxy(req));
+
+    const withMcpProxy = withProxy([
+        new LoggingHook(),
+        new X402WalletHook(),
+    ]);
+
+    const handler = withMcpAuth(auth, (req, session) => {
+        return withMcpProxy(req);
+    });
+
     return handler(c.req.raw);
 });
 

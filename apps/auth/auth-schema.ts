@@ -148,3 +148,28 @@ export const oauthConsent = sqliteTable("oauth_consent", {
   updatedAt: integer("updated_at", { mode: "timestamp_ms" }),
   consentGiven: integer("consent_given", { mode: "boolean" }),
 });
+
+export const userWallets = sqliteTable("user_wallets", {
+  id: text("id").primaryKey(),
+  userId: text("user_id")
+    .notNull()
+    .references(() => user.id, { onDelete: "cascade" }),
+  walletAddress: text("wallet_address").notNull(),
+  walletType: text("wallet_type").notNull(), // 'external', 'managed', 'custodial'
+  provider: text("provider"), // e.g. 'metamask', 'coinbase-cdp', 'privy'
+  blockchain: text("blockchain"), // e.g. 'ethereum', 'solana', 'near'
+  architecture: text("architecture"), // e.g. 'evm', 'solana', 'near'
+  isPrimary: integer("is_primary", { mode: "boolean" }).default(false).notNull(),
+  isActive: integer("is_active", { mode: "boolean" }).default(true).notNull(),
+  walletMetadata: text("wallet_metadata"), // store serialized JSON metadata
+  externalWalletId: text("external_wallet_id"),
+  externalUserId: text("external_user_id"),
+  createdAt: integer("created_at", { mode: "timestamp_ms" })
+    .default(sql`(cast(unixepoch('subsecond') * 1000 as integer))`)
+    .notNull(),
+  updatedAt: integer("updated_at", { mode: "timestamp_ms" })
+    .default(sql`(cast(unixepoch('subsecond') * 1000 as integer))`)
+    .$onUpdate(() => /* @__PURE__ */ new Date())
+    .notNull(),
+  lastUsedAt: integer("last_used_at", { mode: "timestamp_ms" }),
+});

@@ -24,6 +24,7 @@ export type ToolCallRequestHookResult =
 
 export type ToolCallResponseHookResult =
     | { resultType: "continue"; response: CallToolResult }
+    | { resultType: "retry"; request: CallToolRequest }
     | { resultType: "abort"; reason: string; body?: unknown };
 
 export interface Hook {

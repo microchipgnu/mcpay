@@ -19,6 +19,30 @@ const envSchema = z.object({
   GITHUB_CLIENT_ID: z.string().min(1, "GITHUB_CLIENT_ID is required").default(""),
   GITHUB_CLIENT_SECRET: z.string().min(1, "GITHUB_CLIENT_SECRET is required").default(""),
 
+  // CDP Configuration
+  CDP_API_KEY: z.string().min(1, "CDP_API_KEY is required").default(""),
+  CDP_API_SECRET: z.string().min(1, "CDP_API_SECRET is required").default(""),
+  CDP_WALLET_SECRET: z.string().min(1, "CDP_WALLET_SECRET is required").default(""),
+
+  // Payment strategy configuration
+  PAYMENT_STRATEGY_ENABLED: z.boolean().default(true),
+  PAYMENT_STRATEGY_FALLBACK: z.enum(["fail", "continue", "log_only"]).default("continue"),
+  PAYMENT_STRATEGY_MAX_RETRIES: z.number().min(1).max(10).default(3),
+  PAYMENT_STRATEGY_TIMEOUT_MS: z.number().min(1000).max(120000).default(30000),
+  CDP_STRATEGY_ENABLED: z.boolean().default(true),
+  CDP_PREFER_SMART_ACCOUNTS: z.boolean().default(true),
+  CDP_STRATEGY_PRIORITY: z.number().min(0).max(1000).default(100),
+  PAYMENT_STRATEGY_LOG_LEVEL: z.enum(["debug", "info", "warn", "error"]).default("info"),
+  PAYMENT_STRATEGY_LOG_AUTH_DETAILS: z.boolean().default(false),
+
+  // Test strategy optional overrides (per-network)
+  TEST_EVM_PRIVATE_KEY: z.string().optional(),
+  TEST_EVM_ADDRESS: z.string().optional(),
+  TEST_SOLANA_SECRET_KEY: z.string().optional(),
+  TEST_SOLANA_ADDRESS: z.string().optional(),
+  TEST_NEAR_PRIVATE_KEY: z.string().optional(),
+  TEST_NEAR_ADDRESS: z.string().optional(),
+
   // Database (sqlite)
   SQLITE_DB_PATH: z.string().min(1).default("./sqlite.db"),
 });
@@ -80,6 +104,12 @@ export const validateEnvironment = () => {
     console.log("🔧 Running in development mode");
   }
 };
+
+export const getCDPConfig = () => ({
+  apiKey: env.CDP_API_KEY,
+  apiSecret: env.CDP_API_SECRET,
+  walletSecret: env.CDP_WALLET_SECRET,
+});
 
 export default env;
 

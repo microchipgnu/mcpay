@@ -114,142 +114,168 @@ export function withProxy(hooks: Hook[]) {
         }
 
         // Prepare upstream headers (start from inbound headers)
-        const forwardHeaders = new Headers(req.headers);
-        // Allow hooks to mutate upstream headers before forwarding
-        for (const h of hooks) {
-            if (h.prepareUpstreamHeaders) {
+        let attempts = 0;
+        const maxRetries = 1;
+        while (true) {
+            const forwardHeaders = new Headers(req.headers);
+            // Allow hooks to mutate upstream headers before forwarding
+            for (const h of hooks) {
+                if (h.prepareUpstreamHeaders) {
+                    try {
+                        await h.prepareUpstreamHeaders(forwardHeaders, currentReq, extra);
+                    } catch {
+                        // Ignore header hook errors to avoid blocking
+                    }
+                }
+            }
+
+            // send upstream
+            const upstream = await fetch(targetUrl, {
+                method: req.method,
+                headers: forwardHeaders,
+                // Preserve the original JSON-RPC envelope while forwarding modified params
+                body: JSON.stringify({
+                    ...originalRpc,
+                    // Ensure method stays as tools/call
+                    method: "tools/call",
+                    params: currentReq.params ?? (originalRpc["params"] as Record<string, unknown> | undefined)
+                }),
+            });
+
+            // Check if response is JSON or SSE before trying to parse
+            const contentType = upstream.headers.get("content-type") || "";
+            const isJson = contentType.includes("application/json");
+            const isStreaming = contentType.includes("text/event-stream");
+
+            // Unified parsing path: if SSE, collect and parse last data message; if JSON, parse JSON; else pass-through
+            let data: unknown;
+            if (isStreaming) {
+                const text = await upstream.text();
                 try {
-                    await h.prepareUpstreamHeaders(forwardHeaders, currentReq, extra);
-                } catch {
-                    // Ignore header hook errors to avoid blocking
+                    const dataLines = text
+                        .split('\n')
+                        .filter(line => line.startsWith('data: '))
+                        .map(line => line.substring(6));
+                    if (dataLines.length === 0) {
+                        data = JSON.parse(text);
+                    } else {
+                        const lastMessage = dataLines[dataLines.length - 1];
+                        data = JSON.parse(lastMessage);
+                    }
+                } catch (e) {
+                    return new Response(text, {
+                    status: upstream.status,
+                    statusText: upstream.statusText,
+                    headers: new Headers(upstream.headers),
+                    });
                 }
-            }
-        }
-
-        // send upstream
-        const upstream = await fetch(targetUrl, {
-            method: req.method,
-            headers: forwardHeaders,
-            // Preserve the original JSON-RPC envelope while forwarding modified params
-            body: JSON.stringify({
-                ...originalRpc,
-                // Ensure method stays as tools/call
-                method: "tools/call",
-                params: currentReq.params ?? (originalRpc["params"] as Record<string, unknown> | undefined)
-            }),
-        });
-
-        // Check if response is JSON or SSE before trying to parse
-        const contentType = upstream.headers.get("content-type") || "";
-        const isJson = contentType.includes("application/json");
-        const isStreaming = contentType.includes("text/event-stream");
-
-        // Unified parsing path: if SSE, collect and parse last data message; if JSON, parse JSON; else pass-through
-        let data: unknown;
-        if (isStreaming) {
-            const text = await upstream.text();
-            try {
-                const dataLines = text
-                    .split('\n')
-                    .filter(line => line.startsWith('data: '))
-                    .map(line => line.substring(6));
-                if (dataLines.length === 0) {
-                    data = JSON.parse(text);
-                } else {
-                    const lastMessage = dataLines[dataLines.length - 1];
-                    data = JSON.parse(lastMessage);
+            } else if (isJson) {
+                try {
+                    data = await upstream.json();
+                } catch (e) {
+                    const text = await upstream.text().catch(() => "");
+                    return new Response(text, {
+                    status: upstream.status,
+                    statusText: upstream.statusText,
+                    headers: new Headers(upstream.headers),
+                    });
                 }
-            } catch (e) {
-                return new Response(text, {
-                status: upstream.status,
-                statusText: upstream.statusText,
-                headers: new Headers(upstream.headers),
+            } else {
+                return new Response(upstream.body, {
+                    status: upstream.status,
+                    statusText: upstream.statusText,
+                    headers: new Headers(upstream.headers),
                 });
             }
-        } else if (isJson) {
-            try {
-                data = await upstream.json();
-            } catch (e) {
-                const text = await upstream.text().catch(() => "");
-                return new Response(text, {
-                status: upstream.status,
-                statusText: upstream.statusText,
-                headers: new Headers(upstream.headers),
-                });
-            }
-        } else {
-            return new Response(upstream.body, {
-                status: upstream.status,
-                statusText: upstream.statusText,
-                headers: new Headers(upstream.headers),
-            });
-        }
 
-        // If the data looks like a JSON-RPC response with a result field, optionally run hooks on the result only
-        const maybeRpc = data as Record<string, unknown>;
-        if (maybeRpc && typeof maybeRpc === "object" && "jsonrpc" in maybeRpc && "result" in maybeRpc) {
-            const envelope = { ...maybeRpc } as Record<string, unknown>;
-            const originalResult = (envelope["result"] ?? null) as CallToolResult;
+            // If the data looks like a JSON-RPC response with a result field, optionally run hooks on the result only
+            const maybeRpc = data as Record<string, unknown>;
+            if (maybeRpc && typeof maybeRpc === "object" && "jsonrpc" in maybeRpc && "result" in maybeRpc) {
+                const envelope = { ...maybeRpc } as Record<string, unknown>;
+                const originalResult = (envelope["result"] ?? null) as CallToolResult;
 
-            // RESPONSE hooks (reverse). Hooks must not break RPC envelope.
-            let currentRes = originalResult;
-            for (const h of hooks.slice().reverse()) {
-                if (h.processCallToolResult) {
-                    const r = await h.processCallToolResult(currentRes, currentReq, extra);
-                    if (r.resultType === "continue") {
-                        currentRes = r.response;
-                        continue;
-                    }
-                    if (r.resultType === "abort") {
-                        return jsonResponse({ error: r.reason, body: r.body }, 400);
+                // RESPONSE hooks (reverse). Hooks must not break RPC envelope.
+                let currentRes = originalResult;
+                let requestedRetry: { request: CallToolRequest } | null = null;
+                for (const h of hooks.slice().reverse()) {
+                    if (h.processCallToolResult) {
+                        const r = await h.processCallToolResult(currentRes, currentReq, extra);
+                        if (r.resultType === "continue") {
+                            currentRes = r.response;
+                            continue;
+                        }
+                        if (r.resultType === "retry") {
+                            requestedRetry = { request: r.request };
+                            break;
+                        }
+                        if (r.resultType === "abort") {
+                            return jsonResponse({ error: r.reason, body: r.body }, 400);
+                        }
                     }
                 }
+
+                if (requestedRetry && attempts < maxRetries) {
+                    attempts++;
+                    currentReq = requestedRetry.request;
+                    continue; // resend
+                }
+
+                envelope["result"] = currentRes as unknown as Record<string, unknown>;
+                const headers = new Headers(upstream.headers);
+                headers.set("content-type", "application/json");
+                return new Response(JSON.stringify(envelope), {
+                    status: upstream.status,
+                    statusText: upstream.statusText,
+                    headers
+                });
             }
 
-            envelope["result"] = currentRes as unknown as Record<string, unknown>;
+            // If upstream returned a bare CallToolResult-like object (no JSON-RPC envelope), wrap it
+            if (maybeRpc && typeof maybeRpc === "object" && !("jsonrpc" in maybeRpc) && ("content" in maybeRpc || "isError" in maybeRpc)) {
+                let currentRes = maybeRpc as unknown as CallToolResult;
+                let requestedRetry: { request: CallToolRequest } | null = null;
+                for (const h of hooks.slice().reverse()) {
+                    if (h.processCallToolResult) {
+                        const r = await h.processCallToolResult(currentRes, currentReq, extra);
+                        if (r.resultType === "continue") {
+                            currentRes = r.response;
+                            continue;
+                        }
+                        if (r.resultType === "retry") {
+                            requestedRetry = { request: r.request };
+                            break;
+                        }
+                        if (r.resultType === "abort") {
+                            return jsonResponse({ error: r.reason, body: r.body }, 400);
+                        }
+                    }
+                }
+
+                if (requestedRetry && attempts < maxRetries) {
+                    attempts++;
+                    currentReq = requestedRetry.request;
+                    continue; // resend
+                }
+
+                const id = (originalRpc?.id as string | number | undefined) ?? 0;
+                const envelope = { jsonrpc: "2.0", id, result: currentRes };
+                const headers = new Headers(upstream.headers);
+                headers.set("content-type", "application/json");
+                return new Response(JSON.stringify(envelope), {
+                    status: upstream.status,
+                    statusText: upstream.statusText,
+                    headers
+                });
+            }
+
+            // Fallback: return JSON as-is without attempting to run hooks
             const headers = new Headers(upstream.headers);
             headers.set("content-type", "application/json");
-            return new Response(JSON.stringify(envelope), {
+            return new Response(JSON.stringify(data), {
                 status: upstream.status,
                 statusText: upstream.statusText,
                 headers
             });
         }
-
-        // If upstream returned a bare CallToolResult-like object (no JSON-RPC envelope), wrap it
-        if (maybeRpc && typeof maybeRpc === "object" && !("jsonrpc" in maybeRpc) && ("content" in maybeRpc || "isError" in maybeRpc)) {
-            let currentRes = maybeRpc as unknown as CallToolResult;
-            for (const h of hooks.slice().reverse()) {
-                if (h.processCallToolResult) {
-                    const r = await h.processCallToolResult(currentRes, currentReq, extra);
-                    if (r.resultType === "continue") {
-                        currentRes = r.response;
-                        continue;
-                    }
-                    if (r.resultType === "abort") {
-                        return jsonResponse({ error: r.reason, body: r.body }, 400);
-                    }
-                }
-            }
-
-            const id = (originalRpc?.id as string | number | undefined) ?? 0;
-            const envelope = { jsonrpc: "2.0", id, result: currentRes };
-            const headers = new Headers(upstream.headers);
-            headers.set("content-type", "application/json");
-            return new Response(JSON.stringify(envelope), {
-                status: upstream.status,
-                statusText: upstream.statusText,
-                headers
-            });
-        }
-
-        // Fallback: return JSON as-is without attempting to run hooks
-        const headers = new Headers(upstream.headers);
-        headers.set("content-type", "application/json");
-        return new Response(JSON.stringify(data), {
-            status: upstream.status,
-            statusText: upstream.statusText,
-            headers
-        });
     };
 }
