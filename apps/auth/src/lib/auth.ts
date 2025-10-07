@@ -1,25 +1,27 @@
 import { betterAuth } from "better-auth";
-import { apiKey, mcp, oAuthProxy } from "better-auth/plugins";
-import Database from "better-sqlite3";
-import dotenv from "dotenv";
-import { getGitHubConfig, getSqlitePath, getTrustedOrigins, isTest } from "../env.js";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
-import { drizzle } from "drizzle-orm/better-sqlite3";
-import * as schema from "../../auth-schema.js";
 import { createAuthMiddleware } from "better-auth/api";
-import { txOperations, withTransaction } from "./db/actions.js";
+import { apiKey, mcp, oAuthProxy } from "better-auth/plugins";
+import dotenv from "dotenv";
+import { drizzle } from "drizzle-orm/neon-http";
+import { neon, neonConfig } from "@neondatabase/serverless";
+import * as schema from "../../auth-schema.js";
+import { getDatabaseUrl, getGitHubConfig, getTrustedOrigins, isTest } from "../env.js";
 import { CDPWalletMetadata } from "./3rd-parties/cdp/types.js";
+import { txOperations } from "./db/actions.js";
 
 dotenv.config();
 
 const TRUSTED_ORIGINS = getTrustedOrigins();
 
-const sqlite = new Database(getSqlitePath());
-export const db = drizzle(sqlite, { schema });
+// Enable fetch connection cache to support transactional flows over Neon HTTP
+neonConfig.fetchConnectionCache = true;
+const sql = neon(getDatabaseUrl());
+export const db = drizzle(sql, { schema });
 
 export const auth = betterAuth({
     database: drizzleAdapter(db, {
-        provider: "sqlite"
+        provider: "pg"
     }),
     trustedOrigins: TRUSTED_ORIGINS,
     emailAndPassword: {
@@ -85,15 +87,13 @@ export const auth = betterAuth({
     
               console.log(`[AUTH HOOK] Attempting CDP wallet creation for user ${user.id}`);
     
-              const result = await withTransaction(async (tx) => {
-                return await txOperations.autoCreateCDPWalletForUser(user.id, {
-                  email: user.email || undefined,
-                  name: user.name || undefined,
-                  displayName: user.displayName || undefined,
-                }, {
-                  createSmartAccount: false, // Create smart account for gas sponsorship
-                })(tx);
-              });
+              const result = await txOperations.autoCreateCDPWalletForUser(user.id, {
+                email: user.email || undefined,
+                name: user.name || undefined,
+                displayName: user.displayName || undefined,
+              }, {
+                createSmartAccount: false,
+              })();
               // Removed experimental SEI faucet funding block
     
               if (result) {

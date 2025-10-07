@@ -43,8 +43,8 @@ const envSchema = z.object({
   TEST_NEAR_PRIVATE_KEY: z.string().optional(),
   TEST_NEAR_ADDRESS: z.string().optional(),
 
-  // Database (sqlite)
-  SQLITE_DB_PATH: z.string().min(1).default("./sqlite.db"),
+  // Database (postgres)
+  DATABASE_URL: z.string().min(1, "DATABASE_URL is required"),
 });
 
 function parseEnv() {
@@ -96,7 +96,7 @@ export const getGitHubConfig = () => ({
   clientSecret: env.GITHUB_CLIENT_SECRET,
 });
 
-export const getSqlitePath = () => env.SQLITE_DB_PATH;
+export const getDatabaseUrl = () => env.DATABASE_URL;
 
 export const validateEnvironment = () => {
   console.log("✅ Auth environment variables validated successfully");

@@ -70,7 +70,7 @@ import {
   getNetworkConfig,
   isTestnetNetwork 
 } from "./networks.js";
-import env from "apps/auth/src/env.js";
+import env from "../../../../env.js";
 
 // CDP Client singleton
 let cdpClient: CdpClient | null = null;

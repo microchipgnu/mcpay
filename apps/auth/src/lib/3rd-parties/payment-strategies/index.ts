@@ -20,7 +20,6 @@ import type { PaymentRequirements } from "x402/types";
 import { isTest } from "../../../env.js";
 import { CDPSigningStrategy } from "./cdp-strategy.js";
 import { getConfig } from "./config.js";
-import { TestingSigningStrategy } from "./testing-strategy.js";
 
 
 // Type definitions
@@ -218,18 +217,6 @@ async function performAutoSigning(
 // Get available signing strategies
 async function getSigningStrategies(): Promise<PaymentSigningStrategy[]> {
     const strategies: PaymentSigningStrategy[] = [];
-    
-    // In test environment, only expose the Testing strategy
-    if (isTest()) {
-        try {
-            strategies.push(new TestingSigningStrategy());
-            console.log('[PaymentSigning] Testing strategy loaded successfully (test env)');
-        } catch (error) {
-            console.warn('[PaymentSigning] Testing strategy not available:', error);
-        }
-        console.log(`[PaymentSigning] Loaded ${strategies.length} signing strategies`);
-        return strategies;
-    }
 
     try {
         strategies.push(new CDPSigningStrategy());

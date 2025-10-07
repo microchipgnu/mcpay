@@ -1,31 +1,31 @@
-import { sql } from "drizzle-orm";
-import { sqliteTable, text, integer } from "drizzle-orm/sqlite-core";
+import {
+  pgTable,
+  text,
+  timestamp,
+  boolean,
+  integer,
+  jsonb,
+} from "drizzle-orm/pg-core";
 
-export const user = sqliteTable("user", {
+export const user = pgTable("user", {
   id: text("id").primaryKey(),
   name: text("name").notNull(),
   email: text("email").notNull().unique(),
-  emailVerified: integer("email_verified", { mode: "boolean" })
-    .default(false)
-    .notNull(),
+  emailVerified: boolean("email_verified").default(false).notNull(),
   image: text("image"),
-  createdAt: integer("created_at", { mode: "timestamp_ms" })
-    .default(sql`(cast(unixepoch('subsecond') * 1000 as integer))`)
-    .notNull(),
-  updatedAt: integer("updated_at", { mode: "timestamp_ms" })
-    .default(sql`(cast(unixepoch('subsecond') * 1000 as integer))`)
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at")
+    .defaultNow()
     .$onUpdate(() => /* @__PURE__ */ new Date())
     .notNull(),
 });
 
-export const session = sqliteTable("session", {
+export const session = pgTable("session", {
   id: text("id").primaryKey(),
-  expiresAt: integer("expires_at", { mode: "timestamp_ms" }).notNull(),
+  expiresAt: timestamp("expires_at").notNull(),
   token: text("token").notNull().unique(),
-  createdAt: integer("created_at", { mode: "timestamp_ms" })
-    .default(sql`(cast(unixepoch('subsecond') * 1000 as integer))`)
-    .notNull(),
-  updatedAt: integer("updated_at", { mode: "timestamp_ms" })
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at")
     .$onUpdate(() => /* @__PURE__ */ new Date())
     .notNull(),
   ipAddress: text("ip_address"),
@@ -35,7 +35,7 @@ export const session = sqliteTable("session", {
     .references(() => user.id, { onDelete: "cascade" }),
 });
 
-export const account = sqliteTable("account", {
+export const account = pgTable("account", {
   id: text("id").primaryKey(),
   accountId: text("account_id").notNull(),
   providerId: text("provider_id").notNull(),
@@ -45,37 +45,29 @@ export const account = sqliteTable("account", {
   accessToken: text("access_token"),
   refreshToken: text("refresh_token"),
   idToken: text("id_token"),
-  accessTokenExpiresAt: integer("access_token_expires_at", {
-    mode: "timestamp_ms",
-  }),
-  refreshTokenExpiresAt: integer("refresh_token_expires_at", {
-    mode: "timestamp_ms",
-  }),
+  accessTokenExpiresAt: timestamp("access_token_expires_at"),
+  refreshTokenExpiresAt: timestamp("refresh_token_expires_at"),
   scope: text("scope"),
   password: text("password"),
-  createdAt: integer("created_at", { mode: "timestamp_ms" })
-    .default(sql`(cast(unixepoch('subsecond') * 1000 as integer))`)
-    .notNull(),
-  updatedAt: integer("updated_at", { mode: "timestamp_ms" })
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at")
     .$onUpdate(() => /* @__PURE__ */ new Date())
     .notNull(),
 });
 
-export const verification = sqliteTable("verification", {
+export const verification = pgTable("verification", {
   id: text("id").primaryKey(),
   identifier: text("identifier").notNull(),
   value: text("value").notNull(),
-  expiresAt: integer("expires_at", { mode: "timestamp_ms" }).notNull(),
-  createdAt: integer("created_at", { mode: "timestamp_ms" })
-    .default(sql`(cast(unixepoch('subsecond') * 1000 as integer))`)
-    .notNull(),
-  updatedAt: integer("updated_at", { mode: "timestamp_ms" })
-    .default(sql`(cast(unixepoch('subsecond') * 1000 as integer))`)
+  expiresAt: timestamp("expires_at").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at")
+    .defaultNow()
     .$onUpdate(() => /* @__PURE__ */ new Date())
     .notNull(),
 });
 
-export const apikey = sqliteTable("apikey", {
+export const apikey = pgTable("apikey", {
   id: text("id").primaryKey(),
   name: text("name"),
   start: text("start"),
@@ -86,24 +78,22 @@ export const apikey = sqliteTable("apikey", {
     .references(() => user.id, { onDelete: "cascade" }),
   refillInterval: integer("refill_interval"),
   refillAmount: integer("refill_amount"),
-  lastRefillAt: integer("last_refill_at", { mode: "timestamp_ms" }),
-  enabled: integer("enabled", { mode: "boolean" }).default(true),
-  rateLimitEnabled: integer("rate_limit_enabled", { mode: "boolean" }).default(
-    true,
-  ),
+  lastRefillAt: timestamp("last_refill_at"),
+  enabled: boolean("enabled").default(true),
+  rateLimitEnabled: boolean("rate_limit_enabled").default(true),
   rateLimitTimeWindow: integer("rate_limit_time_window").default(86400000),
   rateLimitMax: integer("rate_limit_max").default(10),
   requestCount: integer("request_count").default(0),
   remaining: integer("remaining"),
-  lastRequest: integer("last_request", { mode: "timestamp_ms" }),
-  expiresAt: integer("expires_at", { mode: "timestamp_ms" }),
-  createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
-  updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
+  lastRequest: timestamp("last_request"),
+  expiresAt: timestamp("expires_at"),
+  createdAt: timestamp("created_at").notNull(),
+  updatedAt: timestamp("updated_at").notNull(),
   permissions: text("permissions"),
   metadata: text("metadata"),
 });
 
-export const oauthApplication = sqliteTable("oauth_application", {
+export const oauthApplication = pgTable("oauth_application", {
   id: text("id").primaryKey(),
   name: text("name"),
   icon: text("icon"),
@@ -112,44 +102,40 @@ export const oauthApplication = sqliteTable("oauth_application", {
   clientSecret: text("client_secret"),
   redirectURLs: text("redirect_ur_ls"),
   type: text("type"),
-  disabled: integer("disabled", { mode: "boolean" }).default(false),
+  disabled: boolean("disabled").default(false),
   userId: text("user_id").references(() => user.id, { onDelete: "cascade" }),
-  createdAt: integer("created_at", { mode: "timestamp_ms" }),
-  updatedAt: integer("updated_at", { mode: "timestamp_ms" }),
+  createdAt: timestamp("created_at"),
+  updatedAt: timestamp("updated_at"),
 });
 
-export const oauthAccessToken = sqliteTable("oauth_access_token", {
+export const oauthAccessToken = pgTable("oauth_access_token", {
   id: text("id").primaryKey(),
   accessToken: text("access_token").unique(),
   refreshToken: text("refresh_token").unique(),
-  accessTokenExpiresAt: integer("access_token_expires_at", {
-    mode: "timestamp_ms",
-  }),
-  refreshTokenExpiresAt: integer("refresh_token_expires_at", {
-    mode: "timestamp_ms",
-  }),
+  accessTokenExpiresAt: timestamp("access_token_expires_at"),
+  refreshTokenExpiresAt: timestamp("refresh_token_expires_at"),
   clientId: text("client_id").references(() => oauthApplication.clientId, {
     onDelete: "cascade",
   }),
   userId: text("user_id").references(() => user.id, { onDelete: "cascade" }),
   scopes: text("scopes"),
-  createdAt: integer("created_at", { mode: "timestamp_ms" }),
-  updatedAt: integer("updated_at", { mode: "timestamp_ms" }),
+  createdAt: timestamp("created_at"),
+  updatedAt: timestamp("updated_at"),
 });
 
-export const oauthConsent = sqliteTable("oauth_consent", {
+export const oauthConsent = pgTable("oauth_consent", {
   id: text("id").primaryKey(),
   clientId: text("client_id").references(() => oauthApplication.clientId, {
     onDelete: "cascade",
   }),
   userId: text("user_id").references(() => user.id, { onDelete: "cascade" }),
   scopes: text("scopes"),
-  createdAt: integer("created_at", { mode: "timestamp_ms" }),
-  updatedAt: integer("updated_at", { mode: "timestamp_ms" }),
-  consentGiven: integer("consent_given", { mode: "boolean" }),
+  createdAt: timestamp("created_at"),
+  updatedAt: timestamp("updated_at"),
+  consentGiven: boolean("consent_given"),
 });
 
-export const userWallets = sqliteTable("user_wallets", {
+export const userWallets = pgTable("user_wallets", {
   id: text("id").primaryKey(),
   userId: text("user_id")
     .notNull()
@@ -159,17 +145,14 @@ export const userWallets = sqliteTable("user_wallets", {
   provider: text("provider"), // e.g. 'metamask', 'coinbase-cdp', 'privy'
   blockchain: text("blockchain"), // e.g. 'ethereum', 'solana', 'near'
   architecture: text("architecture"), // e.g. 'evm', 'solana', 'near'
-  isPrimary: integer("is_primary", { mode: "boolean" }).default(false).notNull(),
-  isActive: integer("is_active", { mode: "boolean" }).default(true).notNull(),
-  walletMetadata: text("wallet_metadata"), // store serialized JSON metadata
+  isPrimary: boolean("is_primary").default(false).notNull(),
+  isActive: boolean("is_active").default(true).notNull(),
+  walletMetadata: jsonb("wallet_metadata"), // store structured JSON metadata
   externalWalletId: text("external_wallet_id"),
   externalUserId: text("external_user_id"),
-  createdAt: integer("created_at", { mode: "timestamp_ms" })
-    .default(sql`(cast(unixepoch('subsecond') * 1000 as integer))`)
-    .notNull(),
-  updatedAt: integer("updated_at", { mode: "timestamp_ms" })
-    .default(sql`(cast(unixepoch('subsecond') * 1000 as integer))`)
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at")
     .$onUpdate(() => /* @__PURE__ */ new Date())
     .notNull(),
-  lastUsedAt: integer("last_used_at", { mode: "timestamp_ms" }),
+  lastUsedAt: timestamp("last_used_at"),
 });

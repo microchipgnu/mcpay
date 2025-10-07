@@ -6,54 +6,41 @@ import { createCDPAccount } from "../3rd-parties/cdp/wallet/index.js";
 import type { CDPNetwork } from "../3rd-parties/cdp/types.js";
 import { randomUUID } from "node:crypto";
 
-// Optional compatibility helper: no real transaction needed for SQLite here
-export const withTransaction = async <T>(callback: (tx: typeof db) => Promise<T>): Promise<T> => {
-  return await callback(db);
-};
-
 export type Wallet = Omit<typeof userWallets.$inferSelect, 'walletMetadata'> & { walletMetadata: unknown }
 
-// Reusable operations
+// Reusable operations (no transactions)
 export const txOperations = {
   // List active Coinbase CDP wallets for a user
-  getCDPWalletsByUser: (userId: string) => async (tx: typeof db) => {
-    const rows = await tx
+  getCDPWalletsByUser: async (userId: string) => {
+    const rows = await db
       .select()
       .from(schema.userWallets)
       .where(
         and(
-          eq(schema.userWallets.userId, userId),
-          eq(schema.userWallets.provider, "coinbase-cdp"),
-          eq(schema.userWallets.isActive, true)
-        )
+          eq(schema.userWallets.userId as any, userId) as any,
+          eq(schema.userWallets.provider as any, "coinbase-cdp") as any,
+          eq(schema.userWallets.isActive as any, true) as any,
+        ) as any
       )
-      .orderBy(desc(schema.userWallets.isPrimary), desc(schema.userWallets.createdAt));
+      .orderBy(
+        desc(schema.userWallets.isPrimary as any) as any,
+        desc(schema.userWallets.createdAt as any) as any,
+      );
 
-    // Normalize walletMetadata from string (sqlite) to object for callers
-    return rows.map((row) => {
-      let parsed: unknown = row.walletMetadata;
-      if (typeof row.walletMetadata === "string") {
-        try {
-          parsed = JSON.parse(row.walletMetadata);
-        } catch {
-          parsed = {};
-        }
-      }
-      return { ...row, walletMetadata: parsed } as Wallet;
-    });
+    return rows as unknown as Wallet[];
   },
   
   // Check if user already has any active CDP wallets
-  userHasCDPWallets: (userId: string) => async (tx: typeof db) => {
-    const rows = await tx
+  userHasCDPWallets: async (userId: string) => {
+    const rows = await db
       .select({ id: schema.userWallets.id })
       .from(schema.userWallets)
       .where(
         and(
-          eq(schema.userWallets.userId, userId),
-          eq(schema.userWallets.provider, "coinbase-cdp"),
-          eq(schema.userWallets.isActive, true)
-        )
+          eq(schema.userWallets.userId as any, userId) as any,
+          eq(schema.userWallets.provider as any, "coinbase-cdp") as any,
+          eq(schema.userWallets.isActive as any, true) as any,
+        ) as any
       )
       .limit(1);
     return rows.length > 0;
@@ -71,7 +58,7 @@ export const txOperations = {
       ownerAccountId?: string;
       isPrimary?: boolean;
     }
-  ) => async (tx: typeof db) => {
+  ) => async () => {
     const blockchain = data.network.includes("base") ? "base" : "ethereum";
     const architecture = "evm";
 
@@ -88,8 +75,7 @@ export const txOperations = {
       gasSponsored: !!data.isSmartAccount && (data.network === "base" || data.network === "base-sepolia"),
     } as Record<string, unknown>;
 
-    // Insert wallet
-    const inserted = await tx
+    const inserted = await db
       .insert(schema.userWallets)
       .values({
         id: randomUUID(),
@@ -101,7 +87,7 @@ export const txOperations = {
         architecture,
         isPrimary: data.isPrimary ?? false,
         isActive: true,
-        walletMetadata: JSON.stringify(walletMetadata),
+        walletMetadata: walletMetadata as any,
         externalWalletId: data.accountId,
         externalUserId: userId,
         createdAt: new Date(),
@@ -112,36 +98,27 @@ export const txOperations = {
     const row = inserted?.[0];
     if (!row) return null;
 
-    // Normalize walletMetadata before returning
     return { ...row, walletMetadata } as Wallet;
   },
 
   // Find a user's CDP wallet by external CDP account id
-  getCDPWalletByAccountId: (accountId: string) => async (tx: typeof db) => {
-    const rows = await tx
+  getCDPWalletByAccountId: (accountId: string) => async () => {
+    const rows = await db
       .select()
       .from(schema.userWallets)
       .where(
         and(
-          eq(schema.userWallets.externalWalletId, accountId),
-          eq(schema.userWallets.provider, "coinbase-cdp"),
-          eq(schema.userWallets.isActive, true)
-        )
+          eq(schema.userWallets.externalWalletId as any, accountId) as any,
+          eq(schema.userWallets.provider as any, "coinbase-cdp") as any,
+          eq(schema.userWallets.isActive as any, true) as any,
+        ) as any
       )
       .limit(1);
 
     const row = rows?.[0];
     if (!row) return null;
 
-    let parsed: unknown = row.walletMetadata;
-    if (typeof row.walletMetadata === "string") {
-      try {
-        parsed = JSON.parse(row.walletMetadata);
-      } catch {
-        parsed = {};
-      }
-    }
-    return { ...row, walletMetadata: parsed } as Wallet;
+    return row as unknown as Wallet;
   },
 
   // Merge and update CDP wallet metadata
@@ -154,11 +131,11 @@ export const txOperations = {
       balanceCache?: Record<string, unknown>;
       transactionHistory?: Record<string, unknown>[];
     }
-  ) => async (tx: typeof db) => {
-    const rows = await tx
+  ) => async () => {
+    const rows = await db
       .select()
       .from(schema.userWallets)
-      .where(eq(schema.userWallets.id, walletId))
+      .where(eq(schema.userWallets.id as any, walletId) as any)
       .limit(1);
 
     const wallet = rows?.[0];
@@ -166,16 +143,9 @@ export const txOperations = {
       throw new Error("CDP wallet not found");
     }
 
-    let existing: Record<string, unknown> = {};
-    if (typeof wallet.walletMetadata === "string") {
-      try {
-        existing = JSON.parse(wallet.walletMetadata) as Record<string, unknown>;
-      } catch {
-        existing = {};
-      }
-    } else if (wallet.walletMetadata && typeof wallet.walletMetadata === "object") {
-      existing = wallet.walletMetadata as Record<string, unknown>;
-    }
+    const existing: Record<string, unknown> = (wallet.walletMetadata && typeof wallet.walletMetadata === "object")
+      ? (wallet.walletMetadata as Record<string, unknown>)
+      : {};
 
     const updatedMetadata = {
       ...existing,
@@ -183,14 +153,14 @@ export const txOperations = {
       lastUpdated: new Date().toISOString(),
     } as Record<string, unknown>;
 
-    const updated = await tx
+    const updated = await db
       .update(schema.userWallets)
       .set({
-        walletMetadata: JSON.stringify(updatedMetadata),
+        walletMetadata: updatedMetadata as any,
         updatedAt: new Date(),
         ...(metadata.lastUsedAt ? { lastUsedAt: metadata.lastUsedAt } : {}),
       })
-      .where(eq(schema.userWallets.id, walletId))
+      .where(eq(schema.userWallets.id as any, walletId) as any)
       .returning();
 
     return updated?.[0] ?? null;
@@ -201,7 +171,7 @@ export const txOperations = {
     userId: string,
     userInfo: { email?: string; name?: string; displayName?: string },
     options?: { createSmartAccount?: boolean; network?: CDPNetwork }
-  ) => async (tx: typeof db) => {
+  ) => async () => {
     console.log(`[DEBUG] Starting CDP wallet auto-creation for user ${userId}`);
 
     const createSmartAccount = options?.createSmartAccount ?? false;
@@ -210,14 +180,12 @@ export const txOperations = {
     console.log(`[DEBUG] Options - createSmartAccount: ${createSmartAccount}, network: ${network}`);
 
     try {
-      // If any CDP wallet exists, skip
-      const hasCDPWallets = await txOperations.userHasCDPWallets(userId)(tx);
+      const hasCDPWallets = await txOperations.userHasCDPWallets(userId);
       if (hasCDPWallets) {
         console.log(`User ${userId} already has CDP wallets, skipping auto-creation`);
         return null;
       }
 
-      // Build safe account name (<=36 chars, alphanum + hyphens)
       const timestamp = Date.now().toString().slice(-8);
       const safeNameSource = userInfo.displayName
         ? userInfo.displayName.toLowerCase().replace(/[^a-z0-9]/g, "-").slice(0, 10)
@@ -226,14 +194,12 @@ export const txOperations = {
 
       console.log(`[DEBUG] Auto-creating CDP wallet for user ${userId} with account name: ${accountName}`);
 
-      // Double-check again (race protection)
-      const hasAgain = await txOperations.userHasCDPWallets(userId)(tx);
+      const hasAgain = await txOperations.userHasCDPWallets(userId);
       if (hasAgain) {
         console.log(`User ${userId} already has CDP wallets (race condition), skipping`);
         return null;
       }
 
-      // Create CDP account (and optional smart account)
       console.log(`[DEBUG] Calling createCDPAccount...`);
       const cdpResult = await createCDPAccount({
         accountName,
@@ -244,22 +210,20 @@ export const txOperations = {
 
       const wallets: Wallet[] = [];
 
-      // Check if user already has a primary wallet
-      const existingPrimary = await tx
+      const existingPrimary = await db
         .select({ id: schema.userWallets.id })
         .from(schema.userWallets)
         .where(
           and(
-            eq(schema.userWallets.userId, userId),
-            eq(schema.userWallets.isPrimary, true),
-            eq(schema.userWallets.isActive, true)
-          )
+            eq(schema.userWallets.userId as any, userId) as any,
+            eq(schema.userWallets.isPrimary as any, true) as any,
+            eq(schema.userWallets.isActive as any, true) as any,
+          ) as any
         )
         .limit(1);
 
       const makePrimary = existingPrimary.length === 0;
 
-      // Store main account
       const mainWallet = await txOperations.createCDPManagedWallet(userId, {
         walletAddress: cdpResult.account.walletAddress,
         accountId: cdpResult.account.accountId,
@@ -267,10 +231,9 @@ export const txOperations = {
         network: cdpResult.account.network,
         isSmartAccount: false,
         isPrimary: makePrimary,
-      })(tx);
+      })();
       if (mainWallet) wallets.push(mainWallet);
 
-      // Store smart account if created
       if (cdpResult.smartAccount) {
         const smartWallet = await txOperations.createCDPManagedWallet(userId, {
           walletAddress: cdpResult.smartAccount.walletAddress,
@@ -280,7 +243,7 @@ export const txOperations = {
           isSmartAccount: true,
           ownerAccountId: cdpResult.account.accountId,
           isPrimary: false,
-        })(tx);
+        })();
         if (smartWallet) wallets.push(smartWallet);
       }
 
@@ -296,5 +259,4 @@ export const txOperations = {
       return null;
     }
   },
-  
 };

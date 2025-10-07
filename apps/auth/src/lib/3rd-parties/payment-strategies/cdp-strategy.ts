@@ -1,7 +1,7 @@
 import { getCDPNetworks, type UnifiedNetwork } from "../cdp/wallet/networks.js";
 import { createSignerFromViemAccount } from "mcpay/utils";
 import { getCDPAccount } from "../cdp/wallet/index.js";
-import { txOperations, Wallet, withTransaction } from "../../db/actions.js";
+import { txOperations, Wallet } from "../../db/actions.js";
 import type { PaymentSigningContext, PaymentSigningResult, PaymentSigningStrategy } from "./index.js";
 import { x402Version } from "../x402.js";
 import { type CDPNetwork, type CDPWalletMetadata } from "../cdp/types.js";
@@ -22,9 +22,7 @@ export class CDPSigningStrategy implements PaymentSigningStrategy {
             const paymentRequirements = context.paymentRequirements
             const network = paymentRequirements[0].network as CDPNetwork;
 
-            const cdpWallets = await withTransaction(async (tx) => {
-                return await txOperations.getCDPWalletsByUser(context.user!.id)(tx);
-            });
+            const cdpWallets = await txOperations.getCDPWalletsByUser(context.user!.id);
             const compatibleWallets = cdpWallets.filter(wallet => {
                 const walletNetwork = (wallet.walletMetadata as unknown as CDPWalletMetadata)?.cdpNetwork;
                 // Check if wallet network is compatible with target network
@@ -68,9 +66,7 @@ export class CDPSigningStrategy implements PaymentSigningStrategy {
                 };
             }
 
-            const cdpWallets = await withTransaction(async (tx) => {
-                return await txOperations.getCDPWalletsByUser(context.user!.id)(tx);
-            });
+            const cdpWallets = await txOperations.getCDPWalletsByUser(context.user!.id);
             
             const compatibleWallets = cdpWallets.filter(wallet => {
                 const walletNetwork = (wallet.walletMetadata as unknown as CDPWalletMetadata)?.cdpNetwork;

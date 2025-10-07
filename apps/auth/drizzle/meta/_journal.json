@@ -1,26 +1,19 @@
 {
   "version": "7",
-  "dialect": "sqlite",
+  "dialect": "postgresql",
   "entries": [
     {
       "idx": 0,
-      "version": "6",
-      "when": 1759712217297,
-      "tag": "0000_smiling_corsair",
+      "version": "7",
+      "when": 1759874906346,
+      "tag": "0000_great_star_brand",
       "breakpoints": true
     },
     {
       "idx": 1,
-      "version": "6",
-      "when": 1759746972368,
-      "tag": "0001_loose_slapstick",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "6",
-      "when": 1759775802957,
-      "tag": "0002_dusty_the_order",
+      "version": "7",
+      "when": 1759875279855,
+      "tag": "0001_secret_mole_man",
       "breakpoints": true
     }
   ]
