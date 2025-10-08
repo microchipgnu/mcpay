@@ -107,9 +107,71 @@ export const USER_HTML = `
             </section>
 
             <section id="panel-developer" class="tab-panel hidden">
-              <div class="rounded-lg border border-gray-200 dark:border-gray-700 p-4 bg-gray-50 dark:bg-gray-800/50">
-                <h4 class="font-medium mb-1 text-gray-900 dark:text-gray-100">Developer</h4>
-                <p class="text-sm text-gray-600 dark:text-gray-400">API key management is available in the main app. Your authentication here is already set via Better Auth.</p>
+              <div class="rounded-lg border border-gray-200 dark:border-gray-700 p-4 bg-gray-50 dark:bg-gray-800/50 space-y-4">
+                <div>
+                  <h4 class="font-medium mb-1 text-gray-900 dark:text-gray-100">Developer / API Keys</h4>
+                  <p class="text-sm text-gray-600 dark:text-gray-400">Create and manage API keys for programmatic access.</p>
+                </div>
+
+                <div id="api-key-created" class="hidden rounded-md border border-green-300 bg-green-50 dark:border-green-900/50 dark:bg-green-900/20 p-3">
+                  <div class="flex items-start justify-between gap-2">
+                    <div>
+                      <p class="text-sm font-medium text-green-800 dark:text-green-200">API key created</p>
+                      <p class="text-xs text-green-700 dark:text-green-300">Copy it now — it will not be shown again.</p>
+                      <code id="api-key-created-value" class="mt-1 inline-block whitespace-pre-wrap break-all text-xs bg-white/60 dark:bg-black/30 px-1.5 py-1 rounded">—</code>
+                    </div>
+                    <div class="shrink-0 flex gap-2">
+                      <button id="api-key-created-copy" class="px-2 py-1 text-xs rounded bg-green-600 text-white hover:bg-green-700">Copy</button>
+                      <button id="api-key-created-dismiss" class="px-2 py-1 text-xs rounded bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-200 hover:bg-green-200">Dismiss</button>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="rounded-lg border border-gray-200 dark:border-gray-700 p-3">
+                  <div class="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+                    <label class="text-xs text-gray-600 dark:text-gray-400">Name
+                      <input id="api-key-name" type="text" placeholder="project-api-key" class="mt-1 w-full px-2 py-1.5 rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm" />
+                    </label>
+                    <label class="text-xs text-gray-600 dark:text-gray-400">Prefix
+                      <input id="api-key-prefix" type="text" value="mcpay_" class="mt-1 w-full px-2 py-1.5 rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm" />
+                    </label>
+                    <label class="text-xs text-gray-600 dark:text-gray-400">Expires in (days)
+                      <input id="api-key-expires-days" type="number" min="1" max="365" placeholder="30" class="mt-1 w-full px-2 py-1.5 rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm" />
+                    </label>
+                    <label class="text-xs text-gray-600 dark:text-gray-400">Remaining (optional)
+                      <input id="api-key-remaining" type="number" min="0" placeholder="100" class="mt-1 w-full px-2 py-1.5 rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm" />
+                    </label>
+                  </div>
+                  <div class="mt-3 flex items-center justify-between gap-2">
+                    <p class="text-xs text-gray-500 dark:text-gray-400">Keys inherit default permissions unless specified by the server.</p>
+                    <button id="create-api-key-btn" class="px-3 py-1.5 bg-gray-900 hover:bg-gray-800 text-white dark:bg-white dark:text-gray-900 dark:hover:bg-gray-200 text-sm font-medium rounded-md">Create API Key</button>
+                  </div>
+                </div>
+
+                <div class="rounded-lg border border-gray-200 dark:border-gray-700">
+                  <div class="p-3 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+                    <h5 class="font-medium text-gray-900 dark:text-gray-100">Your API Keys</h5>
+                    <button id="reload-api-keys" class="text-sm px-2 py-1 rounded border border-gray-300 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800">Reload</button>
+                  </div>
+                  <div id="api-keys-empty" class="p-4 text-sm text-gray-600 dark:text-gray-400">No API keys yet. Create one above.</div>
+                  <div class="overflow-x-auto hidden" id="api-keys-table-wrap">
+                    <table class="min-w-full text-sm">
+                      <thead class="bg-gray-50 dark:bg-gray-800/40 text-gray-700 dark:text-gray-300">
+                        <tr>
+                          <th class="text-left font-medium px-3 py-2">Name</th>
+                          <th class="text-left font-medium px-3 py-2">Prefix</th>
+                          <th class="text-left font-medium px-3 py-2">Start</th>
+                          <th class="text-left font-medium px-3 py-2">Enabled</th>
+                          <th class="text-left font-medium px-3 py-2">Remaining</th>
+                          <th class="text-left font-medium px-3 py-2">Expires</th>
+                          <th class="text-left font-medium px-3 py-2">Created</th>
+                          <th class="text-right font-medium px-3 py-2">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody id="api-keys-tbody" class="divide-y divide-gray-200 dark:divide-gray-800"></tbody>
+                    </table>
+                  </div>
+                </div>
               </div>
             </section>
           </div>
@@ -134,6 +196,24 @@ export const USER_HTML = `
       const profileId = document.getElementById('profile-id');
       const copyIdBtn = document.getElementById('copy-id-btn');
 
+      // API Keys UI elements
+      const apiKeyCreatedBanner = document.getElementById('api-key-created');
+      const apiKeyCreatedValue = document.getElementById('api-key-created-value');
+      const apiKeyCreatedCopy = document.getElementById('api-key-created-copy');
+      const apiKeyCreatedDismiss = document.getElementById('api-key-created-dismiss');
+      const apiKeyNameInput = document.getElementById('api-key-name');
+      const apiKeyPrefixInput = document.getElementById('api-key-prefix');
+      const apiKeyExpiresDaysInput = document.getElementById('api-key-expires-days');
+      const apiKeyRemainingInput = document.getElementById('api-key-remaining');
+      const createApiKeyBtn = document.getElementById('create-api-key-btn');
+      const reloadApiKeysBtn = document.getElementById('reload-api-keys');
+      const apiKeysEmpty = document.getElementById('api-keys-empty');
+      const apiKeysTableWrap = document.getElementById('api-keys-table-wrap');
+      const apiKeysTbody = document.getElementById('api-keys-tbody');
+
+      let currentUser = null;
+      let apiKeysLoadedOnce = false;
+
       async function getAuthClient() {
         const { createAuthClient } = await import('https://esm.sh/better-auth@1.3.26/client');
         const { genericOAuthClient } = await import('https://esm.sh/better-auth@1.3.26/client/plugins');
@@ -156,6 +236,9 @@ export const USER_HTML = `
         document.querySelectorAll('.tab-panel').forEach((panel) => {
           panel.classList.toggle('hidden', panel.id !== 'panel-' + name);
         });
+        if (name === 'developer' && currentUser && !apiKeysLoadedOnce) {
+          loadApiKeys();
+        }
       }
 
       async function loadSession() {
@@ -168,6 +251,66 @@ export const USER_HTML = `
           console.error('Failed to load session', err);
           return null;
         }
+      }
+
+      function fmtDate(value) {
+        if (!value) return '—';
+        try { return new Date(value).toLocaleString(); } catch { return String(value); }
+      }
+
+      async function apiCall(path, init = {}) {
+        const res = await fetch(path, { credentials: 'include', headers: { 'content-type': 'application/json', ...(init.headers || {}) }, ...init });
+        if (!res.ok) {
+          let msg = 'Request failed';
+          try { const j = await res.json(); msg = j.error || msg; } catch {}
+          throw new Error(msg);
+        }
+        try { return await res.json(); } catch { return null; }
+      }
+
+      async function loadApiKeys() {
+        try {
+          const keys = await apiCall('/api/keys');
+          apiKeysLoadedOnce = true;
+          renderApiKeys(keys || []);
+        } catch (err) {
+          console.error('Failed to load API keys', err);
+        }
+      }
+
+      function renderApiKeys(keys) {
+        if (!Array.isArray(keys) || keys.length === 0) {
+          apiKeysEmpty.classList.remove('hidden');
+          apiKeysTableWrap.classList.add('hidden');
+          apiKeysTbody.innerHTML = '';
+          return;
+        }
+        apiKeysEmpty.classList.add('hidden');
+        apiKeysTableWrap.classList.remove('hidden');
+        apiKeysTbody.innerHTML = keys.map((k) => {
+          const enabled = k.enabled !== false; // default true
+          const remaining = k.remaining == null ? '∞' : k.remaining;
+          const enabledHtml = enabled ? '<span class="text-green-700 dark:text-green-300">Yes</span>' : '<span class="text-red-700 dark:text-red-300">No</span>';
+          const toggleLabel = enabled ? 'Disable' : 'Enable';
+          const enabledAttr = enabled ? '1' : '0';
+          return (
+            '<tr>' +
+            '<td class="px-3 py-2 text-gray-900 dark:text-gray-100">' + (k.name || '—') + '</td>' +
+            '<td class="px-3 py-2">' + (k.prefix || '—') + '</td>' +
+            '<td class="px-3 py-2">' + (k.start || '—') + '</td>' +
+            '<td class="px-3 py-2">' + enabledHtml + '</td>' +
+            '<td class="px-3 py-2">' + remaining + '</td>' +
+            '<td class="px-3 py-2">' + fmtDate(k.expiresAt) + '</td>' +
+            '<td class="px-3 py-2">' + fmtDate(k.createdAt) + '</td>' +
+            '<td class="px-3 py-2 text-right">' +
+              '<div class="inline-flex gap-2">' +
+                '<button data-action="toggle" data-id="' + k.id + '" data-enabled="' + enabledAttr + '" class="px-2 py-1 text-xs rounded border border-gray-300 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800">' + toggleLabel + '</button>' +
+                '<button data-action="delete" data-id="' + k.id + '" class="px-2 py-1 text-xs rounded border border-red-300 text-red-700 dark:border-red-800 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20">Delete</button>' +
+              '</div>' +
+            '</td>' +
+            '</tr>'
+          );
+        }).join('');
       }
 
       function renderUser(user) {
@@ -212,6 +355,10 @@ export const USER_HTML = `
       async function refreshUI() {
         const user = await loadSession();
         renderUser(user);
+        currentUser = user;
+        if (user) {
+          loadApiKeys();
+        }
         setActiveTab('funds');
       }
 
@@ -252,6 +399,83 @@ export const USER_HTML = `
         const text = profileId?.textContent || '';
         if (!text || text === '—') return;
         try { await navigator.clipboard.writeText(text); alert('Copied User ID'); } catch {}
+      });
+
+      // API Keys: create
+      createApiKeyBtn?.addEventListener('click', async () => {
+        if (!currentUser) return alert('Please sign in first.');
+        const name = (apiKeyNameInput?.value || '').trim();
+        const prefix = (apiKeyPrefixInput?.value || '').trim();
+        const expiresDaysRaw = apiKeyExpiresDaysInput?.value || '';
+        const remainingRaw = apiKeyRemainingInput?.value || '';
+
+        let body = { name, prefix };
+        const expiresInDays = parseInt(expiresDaysRaw, 10);
+        if (!Number.isNaN(expiresInDays) && expiresInDays > 0) {
+          body.expiresInDays = expiresInDays;
+        }
+        const remaining = parseInt(remainingRaw, 10);
+        if (!Number.isNaN(remaining) && remaining >= 0) {
+          body.remaining = remaining;
+        }
+
+        createApiKeyBtn.disabled = true;
+        try {
+          const created = await apiCall('/api/keys', { method: 'POST', body: JSON.stringify(body) });
+          if (created && created.key) {
+            apiKeyCreatedValue.textContent = created.key;
+            apiKeyCreatedBanner.classList.remove('hidden');
+          }
+          // Clear inputs and reload
+          if (apiKeyNameInput) apiKeyNameInput.value = '';
+          if (apiKeyExpiresDaysInput) apiKeyExpiresDaysInput.value = '';
+          if (apiKeyRemainingInput) apiKeyRemainingInput.value = '';
+          await loadApiKeys();
+        } catch (err) {
+          alert(err instanceof Error ? err.message : 'Failed to create API key');
+        } finally {
+          createApiKeyBtn.disabled = false;
+        }
+      });
+
+      // API Keys: created banner actions
+      apiKeyCreatedCopy?.addEventListener('click', async () => {
+        const value = apiKeyCreatedValue?.textContent || '';
+        if (!value || value === '—') return;
+        try { await navigator.clipboard.writeText(value); alert('Copied API key'); } catch {}
+      });
+      apiKeyCreatedDismiss?.addEventListener('click', () => {
+        apiKeyCreatedBanner?.classList.add('hidden');
+        apiKeyCreatedValue.textContent = '—';
+      });
+
+      // API Keys: reload
+      reloadApiKeysBtn?.addEventListener('click', () => loadApiKeys());
+
+      // API Keys: row actions via delegation
+      apiKeysTbody?.addEventListener('click', async (e) => {
+        const target = e.target;
+        if (!(target && target.getAttribute)) return;
+        const action = target.getAttribute('data-action');
+        const id = target.getAttribute('data-id');
+        if (!action || !id) return;
+        if (action === 'delete') {
+          if (!confirm('Delete this API key? This cannot be undone.')) return;
+          try {
+            await apiCall('/api/keys/' + id, { method: 'DELETE' });
+            await loadApiKeys();
+          } catch (err) {
+            alert(err instanceof Error ? err.message : 'Failed to delete API key');
+          }
+        } else if (action === 'toggle') {
+          const enabled = target.getAttribute('data-enabled') === '1';
+          try {
+            await apiCall('/api/keys/' + id, { method: 'PUT', body: JSON.stringify({ enabled: !enabled }) });
+            await loadApiKeys();
+          } catch (err) {
+            alert(err instanceof Error ? err.message : 'Failed to update API key');
+          }
+        }
       });
 
       // Seed Tailwind JIT CDN with dynamic classes used via JS

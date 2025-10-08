@@ -37,7 +37,13 @@ export const auth = betterAuth({
     },
     plugins: [
         oAuthProxy(),
-        apiKey(),
+        apiKey({
+            enableSessionForAPIKeys: true,
+            enableMetadata: true,
+            rateLimit: {
+                enabled: false,
+            }
+        }),
         mcp({
             loginPage: "/connect",
         })

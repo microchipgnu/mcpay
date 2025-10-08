@@ -1,17 +1,15 @@
-import { Hono } from "hono";
 import { serve } from "@hono/node-server";
-import { cors } from "hono/cors";
-import { auth } from "./lib/auth.js";
-import dotenv from "dotenv";
-import { getPort, getTrustedOrigins, isDevelopment } from "./env.js";
-import { withProxy } from "mcpay/handler";
-import { AuthHeadersHook, LoggingHook } from "mcpay/handler";
-import { X402WalletHook } from "./lib/proxy/hooks/x402-wallet-hook.js";
-import { SecurityHook } from "./lib/proxy/hooks/security-hook.js";
 import { oAuthDiscoveryMetadata, oAuthProtectedResourceMetadata, withMcpAuth } from "better-auth/plugins";
+import dotenv from "dotenv";
+import { Hono } from "hono";
+import { cors } from "hono/cors";
+import { LoggingHook, withProxy } from "mcpay/handler";
+import { getPort, getTrustedOrigins, isDevelopment } from "./env.js";
+import { auth } from "./lib/auth.js";
+import { SecurityHook } from "./lib/proxy/hooks/security-hook.js";
+import { X402WalletHook } from "./lib/proxy/hooks/x402-wallet-hook.js";
 import { CONNECT_HTML } from "./ui/connect.js";
 import { USER_HTML } from "./ui/user.js";
-import { Session, User } from "better-auth";
 
 dotenv.config();
 
@@ -35,8 +33,8 @@ const ALLOWED_ORIGINS = new Set([
 const app = new Hono();
 
 app.use("*", cors({
-    allowHeaders: ["Origin", "Content-Type", "Authorization", "WWW-Authenticate"],
-    allowMethods: ["GET", "POST", "OPTIONS"],
+    allowHeaders: ["Origin", "Content-Type", "Authorization", "WWW-Authenticate", "x-api-key"],
+    allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     credentials: true,
     origin: (origin) => {
         if (!origin) return "";
@@ -98,6 +96,127 @@ app.get("/health", (c) => {
 });
 
 
+// API Keys - handle preflight
+app.options("/api/keys/*", (c) => {
+    return c.body(null, 204);
+});
+
+// API Keys - list current user's keys
+app.get("/api/keys", async (c) => {
+    try {
+        const session = await auth.api.getSession({ headers: c.req.raw.headers });
+        if (!session) return c.json({ error: "Unauthorized" }, 401);
+
+        const keys = await auth.api.listApiKeys({ headers: c.req.raw.headers });
+        return c.json(keys);
+    } catch (error) {
+        return c.json({ error: (error as Error).message }, 400);
+    }
+});
+
+// API Keys - create new key for current user
+app.post("/api/keys", async (c) => {
+    try {
+        const session = await auth.api.getSession({ headers: c.req.raw.headers });
+        if (!session) return c.json({ error: "Unauthorized" }, 401);
+
+        const body = await c.req.json().catch(() => ({} as any)) as any;
+
+        const expiresIn = typeof body.expiresIn === "number"
+            ? body.expiresIn
+            : (typeof body.expiresInDays === "number" ? Math.floor(body.expiresInDays * 86400) : undefined);
+
+        const payload: any = {
+            userId: session.user.id,
+            name: body.name,
+            prefix: body.prefix,
+            remaining: body.remaining,
+            metadata: body.metadata,
+            permissions: body.permissions,
+            expiresIn,
+            rateLimitEnabled: body.rateLimitEnabled,
+            rateLimitTimeWindow: body.rateLimitTimeWindow,
+            rateLimitMax: body.rateLimitMax,
+        };
+
+        const created = await auth.api.createApiKey({ body: payload, headers: c.req.raw.headers });
+        return c.json(created, 201);
+    } catch (error) {
+        return c.json({ error: (error as Error).message }, 400);
+    }
+});
+
+// API Keys - get by id (without returning secret key)
+app.get("/api/keys/:id", async (c) => {
+    try {
+        const session = await auth.api.getSession({ headers: c.req.raw.headers });
+        if (!session) return c.json({ error: "Unauthorized" }, 401);
+
+        const id = c.req.param("id");
+        const data = await auth.api.getApiKey({ query: { id }, headers: c.req.raw.headers });
+        return c.json(data);
+    } catch (error) {
+        return c.json({ error: (error as Error).message }, 400);
+    }
+});
+
+// API Keys - update by id
+app.put("/api/keys/:id", async (c) => {
+    try {
+        const session = await auth.api.getSession({ headers: c.req.raw.headers });
+        if (!session) return c.json({ error: "Unauthorized" }, 401);
+
+        const id = c.req.param("id");
+        const body = await c.req.json().catch(() => ({} as any)) as any;
+
+        const payload: any = {
+            keyId: id,
+            userId: session.user.id,
+            name: body.name,
+            enabled: body.enabled,
+            remaining: body.remaining,
+            refillAmount: body.refillAmount,
+            refillInterval: body.refillInterval,
+            metadata: body.metadata,
+            permissions: body.permissions,
+        };
+
+        const updated = await auth.api.updateApiKey({ body: payload, headers: c.req.raw.headers });
+        return c.json(updated);
+    } catch (error) {
+        return c.json({ error: (error as Error).message }, 400);
+    }
+});
+
+// API Keys - delete by id
+app.delete("/api/keys/:id", async (c) => {
+    try {
+        const session = await auth.api.getSession({ headers: c.req.raw.headers });
+        if (!session) return c.json({ error: "Unauthorized" }, 401);
+
+        const id = c.req.param("id");
+        const result = await auth.api.deleteApiKey({ body: { keyId: id }, headers: c.req.raw.headers });
+        return c.json(result);
+    } catch (error) {
+        return c.json({ error: (error as Error).message }, 400);
+    }
+});
+
+// API Keys - verify a presented key
+app.post("/api/keys/verify", async (c) => {
+    try {
+        const body = await c.req.json().catch(() => ({} as any)) as any;
+        if (!body.key || typeof body.key !== "string") {
+            return c.json({ error: "Missing 'key' in body" }, 400);
+        }
+
+        const result = await auth.api.verifyApiKey({ body: { key: body.key, permissions: body.permissions } });
+        return c.json(result);
+    } catch (error) {
+        return c.json({ error: (error as Error).message }, 400);
+    }
+});
+
 app.options(".well-known/oauth-authorization-server", (c) => {
     return c.body(null, 204);
 });
@@ -158,6 +277,13 @@ app.all("/mcp/*", async (c) => {
         new X402WalletHook(session),
         new SecurityHook(),
     ]);
+
+    const session = await auth.api.getSession({ headers: c.req.raw.headers });
+    
+
+    if(session) {
+        return withMcpProxy(session.session)(c.req.raw);
+    }
 
     const handler = withMcpAuth(auth, (req, session) => {
         return withMcpProxy(session)(req);
