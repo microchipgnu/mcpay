@@ -5,7 +5,7 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { LoggingHook, withProxy } from "mcpay/handler";
 import { getPort, getTrustedOrigins, isDevelopment } from "./env.js";
-import { auth } from "./lib/auth.js";
+import { auth, db } from "./lib/auth.js";
 import { SecurityHook } from "./lib/proxy/hooks/security-hook.js";
 import { X402WalletHook } from "./lib/proxy/hooks/x402-wallet-hook.js";
 import { CONNECT_HTML } from "./ui/connect.js";
@@ -95,6 +95,34 @@ app.get("/health", (c) => {
     return c.json({ status: "ok" });
 });
 
+
+// Wallets - handle preflight
+app.options("/api/wallets", (c) => {
+    return c.body(null, 204);
+});
+
+// Wallets - list current user's wallets
+app.get("/api/wallets", async (c) => {
+    try {
+        const session = await auth.api.getSession({ headers: c.req.raw.headers });
+        if (!session) return c.json({ error: "Unauthorized" }, 401);
+
+        const includeInactive = c.req.query("includeInactive") === "true";
+
+        const wallets = await db.query.userWallets.findMany({
+            where: (t, { and, eq }) => (
+                includeInactive
+                    ? eq(t.userId, session.user.id)
+                    : and(eq(t.userId, session.user.id), eq(t.isActive, true))
+            ),
+            orderBy: (t, { desc }) => [desc(t.isPrimary), desc(t.createdAt)],
+        });
+
+        return c.json(wallets);
+    } catch (error) {
+        return c.json({ error: (error as Error).message }, 400);
+    }
+});
 
 // API Keys - handle preflight
 app.options("/api/keys/*", (c) => {

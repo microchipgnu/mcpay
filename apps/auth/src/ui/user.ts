@@ -70,8 +70,28 @@ export const USER_HTML = `
 
             <section id="panel-wallets" class="tab-panel hidden">
               <div class="rounded-lg border border-gray-200 dark:border-gray-700 p-4 bg-gray-50 dark:bg-gray-800/50">
-                <h4 class="font-medium mb-1 text-gray-900 dark:text-gray-100">Connected Wallets</h4>
-                <p class="text-sm text-gray-600 dark:text-gray-400">Link your on-chain wallet from the app to see it here.</p>
+                <div class="flex items-center justify-between mb-2">
+                  <h4 class="font-medium text-gray-900 dark:text-gray-100">Connected Wallets</h4>
+                  <button id="reload-wallets" class="text-sm px-2 py-1 rounded border border-gray-300 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800">Reload</button>
+                </div>
+                <div id="wallets-empty" class="text-sm text-gray-600 dark:text-gray-400">No wallets linked yet. Link your on-chain wallet from the app.</div>
+                <div id="wallets-table-wrap" class="overflow-x-auto hidden">
+                  <table class="min-w-full text-sm">
+                    <thead class="bg-gray-50 dark:bg-gray-800/40 text-gray-700 dark:text-gray-300">
+                      <tr>
+                        <th class="text-left font-medium px-3 py-2">Address</th>
+                        <th class="text-left font-medium px-3 py-2">Provider</th>
+                        <th class="text-left font-medium px-3 py-2">Type</th>
+                        <th class="text-left font-medium px-3 py-2">Chain</th>
+                        <th class="text-left font-medium px-3 py-2">Primary</th>
+                        <th class="text-left font-medium px-3 py-2">Active</th>
+                        <th class="text-left font-medium px-3 py-2">Created</th>
+                        <th class="text-right font-medium px-3 py-2">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody id="wallets-tbody" class="divide-y divide-gray-200 dark:divide-gray-800"></tbody>
+                  </table>
+                </div>
               </div>
             </section>
 
@@ -211,8 +231,15 @@ export const USER_HTML = `
       const apiKeysTableWrap = document.getElementById('api-keys-table-wrap');
       const apiKeysTbody = document.getElementById('api-keys-tbody');
 
+      // Wallets UI elements
+      const reloadWalletsBtn = document.getElementById('reload-wallets');
+      const walletsEmpty = document.getElementById('wallets-empty');
+      const walletsTableWrap = document.getElementById('wallets-table-wrap');
+      const walletsTbody = document.getElementById('wallets-tbody');
+
       let currentUser = null;
       let apiKeysLoadedOnce = false;
+      let walletsLoadedOnce = false;
 
       async function getAuthClient() {
         const { createAuthClient } = await import('https://esm.sh/better-auth@1.3.26/client');
@@ -238,6 +265,9 @@ export const USER_HTML = `
         });
         if (name === 'developer' && currentUser && !apiKeysLoadedOnce) {
           loadApiKeys();
+        }
+        if (name === 'wallets' && currentUser && !walletsLoadedOnce) {
+          loadWallets();
         }
       }
 
@@ -278,6 +308,16 @@ export const USER_HTML = `
         }
       }
 
+      async function loadWallets() {
+        try {
+          const wallets = await apiCall('/api/wallets');
+          walletsLoadedOnce = true;
+          renderWallets(wallets || []);
+        } catch (err) {
+          console.error('Failed to load wallets', err);
+        }
+      }
+
       function renderApiKeys(keys) {
         if (!Array.isArray(keys) || keys.length === 0) {
           apiKeysEmpty.classList.remove('hidden');
@@ -306,6 +346,56 @@ export const USER_HTML = `
               '<div class="inline-flex gap-2">' +
                 '<button data-action="toggle" data-id="' + k.id + '" data-enabled="' + enabledAttr + '" class="px-2 py-1 text-xs rounded border border-gray-300 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800">' + toggleLabel + '</button>' +
                 '<button data-action="delete" data-id="' + k.id + '" class="px-2 py-1 text-xs rounded border border-red-300 text-red-700 dark:border-red-800 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20">Delete</button>' +
+              '</div>' +
+            '</td>' +
+            '</tr>'
+          );
+        }).join('');
+      }
+
+      function fmtBool(value) {
+        return value ? '<span class="text-green-700 dark:text-green-300">Yes</span>' : '<span class="text-gray-600 dark:text-gray-400">No</span>';
+      }
+
+      function shortAddress(addr) {
+        if (!addr || typeof addr !== 'string') return '—';
+        const a = addr.trim();
+        if (a.length <= 12) return a;
+        return a.slice(0, 6) + '…' + a.slice(-4);
+      }
+
+      function renderWallets(wallets) {
+        if (!Array.isArray(wallets) || wallets.length === 0) {
+          walletsEmpty?.classList.remove('hidden');
+          walletsTableWrap?.classList.add('hidden');
+          if (walletsTbody) walletsTbody.innerHTML = '';
+          return;
+        }
+        walletsEmpty?.classList.add('hidden');
+        walletsTableWrap?.classList.remove('hidden');
+        if (!walletsTbody) return;
+        walletsTbody.innerHTML = wallets.map((w) => {
+          const createdAt = fmtDate(w.createdAt);
+          const address = w.walletAddress || '—';
+          const provider = w.provider || '—';
+          const type = w.walletType || '—';
+          const chain = w.blockchain || '—';
+          const primaryHtml = fmtBool(!!w.isPrimary);
+          const activeHtml = fmtBool(w.isActive !== false);
+          return (
+            '<tr>' +
+            '<td class="px-3 py-2 text-gray-900 dark:text-gray-100 font-mono">' +
+              '<span title="' + address + '">' + shortAddress(address) + '</span>' +
+            '</td>' +
+            '<td class="px-3 py-2">' + provider + '</td>' +
+            '<td class="px-3 py-2">' + type + '</td>' +
+            '<td class="px-3 py-2">' + chain + '</td>' +
+            '<td class="px-3 py-2">' + primaryHtml + '</td>' +
+            '<td class="px-3 py-2">' + activeHtml + '</td>' +
+            '<td class="px-3 py-2">' + createdAt + '</td>' +
+            '<td class="px-3 py-2 text-right">' +
+              '<div class="inline-flex gap-2">' +
+                '<button data-action="copy-address" data-address="' + address + '" class="px-2 py-1 text-xs rounded border border-gray-300 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800">Copy</button>' +
               '</div>' +
             '</td>' +
             '</tr>'
@@ -358,6 +448,7 @@ export const USER_HTML = `
         currentUser = user;
         if (user) {
           loadApiKeys();
+          loadWallets();
         }
         setActiveTab('funds');
       }
@@ -452,6 +543,21 @@ export const USER_HTML = `
       // API Keys: reload
       reloadApiKeysBtn?.addEventListener('click', () => loadApiKeys());
 
+      // Wallets: reload
+      reloadWalletsBtn?.addEventListener('click', () => loadWallets());
+
+      // Wallets: row actions via delegation
+      walletsTbody?.addEventListener('click', async (e) => {
+        const target = e.target;
+        if (!(target && target.getAttribute)) return;
+        const action = target.getAttribute('data-action');
+        if (action === 'copy-address') {
+          const address = target.getAttribute('data-address') || '';
+          if (!address || address === '—') return;
+          try { await navigator.clipboard.writeText(address); alert('Copied address'); } catch {}
+        }
+      });
+
       // API Keys: row actions via delegation
       apiKeysTbody?.addEventListener('click', async (e) => {
         const target = e.target;
@@ -480,7 +586,7 @@ export const USER_HTML = `
 
       // Seed Tailwind JIT CDN with dynamic classes used via JS
       const seed = document.createElement('div');
-      seed.className = 'hidden bg-gray-900 text-white dark:bg-white dark:text-gray-900 bg-transparent text-gray-700 dark:text-gray-300';
+      seed.className = 'hidden bg-gray-900 text-white dark:bg-white dark:text-gray-900 bg-transparent text-gray-700 dark:text-gray-300 text-green-700 dark:text-green-300';
       document.body.appendChild(seed);
 
       refreshUI();
