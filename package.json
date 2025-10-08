@@ -8,6 +8,7 @@
   "scripts": {
     "dev": "turbo run dev --parallel --filter='./apps/*' --filter='./packages/*'",
     "dev:examples": "turbo run dev --parallel --filter='./examples/*'",
+    "dev:examples:chatgpt": "pnpm -C examples/chatgpt-mcpay dev",
     "dev:all": "turbo run dev --parallel",
     "build": "turbo run build",
     "typecheck": "turbo run typecheck",

@@ -1,0 +1,28 @@
+{
+  "name": "chatgpt-mcpay",
+  "private": true,
+  "type": "module",
+  "module": "index.ts",
+  "scripts": {
+    "predev": "pnpm run install:web && pnpm run build:widget",
+    "install:web": "pnpm -C web install",
+    "build:widget": "pnpm -C web build",
+    "prestart": "pnpm run install:web && pnpm run build:widget",
+    "dev": "tsx --watch index.ts",
+    "start": "tsx index.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@hono/node-server": "^1.19.5",
+    "@modelcontextprotocol/sdk": "^1.18.2",
+    "hono": "^4.9.6",
+    "mcp-handler": "^1.0.2",
+    "mcpay": "workspace:*",
+    "zod": "3.25.76"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.17",
+    "tsx": "^4.19.4",
+    "typescript": "^5.8.3"
+  }
+}
