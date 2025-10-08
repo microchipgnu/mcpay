@@ -396,6 +396,7 @@ export const USER_HTML = `
             '<td class="px-3 py-2 text-right">' +
               '<div class="inline-flex gap-2">' +
                 '<button data-action="copy-address" data-address="' + address + '" class="px-2 py-1 text-xs rounded border border-gray-300 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800">Copy</button>' +
+                '<button data-action="onramp" data-address="' + address + '" class="px-2 py-1 text-xs rounded border border-blue-300 text-blue-700 dark:border-blue-800 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/20">Fund</button>' +
               '</div>' +
             '</td>' +
             '</tr>'
@@ -555,6 +556,24 @@ export const USER_HTML = `
           const address = target.getAttribute('data-address') || '';
           if (!address || address === '—') return;
           try { await navigator.clipboard.writeText(address); alert('Copied address'); } catch {}
+        } else if (action === 'onramp') {
+          if (!currentUser) return alert('Please sign in first.');
+          const address = target.getAttribute('data-address') || '';
+          if (!address || address === '—') return;
+          try {
+            const res = await apiCall('/api/onramp/url', {
+              method: 'POST',
+              body: JSON.stringify({ walletAddress: address }),
+            });
+            const url = res && res.url;
+            if (typeof url === 'string' && url.startsWith('http')) {
+              window.open(url, '_blank', 'noopener');
+            } else {
+              alert('Failed to generate onramp URL');
+            }
+          } catch (err) {
+            alert(err instanceof Error ? err.message : 'Failed to create onramp URL');
+          }
         }
       });
 

@@ -10,6 +10,7 @@ import { SecurityHook } from "./lib/proxy/hooks/security-hook.js";
 import { X402WalletHook } from "./lib/proxy/hooks/x402-wallet-hook.js";
 import { CONNECT_HTML } from "./ui/connect.js";
 import { USER_HTML } from "./ui/user.js";
+import { createOneClickBuyUrl } from "./lib/3rd-parties/cdp/onramp/index.js";
 
 dotenv.config();
 
@@ -95,6 +96,47 @@ app.get("/health", (c) => {
     return c.json({ status: "ok" });
 });
 
+
+// Onramp - preflight
+app.options("/api/onramp/*", (c) => {
+    return c.body(null, 204);
+});
+
+// Onramp - create one-click buy URL
+app.post("/api/onramp/url", async (c) => {
+    try {
+        const session = await auth.api.getSession({ headers: c.req.raw.headers });
+        if (!session) return c.json({ error: "Unauthorized" }, 401);
+
+        type OnrampUrlBody = {
+            walletAddress: string;
+            network?: string;
+            asset?: string;
+            amount?: number;
+            currency?: string;
+            redirectUrl?: string;
+        };
+
+        const body = (await c.req.json().catch(() => ({}))) as Partial<OnrampUrlBody>;
+        const walletAddress = typeof body.walletAddress === "string" ? body.walletAddress.trim() : "";
+        if (!walletAddress) {
+            return c.json({ error: "Missing walletAddress" }, 400);
+        }
+
+        const url = await createOneClickBuyUrl(walletAddress, {
+            network: typeof body.network === "string" && body.network ? body.network : undefined,
+            asset: typeof body.asset === "string" && body.asset ? body.asset : undefined,
+            amount: typeof body.amount === "number" && !Number.isNaN(body.amount) ? body.amount : undefined,
+            currency: typeof body.currency === "string" && body.currency ? body.currency : undefined,
+            userId: session.user.id,
+            redirectUrl: typeof body.redirectUrl === "string" && body.redirectUrl ? body.redirectUrl : undefined,
+        });
+
+        return c.json({ url });
+    } catch (error) {
+        return c.json({ error: (error as Error).message }, 400);
+    }
+});
 
 // Wallets - handle preflight
 app.options("/api/wallets", (c) => {
