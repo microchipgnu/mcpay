@@ -32,7 +32,7 @@ const handler = createMcpPaidHandler(
     },
     {
         facilitator: {
-            url: "https://facilitator.x402.rs"
+            url: "https://facilitator.payai.network"
         },
         recipient: {
             "evm": {address: "0xc9343113c791cB5108112CFADa453Eef89a2E2A2", isTestnet: true},
@@ -48,7 +48,18 @@ const handler = createMcpPaidHandler(
     }
 );
 
-app.use("*", (c) => handler(c.req.raw));
+app.use("*", (c) => {
+    console.log("[MCP] Request received");
+    console.log("[MCP] Request headers:", c.req.raw.headers);
+    console.log("[MCP] Request body:", c.req.raw.body);
+    console.log("[MCP] Request url:", c.req.raw.url);
+    console.log("[MCP] Request method:", c.req.raw.method);
+    console.log("[MCP] Request headers:", c.req.raw.headers);
+    console.log("[MCP] Request body:", c.req.raw.body);
+    console.log("[MCP] Request url:", c.req.raw.url);
+    console.log("[MCP] Request method:", c.req.raw.method);
+    return handler(c.req.raw);
+});
 
 serve({
     fetch: app.fetch,

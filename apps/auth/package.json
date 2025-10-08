@@ -21,7 +21,7 @@
     "drizzle-orm": "^0.44.1",
     "get-port": "^7.1.0",
     "hono": "^4.9.9",
-    "mcpay": "0.1.7-beta.7",
+    "mcpay": "workspace:*",
     "viem": "^2.37.13",
     "x402": "^0.6.5",
     "zod": "^4.1.11"

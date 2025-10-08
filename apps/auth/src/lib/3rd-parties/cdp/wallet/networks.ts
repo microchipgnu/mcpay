@@ -397,7 +397,7 @@ export const UNIFIED_NETWORKS: Record<UnifiedNetwork, NetworkConfig> = {
     rpcUrls: ['https://api.avax-test.network/ext/bc/C/rpc'],
     blockExplorerUrls: ['https://testnet.snowtrace.io'],
     iconUrl: '/networks/avalanche.svg',
-    cdpSupported: false,
+    cdpSupported: true,
     x402Supported: true,
     tokens: {
       '0x0000000000000000000000000000000000000000': {

@@ -19,8 +19,8 @@ export class CDPSigningStrategy implements PaymentSigningStrategy {
                 return false;
             }
 
-            const paymentRequirements = context.paymentRequirements
-            const network = paymentRequirements[0].network as CDPNetwork;
+            const paymentRequirement = context.paymentRequirement
+            const network = paymentRequirement.network as CDPNetwork;
 
             const cdpWallets = await txOperations.getCDPWalletsByUser(context.user!.id);
             const compatibleWallets = cdpWallets.filter(wallet => {
@@ -49,22 +49,16 @@ export class CDPSigningStrategy implements PaymentSigningStrategy {
                 };
             }
 
-            const paymentRequirements = context.paymentRequirements
-            const network = paymentRequirements[0].network as CDPNetwork;
-            if (!paymentRequirements) {
+            const paymentRequirement = context.paymentRequirement
+            const network = paymentRequirement.network as CDPNetwork;
+            if (!paymentRequirement) {
                 return {
                     success: false,
                     error: 'No payment requirements provided'
                 };
             }
 
-            const pickedPaymentRequirement = paymentRequirements.find(requirement => requirement.network === network);
-            if (!pickedPaymentRequirement) {
-                return {
-                    success: false,
-                    error: `No payment requirement found for network: ${network}`
-                };
-            }
+            const pickedPaymentRequirement = paymentRequirement;
 
             const cdpWallets = await txOperations.getCDPWalletsByUser(context.user!.id);
             
@@ -135,7 +129,7 @@ export class CDPSigningStrategy implements PaymentSigningStrategy {
 
     private async signWithCDPWallet(
         wallet: Wallet,
-        paymentRequirements: PaymentRequirements,
+        paymentRequirement: PaymentRequirements,
         network: CDPNetwork
     ): Promise<PaymentSigningResult> {
         try {
@@ -157,7 +151,7 @@ export class CDPSigningStrategy implements PaymentSigningStrategy {
 
             const signer = createSignerFromViemAccount(network, cdpAccount)
             
-            const signedPayment = await createPaymentHeader(signer, x402Version, paymentRequirements);
+            const signedPayment = await createPaymentHeader(signer, x402Version, paymentRequirement);
 
             console.log(`[CDP Strategy] Signed payment:`, JSON.stringify(signedPayment, null, 2));
             console.log(`[CDP Strategy] Encoded payment:`, signedPayment);

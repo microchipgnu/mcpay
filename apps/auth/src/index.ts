@@ -7,9 +7,11 @@ import { getPort, getTrustedOrigins, isDevelopment } from "./env.js";
 import { withProxy } from "mcpay/handler";
 import { AuthHeadersHook, LoggingHook } from "mcpay/handler";
 import { X402WalletHook } from "./lib/proxy/hooks/x402-wallet-hook.js";
+import { SecurityHook } from "./lib/proxy/hooks/security-hook.js";
 import { oAuthDiscoveryMetadata, oAuthProtectedResourceMetadata, withMcpAuth } from "better-auth/plugins";
 import { CONNECT_HTML } from "./ui/connect.js";
 import { USER_HTML } from "./ui/user.js";
+import { Session, User } from "better-auth";
 
 dotenv.config();
 
@@ -151,13 +153,14 @@ app.get("/", async (c) => {
 
 app.all("/mcp/*", async (c) => {
 
-    const withMcpProxy = withProxy([
+    const withMcpProxy = (session: any) => withProxy([
         new LoggingHook(),
-        new X402WalletHook(),
+        new X402WalletHook(session),
+        new SecurityHook(),
     ]);
 
     const handler = withMcpAuth(auth, (req, session) => {
-        return withMcpProxy(req);
+        return withMcpProxy(session)(req);
     });
 
     return handler(c.req.raw);

@@ -128,8 +128,16 @@ export function withProxy(hooks: Hook[]) {
                     }
                 }
             }
-
+            
             // send upstream
+            // Remove/normalize hop-by-hop or mismatched headers before sending a new JSON body
+            forwardHeaders.delete("content-length");
+            forwardHeaders.delete("host");
+            forwardHeaders.delete("connection");
+            forwardHeaders.delete("transfer-encoding");
+            // Ensure correct content type for JSON body
+            forwardHeaders.set("content-type", "application/json");
+
             const upstream = await fetch(targetUrl, {
                 method: req.method,
                 headers: forwardHeaders,

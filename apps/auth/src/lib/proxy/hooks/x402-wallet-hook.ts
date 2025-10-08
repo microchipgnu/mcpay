@@ -1,9 +1,7 @@
-import type { Hook } from "mcpay/handler";
-import { attemptAutoSign } from "../../3rd-parties/payment-strategies/index.js";
-import { auth } from "../../auth.js";
 import type { CallToolRequest, CallToolResult } from "@modelcontextprotocol/sdk/types.js";
-import type { RequestExtra, ToolCallResponseHookResult } from "mcpay/handler";
+import type { Hook, RequestExtra, ToolCallResponseHookResult } from "mcpay/handler";
 import { PaymentRequirements } from "x402/types";
+import { attemptSignPayment } from "../../3rd-parties/payment-strategies/index.js";
 
 
 type X402ErrorPayload = {
@@ -36,6 +34,10 @@ function isPaymentRequired(res: any): X402ErrorPayload | null {
 
 export class X402WalletHook implements Hook {
     name = "x402-wallet";
+    session: any;
+    constructor(session: any) {
+        this.session = session;
+    }
 
     async processCallToolRequest(req: CallToolRequest, _extra: RequestExtra) {
         return { resultType: "continue" as const, request: req };
@@ -50,9 +52,13 @@ export class X402WalletHook implements Hook {
                 return { resultType: "continue" as const, response: res };
             }
 
+
             // Must have an authenticated user to auto-pay
-            const session = await auth.api.getSession({ headers: (extra?.inboundHeaders as Headers) ?? new Headers() });
-            if (!session?.user?.id) {
+            const session = this.session;
+
+            console.log("[X402WalletHook] Session:", JSON.stringify(session, null, 2));
+            console.log("[X402WalletHook] Extra:", JSON.stringify(extra, null, 2));
+            if (!session?.userId) {
                 console.log("[X402WalletHook] No authenticated user found, cannot auto-pay.");
                 return { resultType: "continue" as const, response: res };
             }
@@ -64,28 +70,13 @@ export class X402WalletHook implements Hook {
             }
 
             const toolName = String((req?.params as unknown as { name?: string })?.name ?? "");
-            const toolCall = {
-                isPaid: true,
-                payment: {
-                    maxAmountRequired: String(first.maxAmountRequired),
-                    network: String(first.network),
-                    asset: String(first.asset),
-                    payTo: typeof first.payTo === "string" ? first.payTo : undefined,
-                    resource: String(first.resource ?? `mcp://${toolName}`),
-                    description: String(first.description ?? (toolName ? `Paid access to ${toolName}` : "Paid access")),
-                },
-            } as const;
 
             const user = {
-                id: String(session.user.id),
-                email: session.user.email as string | undefined,
-                name: (session.user as unknown as { name?: string }).name,
-                displayName: (session.user as unknown as { displayName?: string }).displayName,
+                id: String(session.userId),
             } as const;
 
-            console.log("[X402WalletHook] Attempting auto-sign with toolCall:", toolCall, "user:", user);
 
-            const result = await attemptAutoSign(payload.accepts as PaymentRequirements[], user);
+            const result = await attemptSignPayment(first as unknown as PaymentRequirements, user);
             if (!result.success || !result.signedPaymentHeader) {
                 console.log("[X402WalletHook] Auto-sign failed or no signedPaymentHeader returned. Result:", result);
                 return { resultType: "continue" as const, response: res };
