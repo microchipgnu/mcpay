@@ -3,7 +3,8 @@ import { oAuthDiscoveryMetadata, oAuthProtectedResourceMetadata, withMcpAuth } f
 import dotenv from "dotenv";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
-import { LoggingHook, withProxy } from "mcpay/handler";
+import { LoggingHook, withProxy, createMcpHandler } from "mcpay/handler";
+import { z } from "zod";
 import { getPort, getTrustedOrigins, isDevelopment } from "./env.js";
 import { auth, db } from "./lib/auth.js";
 import { SecurityHook } from "./lib/proxy/hooks/security-hook.js";
@@ -340,27 +341,136 @@ app.get("/", async (c) => {
     );
 });
 
-app.all("/mcp/*", async (c) => {
+app.all("/mcp", async (c) => {
 
-    const withMcpProxy = (session: any) => withProxy([
-        new LoggingHook(),
-        new X402WalletHook(session),
-        new SecurityHook(),
-    ]);
+    const currentUrl = new URL(c.req.url);
+    const targetUrlParam = currentUrl.searchParams.get("target-url");
+    const hasId = !!currentUrl.searchParams.get("id");
+    const shouldProxy = hasId || !!targetUrlParam;
+    const original = c.req.raw;
 
-    const session = await auth.api.getSession({ headers: c.req.raw.headers });
-    
+    if (shouldProxy) {
+        console.log("[MCP] Proxying request:", {
+            url: original.url,
+            method: original.method,
+        });
 
-    if(session) {
-        return withMcpProxy(session.session)(c.req.raw);
+        const withMcpProxy = (session: any) => withProxy([
+            new LoggingHook(),
+            new X402WalletHook(session),
+            new SecurityHook(),
+        ]);
+
+        const session = await auth.api.getSession({ headers: original.headers });
+
+        if (session) {
+            console.log("[MCP] Authenticated session found, proxying with session:", session.session?.userId || session.session);
+            return withMcpProxy(session.session)(original);
+        }
+
+        console.log("[MCP] No authenticated session, using withMcpAuth");
+        const handler = withMcpAuth(auth, (req, session) => {
+            console.log("[MCP] withMcpAuth session:", session?.userId || session);
+            return withMcpProxy(session)(req);
+        });
+
+        return handler(original);
     }
 
-    const handler = withMcpAuth(auth, (req, session) => {
-        return withMcpProxy(session)(req);
+    const handler = (session: any) => createMcpHandler(async (server) => {
+        server.tool(
+            "ping",
+            "Health check that echoes an optional message",
+            { message: z.string().optional() },
+            async ({ message }) => {
+                return {
+                    content: [
+                        { type: "text", text: message ? `pong: ${message}` : "pong" },
+                    ],
+                };
+            }
+        );
+
+        server.tool(
+            "me",
+            "Returns the current authenticated user's basic info if available",
+            {},
+            async (_args, extra) => {
+
+                console.log(original)
+
+                const session = await auth.api.getSession({ headers: original.headers });
+
+                if (!session) {
+                    return { content: [{ type: "text", text: "Not authenticated" }] };
+                }
+                return {
+                    content: [
+                        { type: "text", text: JSON.stringify({ ...session.user }) },
+                    ],
+                };
+            }
+        );
+
+        // server.tool(
+        //     "create_onramp_url",
+        //     "Generate a one-click buy URL for funding a wallet",
+        //     {
+        //         walletAddress: z.string().describe("Destination wallet address"),
+        //         network: z.string().optional(),
+        //         asset: z.string().optional(),
+        //         amount: z.number().optional(),
+        //         currency: z.string().optional(),
+        //         redirectUrl: z.string().url().optional(),
+        //     },
+        //     async ({ walletAddress, network, asset, amount, currency, redirectUrl }, extra) => {
+        //         const inboundHeaders = (extra?.requestInfo && (extra.requestInfo as unknown as { headers?: unknown }).headers) as unknown as Headers | undefined;
+        //         if (!inboundHeaders) {
+        //             return { content: [{ type: "text", text: "Unauthorized" }] };
+        //         }
+        //         const session = await auth.api.getSession({ headers: inboundHeaders });
+        //         if (!session) {
+        //             return { content: [{ type: "text", text: "Unauthorized" }] };
+        //         }
+
+        //         const url = await createOneClickBuyUrl(walletAddress, {
+        //             network: network || undefined,
+        //             asset: asset || undefined,
+        //             amount: typeof amount === "number" && !Number.isNaN(amount) ? amount : undefined,
+        //             currency: currency || undefined,
+        //             userId: session.user.id,
+        //             redirectUrl: redirectUrl || undefined,
+        //         });
+
+        //         return { content: [{ type: "text", text: url }] };
+        //     }
+        // );
     });
 
-    return handler(c.req.raw);
+    return withMcpAuth(auth, (req, session) => handler(session)(req))(c.req.raw);
 });
+
+// app.all("/mcp/*", async (c) => {
+
+//     const withMcpProxy = (session: any) => withProxy([
+//         new LoggingHook(),
+//         new X402WalletHook(session),
+//         new SecurityHook(),
+//     ]);
+
+//     const session = await auth.api.getSession({ headers: c.req.raw.headers });
+    
+
+//     if(session) {
+//         return withMcpProxy(session.session)(c.req.raw);
+//     }
+
+//     const handler = withMcpAuth(auth, (req, session) => {
+//         return withMcpProxy(session)(req);
+//     });
+
+//     return handler(c.req.raw);
+// });
 
 serve({
     fetch: app.fetch,
