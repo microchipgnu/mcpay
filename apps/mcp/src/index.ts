@@ -153,11 +153,13 @@ app.get("/api/wallets", async (c) => {
         const includeInactive = c.req.query("includeInactive") === "true";
 
         const wallets = await db.query.userWallets.findMany({
-            where: (t, { and, eq }) => (
-                includeInactive
-                    ? eq(t.userId, session.user.id)
-                    : and(eq(t.userId, session.user.id), eq(t.isActive, true))
-            ),
+            where: (t, { and, eq }) => {
+                const conditions = [eq(t.userId, session.user.id)];
+                if (!includeInactive) {
+                    conditions.push(eq(t.isActive, true));
+                }
+                return and(...conditions);
+            },
             orderBy: (t, { desc }) => [desc(t.isPrimary), desc(t.createdAt)],
         });
 
