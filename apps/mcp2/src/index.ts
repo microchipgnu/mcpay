@@ -5,6 +5,7 @@ import type { Network, Price } from "x402/types";
 import { redisStore, type StoredServerConfig } from "./db/redis.js";
 import { config } from 'dotenv';
 import getPort from "get-port";
+import { serve } from "@hono/node-server";
 
 config();
 
@@ -63,7 +64,7 @@ async function buildMonetizationForTarget(targetUrl: string): Promise<{
 
         // Build recipients from the new recipient structure
         const recipient: Partial<Record<Network, string>> = {};
-        
+
         // Handle the new recipient format: { evm: { address: string, isTestnet?: boolean } }
         if (server.recipient?.evm?.address) {
             // For now, we'll use a generic network key since we're simplifying to EVM
@@ -71,7 +72,7 @@ async function buildMonetizationForTarget(targetUrl: string): Promise<{
             const networkKey = server.recipient.evm.isTestnet ? 'base-sepolia' : 'base';
             recipient[networkKey as Network] = server.recipient.evm.address;
         }
-        
+
         // Fallback to old receiverAddressByNetwork if it exists (for backwards compatibility)
         if (!Object.keys(recipient).length && server.receiverAddressByNetwork) {
             const map = server.receiverAddressByNetwork ?? {};
@@ -79,7 +80,7 @@ async function buildMonetizationForTarget(targetUrl: string): Promise<{
                 if (addr) recipient[net as Network] = String(addr);
             }
         }
-        
+
         // If there are no recipients configured, monetization cannot be applied
         if (!Object.keys(recipient).length) return null;
 
@@ -226,7 +227,23 @@ app.all("/mcp", async (c) => {
 const portPromise = getPort({ port: process.env.PORT ? Number(process.env.PORT) : 3006 });
 const port = await portPromise;
 
-export default {
-    app,
-    port: port,
-};
+// Support both Vercel-style export (for serverless) and local node listening
+const isVercel = !!process.env.VERCEL;
+
+if (!isVercel) {
+    serve({
+        fetch: app.fetch,
+        port: port,
+        hostname: '0.0.0.0' // Important for sandbox access
+    }, (info) => {
+        console.log(`[MCP2] Server running on http://0.0.0.0:${info.port}`);
+    });
+}
+
+// For Vercel (Edge/Serverless) export just the app instance
+export default isVercel
+    ? app
+    : {
+        app,
+        port: port,
+    };
