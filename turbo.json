@@ -12,7 +12,8 @@
     "CDP_API_SECRET",
     "CDP_WALLET_SECRET",
     "UPSTASH_REDIS_REST_URL",
-    "UPSTASH_REDIS_REST_TOKEN"
+    "UPSTASH_REDIS_REST_TOKEN",
+    "BETTER_AUTH_URL"
   ],
   "tasks": {
     "build": { "dependsOn": ["^build"], "outputs": ["dist/**", ".next/**"] },
