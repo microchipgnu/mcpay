@@ -1,0 +1,158 @@
+---
+title: "Integration"
+description: "Connect MCPay-protected servers to MCP clients (Claude Desktop, Windsurf, etc.) or integrate programmatically with the SDK/CLI."
+---
+
+# Financial Server Integration Guide
+
+> **Using the Registry:** This guide integrates **one example server** so you can copy–paste quickly. To use any other service, browse the **[MCPay Registry](https://mcpay.tech/servers)** and **replace the MCP URL** below with the server you want.
+
+> **Example MCP URL (replace with any from the Registry):**  
+> `https://mcpay.tech/v1/mcp/d67aaf0d-fcc8-4136-948d-c470abe41ac0`
+
+---
+
+## Prerequisite: API Keys (optional, recommended)
+
+You **don’t always need** an API key (wallet-based x402 works without one), but for most desktop clients and quick SDK setups an **MCPay API key is the simplest path**.
+
+**Use a key when:**
+- You want easy, revocable auth without managing a wallet.
+
+**No key needed when:**
+- You’re using a **wallet** (pay → retry flow).
+
+**Get an API key**
+1. Sign in to MCPay → **Open the connection modal**  
+2. Go to **API Keys** → **Add New Key**  
+3. Store it in an env var (e.g., `MCPAY_API_KEY`)  
+4. Rotate or revoke keys anytime in the modal
+
+![](/mcpay-auth-modal-keys-screenshot.png)
+
+---
+
+## MCP Client Integration
+
+Connect this server to MCP-aware tools (e.g., Claude Desktop, Windsurf).
+
+### Manual Configuration (API Key — recommended)
+
+Create an API key (see **Prerequisite** above), then add this to your MCP client config (e.g., `claude_desktop_config.json`):
+
+```json
+{
+  "mcpServers": {
+    "Financial Server": {
+      "command": "npx",
+      "args": [
+        "mcpay",
+        "connect",
+        "--urls",
+        "https://mcpay.tech/v1/mcp/d67aaf0d-fcc8-4136-948d-c470abe41ac0",
+        "--api-key",
+        "mcpay_YOUR_API_KEY_HERE"
+      ]
+    }
+  }
+}
+```
+
+> Tip: To integrate a **different server**, grab its MCP URL from the **[Registry](https://mcpay.tech/servers)** and swap it into `--urls`. You can also load the API key from an env var rather than inlining it.
+
+---
+
+### Manual Configuration (Private Key — alternative)
+
+```json
+{
+  "mcpServers": {
+    "Financial Server": {
+      "command": "npx",
+      "args": [
+        "mcpay",
+        "connect",
+        "--urls",
+        "https://mcpay.tech/v1/mcp/d67aaf0d-fcc8-4136-948d-c470abe41ac0",
+        "--evm",
+        "0xYOUR_PRIVATE_KEY",
+        "--evm-network",
+        "base-sepolia"
+      ]
+    }
+  }
+}
+```
+
+> ⚠️ **Security:** Prefer API keys for desktop clients. If you must use a private key, load it from a secure env/keychain.
+
+---
+
+## Direct API Integration (Programmatic)
+
+Build custom apps that call tools programmatically. Pick one of two transports:
+
+* **Wallet (x402 payments):** automatic `402` pay → retry flow using an on-chain wallet.
+* **HTTP + API key (no wallet):** simple auth with an API key.
+
+> Replace the MCP URL with any server from the **[MCPay Registry](https://mcpay.tech/servers)**.
+> Example used below: `https://mcpay.tech/v1/mcp/d67aaf0d-fcc8-4136-948d-c470abe41ac0`
+
+---
+
+### Option 1 — Wallet payment via SDK (x402)
+
+Handles `HTTP 402` automatically: receives price metadata → pays on-chain → retries.
+
+```ts
+import { Client } from '@modelcontextprotocol/sdk/client/index.js'
+import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js'
+import { withX402Client } from 'mcpay/client'
+import { createSigner, isEvmSignerWallet, isSvmSignerWallet } from 'x402/types'
+
+// Initialize MCP client
+const client = new Client({ name: 'my-mcp-client', version: '1.0.0' })
+
+// Connect over standard HTTP transport
+const MCP_SERVER_URL = 'https://mcpay.tech/v1/mcp/d67aaf0d-fcc8-4136-948d-c470abe41ac0'
+const transport = new StreamableHTTPClientTransport(new URL(MCP_SERVER_URL))
+await client.connect(transport)
+
+// Create EVM and SVM signers (pick the networks you need)
+const evmSigner = await createSigner('base-sepolia', process.env.EVM_PRIVATE_KEY as `0x${string}`)
+const svmSigner = await createSigner('solana-devnet', process.env.SVM_SECRET_KEY as string)
+
+if (!isEvmSignerWallet(evmSigner)) throw new Error('Failed to create EVM signer')
+if (!isSvmSignerWallet(svmSigner)) throw new Error('Failed to create SVM signer')
+
+// Wrap client with X402 payment capabilities
+const paymentClient = withX402Client(client, {
+  wallet: { evm: evmSigner, svm: svmSigner },
+  // Optional confirmation hook
+  confirmationCallback: async () => true,
+})
+
+const tools = await paymentClient.listTools()
+console.log('Available tools:', tools)
+```
+---
+
+### Option 2 — HTTP transport with API key (no wallet)
+
+Use an API key (from **Prerequisite**) and the MCP SDK’s Streamable HTTP transport.
+
+```ts
+import { Client } from '@modelcontextprotocol/sdk/client'
+import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
+
+const mcpayApiKey = process.env.MCPAY_API_KEY
+const url = new URL(`https://mcpay.tech/v1/mcp/d67aaf0d-fcc8-4136-948d-c470abe41ac0?apiKey=${mcpayApiKey}`)
+
+const transport = new StreamableHTTPClientTransport(new URL(url));
+
+const client = new Client({ name: 'my-mcp-client', version: '1.0.0' }, { capabilities: {} })
+await client.connect(transport)
+
+const tools = await client.listTools()
+console.log('Available tools:', tools)
+```

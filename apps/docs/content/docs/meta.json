@@ -1,0 +1,5 @@
+{
+    "title": "MCPay",
+    "pages": ["index", "quickstart", "x402", "faq", "more-about"],
+    "defaultOpen": true
+  }

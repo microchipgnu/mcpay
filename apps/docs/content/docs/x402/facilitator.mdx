@@ -1,0 +1,34 @@
+---
+title: "Facilitator"
+description: "A high-availability passthrough proxy for x402 facilitators with automatic failover, retries, and load balancing."
+---
+
+**Endpoint:** `https://facilitator.mcpay.tech`
+
+A high-availability passthrough proxy for [x402 facilitators](https://x402.org). It provides a single stable entrypoint with failover, retries, and load balancing across multiple upstream facilitators.
+
+## ✨ Features
+
+- **Passthrough Proxy**: Transparently forwards requests to upstream x402 facilitators.  
+- **On-Demand Health Checks**: Lightweight, stateless monitoring of facilitator health.  
+- **Automatic Failover**: Routes around failures by switching to healthy facilitators.  
+- **Retry Logic**: Exponential backoff for transient network or service errors.  
+- **Load Balancing**: Distributes traffic randomly among available healthy targets.  
+- **Monitoring Endpoints**: Health (`/health`) and status (`/status`) endpoints for observability.  
+- **Edge & Serverless Ready**: Stateless by design, no background processes required.  
+
+## 🔗 Upstream Targets
+
+The proxy currently balances across:  
+
+- [`https://facilitator.x402.rs`](https://facilitator.x402.rs)  
+- [`https://facilitator.payai.network`](https://facilitator.payai.network)  
+
+Additional facilitators (Coinbase, thirdweb, bankr, meridian, ABK LABS, mogami) can be added as they publish stable endpoints.
+
+Your requests will automatically be routed through healthy upstream facilitators.
+
+## 📊 Monitoring
+
+* `GET /health` → quick health check (200 if proxy is up)
+* `GET /status` → JSON report of upstream health and routing state

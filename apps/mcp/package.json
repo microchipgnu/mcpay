@@ -1,0 +1,36 @@
+{
+  "name": "@mcpay/mcp",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "tsx src/index.ts",
+    "dev": "tsx --watch src/index.ts",
+    "auth:generate": "npx @better-auth/cli generate",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:studio": "drizzle-kit studio"
+  },
+  "dependencies": {
+    "@coinbase/cdp-sdk": "^1.26.0",
+    "@hono/node-server": "^1.19.5",
+    "@modelcontextprotocol/sdk": "1.18.2",
+    "@neondatabase/serverless": "^1.0.2",
+    "@pinggy/pinggy": "^0.1.4",
+    "better-auth": "^1.3.26",
+    "dotenv": "^17.2.3",
+    "drizzle-orm": "^0.44.1",
+    "get-port": "^7.1.0",
+    "hono": "^4.9.9",
+    "mcpay": "workspace:*",
+    "viem": "^2.37.13",
+    "x402": "^0.6.5",
+    "zod": "^4.1.11"
+  },
+  "devDependencies": {
+    "@better-auth/cli": "^1.3.26",
+    "@types/node": "^24.7.0",
+    "drizzle-kit": "^0.31.1",
+    "tsx": "^4.7.1",
+    "typescript": "^5.8.3"
+  }
+}

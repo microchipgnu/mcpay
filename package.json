@@ -1,0 +1,44 @@
+{
+  "name": "mcpay-monorepo",
+  "private": true,
+  "packageManager": "pnpm@9.12.0",
+  "engines": {
+    "node": ">=20.10.0"
+  },
+  "scripts": {
+    "dev": "turbo run dev --parallel --filter='./apps/*' --filter='./packages/*'",
+    "dev:examples": "turbo run dev --parallel --filter='./examples/*'",
+    "dev:examples:chatgpt": "pnpm -C examples/chatgpt-mcpay dev",
+    "dev:all": "turbo run dev --parallel",
+    "build": "turbo run build",
+    "typecheck": "turbo run typecheck",
+    "lint": "turbo run lint",
+    "test": "turbo run test",
+    "e2e": "turbo run e2e",
+    "changeset": "changeset",
+    "release": "changeset version && pnpm -r install --no-frozen-lockfile && changeset publish",
+    "release:beta:enter": "changeset pre enter beta",
+    "release:beta:add": "changeset add --empty --summary 'Beta prerelease for mcpay' --packages mcpay",
+    "release:beta:version": "changeset version && pnpm -r install --no-frozen-lockfile",
+    "release:beta:publish": "changeset publish",
+    "release:beta": "pnpm release:beta:enter && pnpm release:beta:add && pnpm release:beta:version && pnpm release:beta:publish",
+    "release:exit-pre": "changeset pre exit",
+    "release:stable:add": "changeset add --empty --summary 'Stable release for mcpay' --packages mcpay",
+    "release:stable:version": "changeset version && pnpm -r install --no-frozen-lockfile",
+    "release:stable:publish": "changeset publish",
+    "release:stable": "pnpm release:exit-pre && pnpm release:stable:add && pnpm release:stable:version && pnpm release:stable:publish"
+  },
+  "devDependencies": {
+    "@changesets/cli": "^2.27.10",
+    "turbo": "^2.1.3",
+    "typescript": "^5.8.3"
+  },
+  "pnpm": {
+    "overrides": {
+      "ai": "5.0.0-beta.20",
+      "@modelcontextprotocol/sdk": "1.18.2"
+    }
+  }
+}
+
+

@@ -1,0 +1,180 @@
+---
+title: "SDK"
+description: "The most complete Typescript SDK for x402 + MCP"
+---
+
+The SDK gives you full control to define tools (free or paid), wire pricing, and integrate from clients. It handles **x402** automatically.
+
+## Features
+
+- **Supports EVM and Solana**
+- **Extensible with plugins**
+- **Simple x402 setup**
+- **Open source**
+
+import { SupportedEVMNetworks,  SupportedSVMNetworks } from "x402/types";
+
+
+### EVMs supported
+
+<Card>
+{SupportedEVMNetworks.map((network, i) => (
+  <span key={network}>
+    {network}
+    {i !== SupportedEVMNetworks.length - 1 ? ', ' : ''}
+  </span>
+))}
+</Card>
+
+### SVMs supported
+
+<Card>
+{SupportedSVMNetworks.map((network, i) => (
+  <span key={network}>
+    {network}
+    {i !== SupportedSVMNetworks.length - 1 ? ', ' : ''}
+  </span>
+))}
+</Card>
+
+
+For a full deployable template, follow this link [github/x402-mcp](https://github.com/microchipgnu/x402-mcp).
+
+# Creating a Server
+
+You can use the `createMcpPaidHandler` and plug that into any popular frameworks like Express, Hono, NextJS, and others.
+
+
+<Tabs items={['npm', 'pnpm', 'bun']}>
+  <Tab value="npm">npm i mcpay @modelcontextprotocol/sdk viem zod</Tab>
+  <Tab value="pnpm">pnpm add mcpay @modelcontextprotocol/sdk viem zod</Tab>
+  <Tab value="bun">bun add mcpay @modelcontextprotocol/sdk viem zod</Tab>
+</Tabs>
+
+## Hono
+
+Here's how you can create a server.
+
+```ts
+
+import { Hono } from "hono"
+import { createMcpPaidHandler } from "mcpay/handler"
+import { z } from "zod"
+
+const app = new Hono()
+
+const handler = createMcpPaidHandler(
+    (server) => {
+        server.paidTool(
+            "weather",
+            "Paid tool",
+            "$0.001",
+            { city: z.string() },
+            {},
+            async ({ city }) => ({
+                content: [{ type: "text", text: `The weather in ${city} is sunny` }],
+            })
+        )
+
+        server.tool(
+            "free_tool",
+            "Free to use",
+            { s: z.string(), city: z.string() },
+            async ({ s, city }) => ({
+                content: [{ type: "text", text: `We support ${city}` }],
+            })
+        )
+    },
+    {
+        facilitator: {
+            url: "https://facilitator.mcpay.tech"
+        },
+        recipient: {
+            "evm": {address: "0xc9343113c791cB5108112CFADa453Eef89a2E2A2", isTestnet: true},
+            "svm": {address: "4VQeAqyPxR9pELndskj38AprNj1btSgtaCrUci8N4Mdg", isTestnet: true}
+        }
+    },
+    {
+        serverInfo: { name: "paid-mcp", version: "1.0.0" },
+    },
+)
+
+
+app.use("*", (c) => handler(c.req.raw))
+
+export default app
+
+```
+
+
+# Client: X402 Payment Wrapper
+
+Using the `withX402Client` you can intercept and make payment requests in your MCP Client. 
+
+```ts
+import { Client } from "@modelcontextprotocol/sdk/client/index.js";
+import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
+import { withX402Client } from "mcpay/client";
+import { createSigner, isEvmSignerWallet, isSvmSignerWallet } from "x402/types";
+
+
+export const getClient = async () => {
+  const client = new Client({
+    name: "example-client",
+    version: "1.0.0",
+  });
+
+  const EVM_PRIVATE_KEY = process.env.EVM_PRIVATE_KEY as `0x${string}`;
+  const SOLANA_PRIVATE_KEY = process.env.SOLANA_PRIVATE_KEY as `0x${string}`;
+  const MCP_SERVER_URL = "http://localhost:3000/mcp"
+
+  const transport = new StreamableHTTPClientTransport(new URL(MCP_SERVER_URL));
+
+  // ✅ Wait for the connection
+  await client.connect(transport);
+
+  const evmSigner = await createSigner("base-sepolia", EVM_PRIVATE_KEY);
+  const svmSigner = await createSigner("solana-devnet", SOLANA_PRIVATE_KEY);
+
+  if (!isEvmSignerWallet(evmSigner)) {
+    throw new Error("Failed to create EVM signer");
+  }
+  if (!isSvmSignerWallet(svmSigner)) {
+    throw new Error("Failed to create SVM signer");
+  }
+
+  return withX402Client(client, {
+    wallet: {
+      evm: evmSigner,
+      svm: svmSigner
+    },
+    confirmationCallback: async (payment) => {
+        return true
+    }
+  });
+};
+
+export const getClientResponse = async () => {
+  const client = await getClient();
+
+  const tools = await client.listTools();
+  console.log("Tools:", JSON.stringify(tools, null, 2));
+
+  // ✅ Correct overload: (name: string, args?: Record<string, unknown>)
+  const res = await client.callTool({
+    name: "hello",
+    arguments: {
+      name: "Yo"
+    },
+  });
+  return res;
+};
+
+try {
+  console.log("[main] Starting test...");
+  const response = await getClientResponse();
+  console.log("[main] Final response:", response);
+} catch (err) {
+  console.error(err);
+}
+```

@@ -1,0 +1,97 @@
+---
+title: "Introduction"
+---
+
+![](/cover.png)
+
+<div className="text-center">
+[Website](https://mcpay.tech) · [Browse Registry](https://mcpay.tech/servers) · [Build an MCP](https://mcpay.tech/build) · [Register/Monetize](https://mcpay.tech/register)
+</div>
+
+---
+
+## What is MCPay?
+MCPay is a **payment layer for MCP servers**. It uses [x402 protocol](https://x402.org) so that a client (human app or AI agent) can:
+
+1. call a paid tool → 2) receive **402 + price metadata** → 3) pay on‑chain (e.g. USDC) → 4) **retry automatically** → 5) get the result.
+
+No subscriptions. No manual API keys. Works with autonomous agents.
+
+---
+
+## Why MCPay (in 30 seconds)
+
+* **Developers**: Ship paid tools in minutes. No OAuth, no recurring billing infra, no key juggling.
+* **MCP Hosts**: Price **each tool** (per call / per token / dynamic) and get instant revenue.
+* **AI Agents**: Do true **agent↔service micropayments** without human sign‑ups.
+
+Use cases: paid search, embeddings, scraping, premium APIs, inference, downloads, rate‑limited features, one‑off unlocks.
+
+---
+
+## How it works
+
+```
+                            ┌──────────────┐
+                            │  MCP Client  │
+                            │ (app/agent)  │
+                            └──────┬───────┘
+                                   │
+                                   ① tool call request
+                                   │
+                                   ▼
+        ┌─────────────────────────────────────────────┐
+        │              MCP Proxy (Edge)               │
+        │  • replies 402 + price metadata             │
+        │  • signs & broadcasts payment               │
+        │  • retries request once payment confirmed   │
+        └──────┬──────────────┬───────────────────────┘
+               │              │
+               ② on-chain    ③ original request
+               │   payment    │   (after pay)
+               ▼              ▼
+        ┌───────────────┐  ┌──────────────┐
+        │  Blockchain   │  │   Your API   │
+        │ (USDC/EUROe)  │  │ (any stack)  │
+        └──────┬────────┘  └──────────────┘
+               │
+               │④ streamed usage & revenue events
+               ▼
+           (dashboard / analytics)
+```
+
+Under the hood we:
+
+* Return `402` with structured **price metadata** (asset, amount, destination, memo, expiry).
+* Accept the in‑flight payment, verify on‑chain, and **retry the original request**.
+* Emit **usage/revenue events** for your dashboard.
+
+---
+
+## Key components
+
+### 1) Registry
+
+Discover MCP servers and their priced tools at **[mcpay.tech/servers](https://mcpay.tech/servers)**. Searchable, machine‑readable, agent‑friendly.
+
+### 2) Builder (MCPay Build)
+
+Create and iterate on new MCP servers quickly at **[mcpay.tech/build](https://mcpay.tech/build)**. Preview in a sandbox, publish, and (optionally) set prices per tool.
+
+With MCPay Build you can:
+
+- **Create & iterate** on MCP servers entirely in a chat flow.
+- **Preview** them live in an isolated Vercel Sandbox.
+- **Deploy** to GitHub + Vercel with one click.
+- **Monetize** your tools instantly with MCPay (x402 per-call payments).
+
+This lowers the barrier for developers who find MCP confusing or want to get started without boilerplate. The default template is a production-ready MCP server with free + paid tools side by side.
+
+The MCP code lives in https://github.com/microchipgnu/mcpay-build
+
+
+### 3) Monetizer (Proxy)
+
+Wrap existing MCP servers with the **MCPay proxy** to enforce pay‑per‑call. Zero code changes to your upstream service.
+
+You can monetize via [MCPay Registry](https://mcpay.tech/register) or [programmatically](/js-sdk/).

@@ -99,7 +99,7 @@ You can monetize via [MCPay Registry](https://mcpay.tech/register) or [programma
 
 ---
 
-## How the `app/` works (high level)
+## How the `apps/app` works (high level)
 
 This repo includes a Next.js app (`app/`) that powers the website, registry, builder, monetizer proxy, and APIs.
 
@@ -127,7 +127,7 @@ This repo includes a Next.js app (`app/`) that powers the website, registry, bui
   - Wallets & keys: `GET/POST /api/users/:userId/wallets`, `GET/POST/DELETE /api/users/:userId/api-keys`.
   - Onramp helpers: `POST /api/users/:userId/onramp/buy-url`, `GET /api/onramp/config`.
 
-Environment is validated via `app/src/lib/gateway/env.ts` (Zod). See that file for the full list of vars and defaults.
+Environment is validated via `apps/app/src/lib/gateway/env.ts` (Zod). See that file for the full list of vars and defaults.
 
 ---
 
@@ -265,8 +265,10 @@ Run `mcpay connect --help` for all flags.
 
 ## Project structure
 
-* **`app/`** – Next.js app for website, registry, builder, monetizer proxy, and APIs
-* **`js-sdk/`** – JS/TS SDK + CLI ([js-sdk/README.md](./js-sdk/README.md))
+* **`apps/app`** – Next.js app for website, registry, builder, monetizer proxy, and APIs
+* **`apps/app-v2`** – Next.js app (v2) for newer UI/flows
+* **`apps/mcp2`** – Hono service and scripts (Upstash, tooling)
+* **`packages/js-sdk`** – JS/TS SDK + CLI ([packages/js-sdk/README.md](./packages/js-sdk/README.md))
 * **`assets/`** – Static repo assets (docs, images)
 
 ---
@@ -281,17 +283,16 @@ cd mcpay.fun
 Run the website (Next.js):
 
 ```bash
-cd app
-bun install
-bun run dev
+pnpm install
+pnpm dev --filter @mcpay/app
+# or
+pnpm dev --filter @mcpay/app-v2
 ```
 
 Build SDK/CLI:
 
 ```bash
-cd js-sdk
-bun install
-bun run build
+pnpm -F mcpay build
 ```
 
 Notes:

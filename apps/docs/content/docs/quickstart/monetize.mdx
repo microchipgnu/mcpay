@@ -1,0 +1,45 @@
+---
+title: "Monetize"
+description: "Two paths to price and protect your tools: no-code on the website or full-control with the SDK."
+---
+
+There are two ways to monetize an MCP server (or a plain HTTP API):
+
+| Path | Best for | What it does |
+|---|---|---|
+| **Website (No-code)** | Fastest go-live, existing services | Configure prices per tool/route in the dashboard. The MCPay proxy returns `402` + price metadata and auto-retries after payment. |
+| **SDK (Code)** | Custom logic & full control | Define **paid tools** in code, set pricing, and ship an MCP/HTTP server that speaks x402 out of the box. |
+
+---
+
+## Option A — Website (No-code)
+
+Use the **Register/Monetize** flow to price tools with zero code changes to your upstream.
+
+**Steps**
+1. Go to **`https://mcpay.tech/register`** and register your MCP server (or an HTTP endpoint to wrap).
+2. Pick the **tools/routes** you want to charge for.
+3. Set **price** (e.g., `$0.05` per call), **asset** (e.g., USDC), and **chain** (e.g., Base).
+4. (Optional) Configure memo/expiry and basic rate-limits.
+5. **Publish**. Your server’s MCPay URL is now pay-protected.
+
+**What happens under the hood**
+- First unauthenticated call → **`402 Payment Required`** with `accepts { asset, amount, destination, memo, expiry }`.
+- Client (or the MCPay transport) pays on-chain, then **the proxy retries the original request** and returns the real response.
+- **Usage/revenue events** are emitted for your analytics.
+
+**Great for**
+- Wrapping an existing API **without touching code**.
+- Quickly turning individual **MCP tools** into paid endpoints.
+- Letting **agents and browsers** pay per call with the same flow.
+
+---
+
+## Option B — SDK (Code)
+
+Choose the SDK when you want **code-level control**. Define free or paid tools, attach per-call pricing, and let the client transport **auto-handle `402`/x402 (pay → retry)** for MCP **and** plain HTTP services. Ideal for versioned codebases, testing, and CI/CD.
+
+- Full control over pricing & validation in code  
+- Works with Next.js, Express, Workers, etc.
+
+→ Start here: [Building with the SDK](/quickstart/sdk)
