@@ -4,6 +4,7 @@ import { AuthHeadersHook, LoggingHook, withProxy, X402MonetizationHook } from "m
 import type { Network, Price } from "x402/types";
 import { redisStore, type StoredServerConfig } from "./db/redis.js";
 import { config } from 'dotenv';
+import { serve } from "@hono/node-server";
 import getPort from "get-port";
 
 config();
@@ -195,7 +196,8 @@ app.all("/mcp", async (c) => {
         method: original.method,
         headers,
         body: original.body,
-    });
+        duplex: 'half'
+    } as RequestInit);
 
     const proxy = withProxy([
         new LoggingHook(),
@@ -222,11 +224,13 @@ app.all("/mcp", async (c) => {
     return proxy(reqForProxy);
 });
 
-const portPromise = getPort({ port: process.env.PORT ? Number(process.env.PORT) : 3035 });
+const portPromise = getPort({ port: process.env.PORT ? Number(process.env.PORT) : 3006 });
 const port = await portPromise;
 
-export default {
-    app,
-    port: port,
+serve({
     fetch: app.fetch,
-}
+    port: port,
+    hostname: '0.0.0.0' // Important for sandbox access
+}, (info) => {
+    console.log(`[MCP2] Server running on http://0.0.0.0:${info.port}`);
+});

@@ -8,6 +8,7 @@
     "dev": "tsx --watch src/index.ts"
   },
   "dependencies": {
+    "@hono/node-server": "^1.19.5",
     "@upstash/redis": "^1.34.0",
     "ai": "5.0.0-beta.20",
     "dotenv": "^17.2.3",
