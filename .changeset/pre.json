@@ -5,9 +5,10 @@
     "@mcpay/app": "0.1.0",
     "docs": "0.0.0",
     "auth-example": "0.1.0",
-    "mcpay": "0.1.7-beta.7"
+    "mcpay": "0.1.7-beta.8"
   },
   "changesets": [
+    "fair-dingos-report",
     "free-tigers-switch",
     "kind-owls-ring",
     "neat-symbols-accept",
