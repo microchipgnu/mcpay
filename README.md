@@ -308,8 +308,3 @@ Notes:
 
 **Can humans pay in a browser?**  Yes, via wallet extensions or embedded wallets — same `402` flow.
 
----
-
-## Contributing
-
-PRs welcome. For large changes, open a discussion first. See [LICENSE](./LICENSE) (MIT).
