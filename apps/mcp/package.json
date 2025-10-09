@@ -1,5 +1,5 @@
 {
-  "name": "@mcpay/auth",
+  "name": "@mcpay/mcp",
   "private": true,
   "type": "module",
   "scripts": {

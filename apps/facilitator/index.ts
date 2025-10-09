@@ -42,6 +42,11 @@ class FacilitatorProxy {
                     url: "https://facilitator.payai.network",
                     weight: 1,
                 },
+                {
+                    name: "facilitator.corbits.dev",
+                    url: "https://facilitator.payai.network",
+                    weight: 1,
+                },
             ],
             retry: {
                 maxRetries: 3,
