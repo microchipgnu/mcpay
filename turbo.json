@@ -2,6 +2,16 @@
   "$schema": "https://turbo.build/schema.json",
   "ui": "tui",
   "globalDependencies": ["**/.env*", "**/*.schema.*"],
+  "globalEnv": [
+    "DATABASE_URL",
+    "GITHUB_CLIENT_ID",
+    "GITHUB_CLIENT_SECRET",
+    "TRUSTED_ORIGINS",
+    "BETTER_AUTH_SECRET",
+    "CDP_API_KEY",
+    "CDP_API_SECRET",
+    "CDP_WALLET_SECRET"
+  ],
   "tasks": {
     "build": { "dependsOn": ["^build"], "outputs": ["dist/**", ".next/**"] },
     "dev": { "cache": false, "persistent": true },
