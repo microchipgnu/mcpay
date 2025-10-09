@@ -8,6 +8,7 @@ import { type CDPNetwork, type CDPWalletMetadata } from "../cdp/types.js";
 import { createPaymentHeader } from "x402/client";
 import { PaymentRequirements } from "x402/types";
 export type { Wallet } from "../../db/actions.js";
+import { toAccount } from "viem/accounts";
 
 export class CDPSigningStrategy implements PaymentSigningStrategy {
     name = "CDP";
@@ -149,7 +150,7 @@ export class CDPSigningStrategy implements PaymentSigningStrategy {
             // Get the CDP account instance
             const cdpAccount = await getCDPAccount(accountId, network);
 
-            const signer = createSignerFromViemAccount(network, cdpAccount)
+            const signer = createSignerFromViemAccount(network, toAccount(cdpAccount))
             
             const signedPayment = await createPaymentHeader(signer, x402Version, paymentRequirement);
 
