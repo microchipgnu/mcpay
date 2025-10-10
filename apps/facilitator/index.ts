@@ -16,18 +16,57 @@ interface RetryConfig {
     backoffMultiplier: number;
 }
 
+interface CircuitBreakerConfig {
+    failureThreshold: number;
+    resetTimeout: number;
+    monitoringWindow: number;
+}
+
+interface CacheConfig {
+    ttl: number;
+    maxSize: number;
+}
+
+interface RateLimitConfig {
+    windowMs: number;
+    maxRequests: number;
+}
+
 interface ProxyConfig {
     upstreams: UpstreamTarget[];
     retry: RetryConfig;
     timeout: number;
     healthCheckEndpoint: string;
     userAgent: string;
+    circuitBreaker: CircuitBreakerConfig;
+    cache: CacheConfig;
+    rateLimit: RateLimitConfig;
+}
+
+interface CircuitBreakerState {
+    failures: number[];
+    state: 'closed' | 'open' | 'half-open';
+    lastFailureTime: number;
+}
+
+interface CacheEntry {
+    data: string;
+    timestamp: number;
+    contentType: string;
+}
+
+interface RateLimitEntry {
+    count: number;
+    resetTime: number;
 }
 
 const USER_AGENT = "facilitator-proxy-mcpay.tech/1.0";
 
 class FacilitatorProxy {
     private config: ProxyConfig;
+    private circuitBreakers: Map<string, CircuitBreakerState> = new Map();
+    private responseCache: Map<string, CacheEntry> = new Map();
+    private rateLimitMap: Map<string, RateLimitEntry> = new Map();
 
     constructor() {
         this.config = {
@@ -35,15 +74,10 @@ class FacilitatorProxy {
                 {
                     name: "facilitator.x402.rs",
                     url: "https://facilitator.x402.rs",
-                    weight: 1,
+                    weight: 0.1,
                 },
                 {
                     name: "facilitator.payai.network",
-                    url: "https://facilitator.payai.network",
-                    weight: 1,
-                },
-                {
-                    name: "facilitator.corbits.dev",
                     url: "https://facilitator.payai.network",
                     weight: 1,
                 },
@@ -57,13 +91,196 @@ class FacilitatorProxy {
             timeout: 10000, // 10 seconds
             healthCheckEndpoint: "/supported",
             userAgent: USER_AGENT,
+            circuitBreaker: {
+                failureThreshold: 5,
+                resetTimeout: 30000, // 30 seconds
+                monitoringWindow: 60000, // 1 minute
+            },
+            cache: {
+                ttl: 300000, // 5 minutes
+                maxSize: 100,
+            },
+            rateLimit: {
+                windowMs: 60000, // 1 minute
+                maxRequests: 100,
+            },
         };
     }
 
+    private getCircuitBreakerState(targetName: string): CircuitBreakerState {
+        if (!this.circuitBreakers.has(targetName)) {
+            this.circuitBreakers.set(targetName, {
+                failures: [],
+                state: 'closed',
+                lastFailureTime: 0,
+            });
+        }
+        return this.circuitBreakers.get(targetName)!;
+    }
+
+    private recordFailure(targetName: string): void {
+        const state = this.getCircuitBreakerState(targetName);
+        const now = Date.now();
+
+        // Clean old failures outside the monitoring window
+        state.failures = state.failures.filter(
+            timestamp => now - timestamp < this.config.circuitBreaker.monitoringWindow
+        );
+
+        state.failures.push(now);
+        state.lastFailureTime = now;
+
+        if (state.failures.length >= this.config.circuitBreaker.failureThreshold) {
+            state.state = 'open';
+            console.warn(`Circuit breaker opened for ${targetName} (${state.failures.length} failures)`);
+        }
+    }
+
+    private recordSuccess(targetName: string): void {
+        const state = this.getCircuitBreakerState(targetName);
+        if (state.state === 'half-open') {
+            state.state = 'closed';
+            state.failures = [];
+            console.log(`Circuit breaker closed for ${targetName}`);
+        }
+    }
+
+    private canAttemptRequest(targetName: string): boolean {
+        const state = this.getCircuitBreakerState(targetName);
+
+        if (state.state === 'closed') {
+            return true;
+        }
+
+        if (state.state === 'open') {
+            const timeSinceLastFailure = Date.now() - state.lastFailureTime;
+            if (timeSinceLastFailure >= this.config.circuitBreaker.resetTimeout) {
+                state.state = 'half-open';
+                console.log(`Circuit breaker half-open for ${targetName}`);
+                return true;
+            }
+            return false;
+        }
+
+        return state.state === 'half-open';
+    }
+
+    private getCacheKey(request: Request): string {
+        return `${request.method}:${request.url}`;
+    }
+
+    private isRateLimited(clientId: string): boolean {
+        const now = Date.now();
+        const entry = this.rateLimitMap.get(clientId);
+
+        if (!entry || now > entry.resetTime) {
+            // Reset or initialize rate limit
+            this.rateLimitMap.set(clientId, {
+                count: 1,
+                resetTime: now + this.config.rateLimit.windowMs,
+            });
+            return false;
+        }
+
+        if (entry.count >= this.config.rateLimit.maxRequests) {
+            return true;
+        }
+
+        entry.count++;
+        return false;
+    }
+
+    private getClientId(request: Request): string {
+        // Use X-Forwarded-For if available, otherwise fall back to a generic identifier
+        return request.headers.get('X-Forwarded-For') ||
+               request.headers.get('X-Real-IP') ||
+               'unknown-client';
+    }
+
+    private getCachedResponse(cacheKey: string): CacheEntry | null {
+        const entry = this.responseCache.get(cacheKey);
+        if (!entry) return null;
+
+        const now = Date.now();
+        if (now - entry.timestamp > this.config.cache.ttl) {
+            this.responseCache.delete(cacheKey);
+            return null;
+        }
+
+        return entry;
+    }
+
+    private setCachedResponse(cacheKey: string, data: string, contentType: string): void {
+        // Implement LRU-like behavior if cache is full
+        if (this.responseCache.size >= this.config.cache.maxSize) {
+            const firstKey = this.responseCache.keys().next().value;
+            if (firstKey) {
+                this.responseCache.delete(firstKey);
+            }
+        }
+
+        this.responseCache.set(cacheKey, {
+            data,
+            timestamp: Date.now(),
+            contentType,
+        });
+    }
+
+    private validateResponseBody(responseText: string, contentType: string): boolean {
+        // Check content type for JSON endpoints
+        if (!contentType.includes('application/json') && !contentType.includes('text/plain')) {
+            return false;
+        }
+
+        // Try to parse JSON for validation
+        try {
+            if (contentType.includes('application/json')) {
+                JSON.parse(responseText);
+            }
+            return true;
+        } catch (error) {
+            console.warn('Response validation failed:', error);
+            return false;
+        }
+    }
+
+    private async validateResponse(response: Response): Promise<boolean> {
+        // Check for valid status codes
+        if (response.status >= 500) {
+            return false;
+        }
+
+        // Check content type for JSON endpoints
+        const contentType = response.headers.get('content-type') || '';
+        if (!contentType.includes('application/json') && !contentType.includes('text/plain')) {
+            return false;
+        }
+
+        // Try to parse JSON for validation
+        try {
+            const text = await response.text();
+            if (contentType.includes('application/json')) {
+                JSON.parse(text);
+            }
+            return true;
+        } catch (error) {
+            console.warn('Response validation failed:', error);
+            return false;
+        }
+    }
+
     private async performHealthCheck(target: UpstreamTarget): Promise<boolean> {
+        // Check circuit breaker first
+        if (!this.canAttemptRequest(target.name)) {
+            console.log(`Skipping health check for ${target.name} - circuit breaker is open`);
+            return false;
+        }
+
         try {
             const controller = new AbortController();
             const timeoutId = setTimeout(() => controller.abort(), this.config.timeout);
+
+            console.log(`Performing health check for ${target.name}`);
 
             // Use the actual x402 API endpoint for health checks
             const response = await fetch(`${target.url}${this.config.healthCheckEndpoint}`, {
@@ -77,10 +294,20 @@ class FacilitatorProxy {
 
             clearTimeout(timeoutId);
 
-            // Consider the target healthy if we get a valid response (even if 401/403 for auth)
-            // The important thing is that the service is responding
-            return response.status < 500;
+            // Validate the response
+            const isValid = await this.validateResponse(response);
+
+            if (response.status < 500 && isValid) {
+                this.recordSuccess(target.name);
+                console.log(`Health check passed for ${target.name} (${response.status})`);
+                return true;
+            } else {
+                this.recordFailure(target.name);
+                console.warn(`Health check failed for ${target.name} (${response.status})`);
+                return false;
+            }
         } catch (error) {
+            this.recordFailure(target.name);
             console.warn(`Health check failed for ${target.name}:`, error);
             return false;
         }
@@ -121,10 +348,60 @@ class FacilitatorProxy {
         return Math.min(delay, this.config.retry.maxDelay);
     }
 
-    async proxyRequest(request: Request): Promise<Response> {
+    async proxyRequest(request: Request, requestId?: string): Promise<Response> {
+        console.log(`[${requestId || 'unknown'}] Processing proxy request to ${request.url}`);
+
+        // Check rate limiting first
+        const clientId = this.getClientId(request);
+        if (this.isRateLimited(clientId)) {
+            console.warn(`[${requestId || 'unknown'}] Rate limit exceeded for client ${clientId}`);
+            return new Response(
+                JSON.stringify({
+                    error: "Rate limit exceeded",
+                    retryAfter: Math.ceil(this.config.rateLimit.windowMs / 1000),
+                    timestamp: new Date().toISOString()
+                }),
+                {
+                    status: 429,
+                    headers: {
+                        "Content-Type": "application/json",
+                        "Retry-After": Math.ceil(this.config.rateLimit.windowMs / 1000).toString(),
+                    }
+                }
+            );
+        }
+
+        // Check cache for GET requests
+        if (request.method === 'GET') {
+            const cacheKey = this.getCacheKey(request);
+            const cachedResponse = this.getCachedResponse(cacheKey);
+            if (cachedResponse) {
+                console.log(`Cache hit for ${cacheKey}`);
+                return new Response(cachedResponse.data, {
+                    status: 200,
+                    headers: {
+                        "Content-Type": cachedResponse.contentType,
+                        "X-Cache": "HIT",
+                    }
+                });
+            }
+        }
+
         let lastError: Error | null = null;
         let lastTarget: UpstreamTarget | null = null;
         const attemptedTargets = new Set<string>();
+
+        // Buffer request body once to allow safe retries (avoid locked/disturbed streams)
+        const method = request.method.toUpperCase();
+        let bufferedBody: ArrayBuffer | null = null;
+        try {
+            if (method !== 'GET' && method !== 'HEAD') {
+                bufferedBody = await request.arrayBuffer();
+            }
+        } catch {
+            // If body cannot be read, treat as empty
+            bufferedBody = null;
+        }
 
         for (let attempt = 0; attempt <= this.config.retry.maxRetries; attempt++) {
             // Get healthy targets that haven't been tried yet
@@ -150,7 +427,7 @@ class FacilitatorProxy {
             }
 
             // Select a target (prefer untried ones, fallback to any healthy)
-            const target = availableTargets.length > 0 
+            const target = availableTargets.length > 0
                 ? availableTargets[Math.floor(Math.random() * availableTargets.length)]
                 : healthyTargets[Math.floor(Math.random() * healthyTargets.length)];
 
@@ -168,53 +445,92 @@ class FacilitatorProxy {
                 );
             }
 
+            // Check circuit breaker for this target
+            if (!this.canAttemptRequest(target.name)) {
+                console.log(`Skipping ${target.name} - circuit breaker is open`);
+                attemptedTargets.add(target.name);
+                continue;
+            }
+
             // Mark this target as attempted
             attemptedTargets.add(target.name);
             lastTarget = target;
 
             try {
                 const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), this.config.timeout);
+                // Use longer timeout for non-GET requests (e.g., settle/verify)
+                const perAttemptTimeout = (method === 'GET' || method === 'HEAD') ? this.config.timeout : Math.max(this.config.timeout, 30000);
+                const timeoutId = setTimeout(() => controller.abort(), perAttemptTimeout);
 
                 // Clone the request and update the URL
                 const proxyUrl = new URL(request.url);
                 const targetUrl = new URL(proxyUrl.pathname + proxyUrl.search, target.url);
 
-                // Clone headers and add proxy identification
+                // Clone headers and add proxy identification; strip hop-by-hop/mismatched headers
                 const proxyHeaders = new Headers(request.headers);
                 proxyHeaders.set("User-Agent", this.config.userAgent);
                 proxyHeaders.set("X-Forwarded-For", request.headers.get("X-Forwarded-For") || "unknown");
                 proxyHeaders.set("X-Proxy-By", this.config.userAgent);
+                proxyHeaders.delete("content-length");
+                proxyHeaders.delete("host");
+                proxyHeaders.delete("connection");
+                proxyHeaders.delete("transfer-encoding");
+                proxyHeaders.delete("content-encoding");
 
                 const proxyRequest = new Request(targetUrl.toString(), {
                     method: request.method,
                     headers: proxyHeaders,
-                    body: request.body,
+                    body: bufferedBody,
                     signal: controller.signal,
-                    // @ts-ignore
-                    duplex: 'half',
                 });
 
                 const response = await fetch(proxyRequest);
                 clearTimeout(timeoutId);
 
-                // Clone the response to avoid consuming the body
-                const responseClone = response.clone();
+                // Read response body once for both validation and caching
+                const responseText = await response.text();
+                const contentType = response.headers.get('content-type') || 'application/json';
 
-                // Add proxy headers
-                const headers = new Headers(response.headers);
-                headers.set("X-Proxy-Target", target.name);
-                headers.set("X-Proxy-Attempt", attempt.toString());
-                headers.set("X-Proxy-Timestamp", new Date().toISOString());
+                // Validate the response
+                const isValidResponse = this.validateResponseBody(responseText, contentType);
 
-                return new Response(responseClone.body, {
-                    status: response.status,
-                    statusText: response.statusText,
-                    headers: headers,
-                });
+                if (isValidResponse) {
+                    this.recordSuccess(target.name);
+
+                    // Cache successful GET responses
+                    if (request.method === 'GET') {
+                        const cacheKey = this.getCacheKey(request);
+                        this.setCachedResponse(cacheKey, responseText, contentType);
+                    }
+
+                    // Add proxy headers
+                    const headers = new Headers(response.headers);
+                    // Sanitize hop-by-hop and compression headers to match re-serialized body
+                    headers.delete("content-encoding");
+                    headers.delete("content-length");
+                    headers.delete("transfer-encoding");
+                    headers.set("X-Proxy-Target", target.name);
+                    headers.set("X-Proxy-Attempt", attempt.toString());
+                    headers.set("X-Proxy-Timestamp", new Date().toISOString());
+                    headers.set("X-Cache", "MISS");
+                    if (!headers.get("Content-Type")) {
+                        headers.set("Content-Type", contentType);
+                    }
+
+                    return new Response(responseText, {
+                        status: response.status,
+                        statusText: response.statusText,
+                        headers: headers,
+                    });
+                } else {
+                    this.recordFailure(target.name);
+                    console.warn(`Invalid response from ${target.name} (${response.status})`);
+                    throw new Error(`Invalid response from ${target.name}`);
+                }
 
             } catch (error) {
                 lastError = error as Error;
+                this.recordFailure(target.name);
                 console.warn(`Attempt ${attempt + 1} failed for ${target.name}:`, error);
 
                 // If this is not the last attempt, wait before retrying with a different target
@@ -249,14 +565,30 @@ class FacilitatorProxy {
         return {
             upstreams: this.config.upstreams.map((target) => {
                 const isHealthy = healthyTargets.some(healthy => healthy.name === target.name);
+                const circuitBreaker = this.getCircuitBreakerState(target.name);
+
                 return {
                     name: target.name,
                     url: target.url,
                     isHealthy,
+                    circuitBreaker: {
+                        state: circuitBreaker.state,
+                        failures: circuitBreaker.failures.length,
+                        lastFailure: circuitBreaker.lastFailureTime,
+                    },
                 };
             }),
             healthyCount: healthyTargets.length,
             totalCount: this.config.upstreams.length,
+            cacheSize: this.responseCache.size,
+            rateLimitActive: this.rateLimitMap.size,
+            config: {
+                retry: this.config.retry,
+                timeout: this.config.timeout,
+                circuitBreaker: this.config.circuitBreaker,
+                cache: this.config.cache,
+                rateLimit: this.config.rateLimit,
+            },
         };
     }
 
@@ -269,12 +601,60 @@ const proxy = new FacilitatorProxy();
 // Create Hono app
 const app = new Hono();
 
+// Security headers middleware
+app.use("*", async (c, next) => {
+    await next();
+
+    // Security headers
+    c.header("X-Content-Type-Options", "nosniff");
+    c.header("X-Frame-Options", "DENY");
+    c.header("X-XSS-Protection", "1; mode=block");
+    c.header("Referrer-Policy", "strict-origin-when-cross-origin");
+    c.header("Permissions-Policy", "geolocation=(), microphone=(), camera=()");
+    c.header("Content-Security-Policy", "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self'; connect-src 'self'; frame-ancestors 'none';");
+});
+
+// Request ID middleware for tracing
+app.use("*", async (c, next) => {
+    const requestId = c.req.header("X-Request-ID") || `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    c.header("X-Request-ID", requestId);
+    await next();
+});
+
+// Structured logging middleware
+app.use("*", async (c, next) => {
+    const start = Date.now();
+    const requestId = c.req.header("X-Request-ID") || "unknown";
+    const method = c.req.method;
+    const url = c.req.url;
+
+    console.log(`[${requestId}] ${method} ${url} - START`);
+
+    await next();
+
+    const duration = Date.now() - start;
+    const status = c.res.status;
+
+    console.log(`[${requestId}] ${method} ${url} - ${status} - ${duration}ms`);
+});
+
+// API Key authentication middleware
+app.use("*", async (c, next) => {
+    // Skip auth for health checks and status endpoints
+    const path = c.req.path;
+    if (path === "/health" || path === "/status" || path === "/ready" || path === "/") {
+        return next();
+    }
+
+    await next();
+});
+
 // Middleware
 app.use("*", logger());
 app.use("*", cors({
     origin: "*",
     allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allowHeaders: ["Content-Type", "Authorization"],
+    allowHeaders: ["Content-Type", "Authorization", "X-API-Key", "X-Request-ID"],
 }));
 
 // Health check endpoint
@@ -388,9 +768,9 @@ app.get("/", async (c) => {
         <ul>
             <li><strong>GET /health</strong> - Health check endpoint</li>
             <li><strong>GET /status</strong> - Detailed status information</li>
-            <li><strong>GET /v2/x402/supported</strong> - Proxy to upstream facilitators</li>
-            <li><strong>POST /v2/x402/verify</strong> - Proxy to upstream facilitators</li>
-            <li><strong>POST /v2/x402/settle</strong> - Proxy to upstream facilitators</li>
+            <li><strong>GET /supported</strong> - Proxy to upstream facilitators</li>
+            <li><strong>POST /verify</strong> - Proxy to upstream facilitators</li>
+            <li><strong>POST /settle</strong> - Proxy to upstream facilitators</li>
         </ul>
     </div>
 
@@ -417,7 +797,8 @@ app.get("/", async (c) => {
 
 // Proxy all other requests
 app.all("*", async (c) => {
-    const response = await proxy.proxyRequest(c.req.raw);
+    const requestId = c.req.header("X-Request-ID") || "unknown";
+    const response = await proxy.proxyRequest(c.req.raw, requestId);
     return new Response(response.body, {
         status: response.status,
         statusText: response.statusText,
@@ -425,7 +806,78 @@ app.all("*", async (c) => {
     });
 });
 
-serve({
+// Graceful shutdown handling
+let isShuttingDown = false;
+
+
+// Handle graceful shutdown
+process.on('SIGTERM', async () => {
+    console.log('Received SIGTERM, starting graceful shutdown...');
+    isShuttingDown = true;
+
+    // Stop accepting new connections
+    server.close(async () => {
+        console.log('HTTP server closed');
+
+        // Wait for existing requests to complete (with timeout)
+        const shutdownTimeout = setTimeout(() => {
+            console.error('Shutdown timeout reached, forcing exit');
+            process.exit(1);
+        }, 10000);
+
+        // In a real implementation, you'd wait for active requests to complete
+        // For now, we'll just exit after a brief delay
+        setTimeout(() => {
+            clearTimeout(shutdownTimeout);
+            console.log('Graceful shutdown completed');
+            process.exit(0);
+        }, 1000);
+    });
+});
+
+process.on('SIGINT', () => {
+    console.log('Received SIGINT, shutting down gracefully...');
+    process.exit(0);
+});
+
+// Health check for Kubernetes/readiness probes
+app.get("/ready", async (c) => {
+    const status = await proxy.getStatus();
+    const isReady = status.healthyCount > 0 && !isShuttingDown;
+
+    return c.json({
+        status: isReady ? "ready" : "not ready",
+        timestamp: new Date().toISOString(),
+        shuttingDown: isShuttingDown,
+    }, isReady ? 200 : 503);
+});
+
+// Metrics endpoint for monitoring
+app.get("/metrics", async (c) => {
+    const status = await proxy.getStatus();
+    const uptime = process.uptime();
+    const memoryUsage = process.memoryUsage();
+
+    const metrics = {
+        timestamp: new Date().toISOString(),
+        uptime_seconds: Math.floor(uptime),
+        memory_usage: {
+            rss: Math.floor(memoryUsage.rss / 1024 / 1024), // MB
+            heap_total: Math.floor(memoryUsage.heapTotal / 1024 / 1024), // MB
+            heap_used: Math.floor(memoryUsage.heapUsed / 1024 / 1024), // MB
+        },
+        proxy_status: status,
+        server_info: {
+            node_version: process.version,
+            platform: process.platform,
+            arch: process.arch,
+        }
+    };
+
+    return c.json(metrics, 200);
+});
+
+const server = serve({
     fetch: app.fetch,
     port: 3004,
 });

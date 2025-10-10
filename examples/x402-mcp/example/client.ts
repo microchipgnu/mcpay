@@ -2,6 +2,8 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { withX402Client } from "mcpay/client";
 import { createSigner, isEvmSignerWallet, isSvmSignerWallet, SupportedEVMNetworks, SupportedSVMNetworks } from "x402/types";
+import { config } from 'dotenv';
+config();
 
 export const getClient = async () => {
   const client = new Client({
@@ -11,7 +13,7 @@ export const getClient = async () => {
 
   const EVM_PRIVATE_KEY = process.env.EVM_PRIVATE_KEY as string;
   const SOLANA_PRIVATE_KEY = process.env.SOLANA_PRIVATE_KEY as string;
-  const MCP_SERVER_URL = "http://localhost:3010/mcp"
+  const MCP_SERVER_URL = "http://localhost:3022/mcp"
 
   const transport = new StreamableHTTPClientTransport(new URL(MCP_SERVER_URL));
 

@@ -566,6 +566,9 @@ importers:
       ai:
         specifier: 5.0.0-beta.20
         version: 5.0.0-beta.20(zod@3.25.76)
+      dotenv:
+        specifier: ^17.2.3
+        version: 17.2.3
       hono:
         specifier: ^4.9.6
         version: 4.9.9

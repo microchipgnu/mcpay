@@ -21,9 +21,9 @@ A high-availability passthrough proxy for x402 facilitators with automatic failo
 
 The proxy forwards requests to these x402 facilitator endpoints:
 
-- `GET /v2/x402/supported` - Get supported payment schemes and networks
-- `POST /v2/x402/verify` - Verify a payment
-- `POST /v2/x402/settle` - Settle a payment
+- `GET /supported` - Get supported payment schemes and networks
+- `POST /verify` - Verify a payment
+- `POST /settle` - Settle a payment
 
 ## Configuration
 
