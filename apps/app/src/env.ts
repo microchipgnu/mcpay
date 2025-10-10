@@ -1,6 +1,4 @@
 import { z } from 'zod';
-import { config } from 'dotenv';
-config();
 
 // Define the schema for environment variables
 const envSchema = z.object({
@@ -9,9 +7,9 @@ const envSchema = z.object({
 
   NEXT_PUBLIC_AUTH_URL: z.url('NEXT_PUBLIC_AUTH_URL must be a valid URL').default(''),
   // MCP2 Configuration
-  MCP2_URL: z.url().default('http://localhost:3006'),
+  NEXT_PUBLIC_MCP2_URL: z.url().default('https://mcp2.mcpay.tech'),
 
-  MCP_PROXY_URL: z.url().default('http://localhost:3005'),
+  NEXT_PUBLIC_MCP_PROXY_URL: z.url().default('https://mcp.mcpay.tech'),
 });
 
 // Parse and validate environment variables

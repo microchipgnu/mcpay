@@ -55,7 +55,7 @@ export const urlUtils = {
   },
 
   getMcp2Url: () => {
-    return env.MCP2_URL;
+    return env.NEXT_PUBLIC_MCP2_URL;
   },
 
   // Generate MCP server URL
@@ -65,7 +65,7 @@ export const urlUtils = {
     }
 
     console.log(serverIdOrUrl)
-    const MCP_PROXY_URL = env.MCP_PROXY_URL
+    const MCP_PROXY_URL = env.NEXT_PUBLIC_MCP_PROXY_URL
     if (usesMpc2) {
       // Compose the target MCP2 URL
       const mcp2Url = `${urlUtils.getMcp2Url()}?id=${serverIdOrUrl}`
