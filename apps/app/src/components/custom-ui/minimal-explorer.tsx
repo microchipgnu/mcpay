@@ -1,20 +1,14 @@
 "use client"
 
-import { useEffect, useState, useMemo } from "react"
-import Link from "next/link"
-import { CheckCircle2, ArrowUpRight } from "lucide-react"
+import { TokenIcon } from "@/components/custom-ui/token-icon"
 import { Button } from "@/components/ui/button"
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { Card, CardContent } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { api } from "@/lib/client/utils"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { getExplorerUrl } from "@/lib/client/blockscout"
-import { formatAmount, isNetworkSupported, type UnifiedNetwork } from "@/lib/commons"
-import type { PaymentListItem } from "@/types/payments"
-import { TokenIcon } from "@/components/custom-ui/token-icon"
-import { Card, CardContent } from "@/components/ui/card"
-import { apiCall } from "@/lib/client/utils"
-import { ComprehenstiveAnalytics } from "@/types/mcp"
+import { isNetworkSupported, type UnifiedNetwork } from "@/lib/commons"
+import { ArrowUpRight, CheckCircle2 } from "lucide-react"
 import { easeOut } from "motion"
 import {
   AnimatePresence,
@@ -22,6 +16,8 @@ import {
   useReducedMotion,
   type Variants,
 } from "motion/react"
+import Link from "next/link"
+import { useEffect, useMemo, useState } from "react"
 
 /* ---------------- Types used by UI ---------------- */
 type PaymentStatus = "success" | "pending" | "failed"
@@ -76,52 +72,103 @@ export default function MinimalExplorer() {
   const [rows, setRows] = useState<ExplorerRow[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [stats, setStats] = useState<ComprehenstiveAnalytics | null>(null)
   const prefersReduced = useReducedMotion()
+
+  const stats = {
+    activeServers: 100,
+    totalTools: 2000,
+    totalRequests: 2300,
+  }
 
   /* fetch latest 5 transactions and stats */
   useEffect(() => {
-    const fetchData = async () => {
-      setLoading(true)
-      setError(null)
+    setLoading(true);
+    setError(null);
 
-      try {
-        const [paymentsResult, analyticsResult] = await Promise.allSettled([
-          api.getLatestPayments(LIMIT, 0, 'completed'),
-          apiCall<ComprehenstiveAnalytics>("/analytics/usage")
-        ])
+    // Mock payments data
+    const mockPayments: ExplorerRow[] = [
+      {
+        id: "1",
+        status: "success",
+        serverId: "srv-1",
+        serverName: "OpenAI GPT",
+        tool: "chat",
+        amountFormatted: "0.0023",
+        currency: "ETH",
+        network: "ethereum",
+        user: "0x1234...abcd",
+        timestamp: new Date(Date.now() - 1000 * 60 * 2).toISOString(), // 2 mins ago
+        txHash: "0xabc123def456",
+      },
+      {
+        id: "2",
+        status: "success",
+        serverId: "srv-2",
+        serverName: "Stable Diffusion",
+        tool: "image",
+        amountFormatted: "0.0011",
+        currency: "ETH",
+        network: "ethereum",
+        user: "0x5678...efgh",
+        timestamp: new Date(Date.now() - 1000 * 60 * 10).toISOString(), // 10 mins ago
+        txHash: "0xdef456abc789",
+      },
+      {
+        id: "3",
+        status: "success",
+        serverId: "srv-3",
+        serverName: "Whisper",
+        tool: "audio",
+        amountFormatted: "0.0007",
+        currency: "ETH",
+        network: "ethereum",
+        user: "0x9abc...1234",
+        timestamp: new Date(Date.now() - 1000 * 60 * 60).toISOString(), // 1 hr ago
+        txHash: "0x789abc123def",
+      },
+      {
+        id: "4",
+        status: "success",
+        serverId: "srv-4",
+        serverName: "Claude",
+        tool: "chat",
+        amountFormatted: "0.0030",
+        currency: "ETH",
+        network: "ethereum",
+        user: "0x4321...dcba",
+        timestamp: new Date(Date.now() - 1000 * 60 * 60 * 5).toISOString(), // 5 hrs ago
+        txHash: "0x456def789abc",
+      },
+      {
+        id: "5",
+        status: "success",
+        serverId: "srv-5",
+        serverName: "Llama",
+        tool: "chat",
+        amountFormatted: "0.0015",
+        currency: "ETH",
+        network: "ethereum",
+        user: "0x8765...4321",
+        timestamp: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString(), // 1 day ago
+        txHash: "0x123789456abc",
+      },
+    ];
 
-        if (paymentsResult.status === 'fulfilled') {
-          const mapped: ExplorerRow[] = paymentsResult.value.items.map((p: PaymentListItem) => ({
-            id: p.id,
-            status: p.status as PaymentStatus,
-            serverId: p.serverId,
-            serverName: p.serverName,
-            tool: p.tool,
-            amountFormatted: formatAmount(String(p.amountRaw), Number(p.tokenDecimals), { precision: 2, showSymbol: false, symbol: p.currency }),
-            currency: p.currency,
-            network: p.network,
-            user: p.user,
-            timestamp: p.timestamp,
-            txHash: p.txHash,
-          }))
-          setRows(mapped)
-        }
+    // Mock stats data
+    const mockStats = {
+      activeServers: 4,
+      totalTools: 7,
+      totalRequests: 12345,
+    };
 
-        if (analyticsResult.status === 'fulfilled') {
-          setStats(analyticsResult.value)
-        }
-      } catch (e: unknown) {
-        if (e instanceof Error) setError(e.message)
-        else setError("Failed to fetch data")
-        setRows([])
-      } finally {
-        setLoading(false)
-      }
-    }
+    // Simulate async delay
+    const timeout = setTimeout(() => {
+      setRows(mockPayments);
+      setLoading(false);
+    }, 600);
 
-    fetchData()
-  }, [])
+    return () => clearTimeout(timeout);
+  }, []);
 
   /* Header/cell padding matching original explorer */
   const th = "px-2 sm:px-3 py-3 text-[12px] uppercase tracking-widest text-muted-foreground text-left whitespace-nowrap"
@@ -152,7 +199,7 @@ export default function MinimalExplorer() {
     [prefersReduced]
   )
 
-  const isStatsLoading = stats === null
+  const isStatsLoading = false
 
   const Stat = ({
     label,
@@ -234,9 +281,9 @@ export default function MinimalExplorer() {
         initial="hidden"
         animate="visible"
       >
-        <Stat label="Live Servers" value={stats?.activeServers ?? 0} loading={isStatsLoading} />
-        <Stat label="Tools" value={stats?.totalTools ?? 0} loading={isStatsLoading} />
-        <Stat label="Transactions" value={stats?.totalRequests ?? 0} loading={isStatsLoading} />
+        <Stat label="Live Servers" value={stats.activeServers ?? 0} loading={isStatsLoading} />
+        <Stat label="Tools" value={stats.totalTools ?? 0} loading={isStatsLoading} />
+        <Stat label="Transactions" value={stats.totalRequests ?? 0} loading={isStatsLoading} />
       </motion.div>
 
       {/* Responsive table container with tighter spacing */}

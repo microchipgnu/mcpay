@@ -1,10 +1,8 @@
-import { PricingEntry } from "@/types"
-import type { LatestPaymentsResponse } from "@/types/payments"
 import { type ApiError } from "@/types/api"
-import { McpServerWithStats, ServerCreateData, ServerRegistrationData, ServerSummaryAnalytics, DailyServerAnalytics, ComprehenstiveAnalytics } from "@/types/mcp"
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
-import env from "@/lib/gateway/env";
+import env from "@/env";
+import { Price } from "x402/types";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -61,23 +59,28 @@ export const urlUtils = {
   },
 
   // Generate MCP server URL
-  getMcpUrl: (serverIdOrUrl: string, usesMpc2 = false) => {
+  getMcpUrl: (serverIdOrUrl: string, usesMpc2 = true) => {
     if (typeof window === "undefined" || !window.location?.origin) {
       throw new Error("window.location.origin is not available")
     }
-    const origin = window.location.origin.replace(/\/$/, "")
+
+    console.log(serverIdOrUrl)
+    const MCP_PROXY_URL = env.MCP_PROXY_URL
     if (usesMpc2) {
-      const encodedServerId = encodeURIComponent(serverIdOrUrl)
       // Compose the target MCP2 URL
-      const mcp2Url = `${urlUtils.getMcp2Url()}?id=${encodedServerId}`
+      const mcp2Url = `${urlUtils.getMcp2Url()}?id=${serverIdOrUrl}`
+
+      console.log(`[${new Date().toISOString()}] MCP2 URL: ${mcp2Url}`);
       // Base64 encode the MCP2 URL
       const base64Mcp2Url = btoa(mcp2Url)
       // Compose the MCP proxy URL with the base64-encoded target-url param
-      return `${origin}/v1/mcp?target-url=${encodeURIComponent(base64Mcp2Url)}`
+      const url = `${MCP_PROXY_URL}/mcp?target-url=${encodeURIComponent(base64Mcp2Url)}`
+      console.log(`[${new Date().toISOString()}] MCP URL: ${url}`);
+      return url
     } else {
       // Just encode the serverId directly as the target-url param
       const base64ServerId = btoa(serverIdOrUrl)
-      return `${origin}/v1/mcp?target-url=${encodeURIComponent(base64ServerId)}`
+      return `${MCP_PROXY_URL}/mcp?target-url=${encodeURIComponent(base64ServerId)}`
     }
   },
 }
@@ -157,10 +160,10 @@ export const api = {
     authHeaders?: Record<string, unknown>
     tools?: Array<{
       name: string
-      pricing?: PricingEntry[]
+      price: Price
     }>
     metadata?: Record<string, unknown>
-  }): Promise<ServerCreateData> => {
+  }) => {
     return apiCall('/servers', {
       method: 'POST',
       body: JSON.stringify(data),
@@ -180,16 +183,6 @@ export const api = {
   // Get servers list
   getServers: async (limit = 10, offset = 0) => {
     return apiCall(`/servers?limit=${limit}&offset=${offset}`)
-  },
-
-  // Get server by ID
-  getServer: async (serverId: string): Promise<McpServerWithStats & { dailyAnalytics: DailyServerAnalytics[], summaryAnalytics: ServerSummaryAnalytics }> => {
-    return apiCall(`/servers/${serverId}`)
-  },
-
-  // Get server registration data
-  getServerRegistration: async (serverId: string): Promise<ServerRegistrationData> => {
-    return apiCall(`/servers/${serverId}/registration`)
   },
 
   // Get server tools
@@ -283,10 +276,88 @@ export const api = {
     return apiCall(`/users/${userId}/payments?limit=${limit}&offset=${offset}`)
   },
 
-  // Explorer: latest payments
-  getLatestPayments: async (limit = 24, offset = 0, status?: 'completed' | 'pending' | 'failed'): Promise<LatestPaymentsResponse> => {
-    const params = new URLSearchParams({ limit: String(limit), offset: String(offset) })
-    if (status) params.set('status', status)
-    return apiCall(`/payments?${params.toString()}`)
-  }
+  // Mock: latest payments for explorer
+  getLatestPayments: async (
+    limit: number,
+    offset: number,
+    status: 'completed' | 'pending' | 'failed' | undefined = 'completed'
+  ): Promise<{ items: Array<{
+    id: string;
+    status: 'success' | 'pending' | 'failed';
+    serverId: string;
+    serverName: string;
+    tool: string;
+    amountFormatted: string;
+    currency: string;
+    network: string;
+    user: string;
+    timestamp: string;
+    txHash: string;
+  }>; total: number }> => {
+    const total = 240
+
+    const baseTime = Date.now()
+    const networks = [
+      'ethereum',
+      'base',
+      'base-sepolia',
+      'sei-testnet',
+    ] as const
+    const tools = ['chat', 'image', 'audio', 'embed', 'moderate'] as const
+    const servers = [
+      { id: 'srv-openai', name: 'OpenAI GPT' },
+      { id: 'srv-claude', name: 'Claude' },
+      { id: 'srv-llama', name: 'Llama' },
+      { id: 'srv-stable', name: 'Stable Diffusion' },
+      { id: 'srv-whisper', name: 'Whisper' },
+    ] as const
+
+    const rng = (seed: number) => {
+      const x = Math.sin(seed) * 10000
+      return x - Math.floor(x)
+    }
+
+    const mkItem = (i: number) => {
+      const net = networks[i % networks.length]
+      const tool = tools[i % tools.length]
+      const srv = servers[i % servers.length]
+      const isPending = (i + 1) % 23 === 0
+      const isFailed = (i + 7) % 53 === 0
+      const s: 'success' | 'pending' | 'failed' = isFailed ? 'failed' : isPending ? 'pending' : 'success'
+      const amt = (rng(i + 1) * 3 + 0.0005).toFixed(4)
+      const ts = new Date(baseTime - (i + 1) * 90_000).toISOString()
+      const hash = `0x${(i.toString(16).padStart(6, '0'))}${Math.floor(rng(i + 3) * 1e12).toString(16).padStart(12, '0')}`
+      const user = `0x${Math.floor(rng(i + 5) * 1e16).toString(16).padStart(16, '0')}`
+
+      return {
+        id: `pay-${i + 1}`,
+        status: s,
+        serverId: srv.id,
+        serverName: srv.name,
+        tool,
+        amountFormatted: amt,
+        currency: net === 'sei-testnet' ? 'SEI' : 'ETH',
+        network: net,
+        user,
+        timestamp: ts,
+        txHash: hash,
+      }
+    }
+
+    const start = Math.max(0, offset)
+    const end = Math.min(total, start + Math.max(0, limit))
+    const itemsAll: Array<ReturnType<typeof mkItem>> = Array.from({ length: total }, (_, i) => mkItem(i))
+
+    let filtered = itemsAll
+    if (status === 'pending') filtered = itemsAll.filter(i => i.status === 'pending')
+    else if (status === 'failed') filtered = itemsAll.filter(i => i.status === 'failed')
+    else if (status === 'completed') filtered = itemsAll.filter(i => i.status === 'success')
+
+    const paged = filtered.slice(start, end)
+
+    // Simulate async latency
+    await new Promise(res => setTimeout(res, 250))
+
+    return { items: paged, total: filtered.length }
+  },
 }

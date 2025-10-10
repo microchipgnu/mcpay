@@ -1,21 +1,21 @@
 "use client"
 
-import { useEffect, useMemo, useRef, useState, Suspense } from "react"
-import { useRouter, useSearchParams } from "next/navigation"
-import { TrendingUp } from "lucide-react"
-import { useTheme } from "@/components/providers/theme-context"
-import { urlUtils } from "@/lib/client/utils"
-import ServersGrid from "@/components/custom-ui/servers-grid"
 import Footer from "@/components/custom-ui/footer"
+import ServersGrid from "@/components/custom-ui/servers-grid"
+import { useTheme } from "@/components/providers/theme-context"
 import {
     Pagination,
     PaginationContent,
+    PaginationEllipsis,
     PaginationItem,
     PaginationLink,
     PaginationNext,
     PaginationPrevious,
-    PaginationEllipsis,
 } from "@/components/ui/pagination"
+import { TrendingUp } from "lucide-react"
+import { useRouter, useSearchParams } from "next/navigation"
+import { useEffect, useMemo, useRef, useState } from "react"
+import env from "@/env"
 
 interface APITool {
     id: string
@@ -73,6 +73,15 @@ interface APIServer {
 type ApiArrayResponse = APIServer[]
 type ApiObjectResponse = { items: APIServer[]; total: number }
 
+type Mcp2ServerLink = {
+    id: string
+    url: string
+}
+
+type Mcp2ServersResponse = {
+    servers: Mcp2ServerLink[]
+}
+
 const PAGE_SIZE = 12
 
 const transformServerData = (s: APIServer): MCPServer => ({
@@ -103,6 +112,7 @@ export default function ClientServersPage() {
     const [page, setPage] = useState<number>(Number.isFinite(pageFromQuery) && pageFromQuery > 0 ? pageFromQuery : 1)
 
     const [servers, setServers] = useState<MCPServer[]>([])
+    const [allServers, setAllServers] = useState<MCPServer[]>([])
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState<string | null>(null)
     const [hasNext, setHasNext] = useState(false)
@@ -130,34 +140,41 @@ export default function ClientServersPage() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [pageFromQuery])
 
+    // Fetch servers from MCP2 `/servers`
     useEffect(() => {
         const controller = new AbortController()
-        const fetchServers = async () => {
-            try {
-                setLoading(true)
-                setError(null)
-                const offset = (page - 1) * PAGE_SIZE
-                const res = await fetch(urlUtils.getApiUrl(`/servers?limit=${PAGE_SIZE}&offset=${offset}`), {
-                    signal: controller.signal,
-                })
-                if (!res.ok) throw new Error(`Failed to fetch servers: ${res.status}`)
-                const data: ApiArrayResponse | ApiObjectResponse = await res.json()
+        const signal = controller.signal
 
-                if (Array.isArray(data)) {
-                    setServers(data.map(transformServerData))
-                    setTotalCount(null)
-                    setHasNext(data.length === PAGE_SIZE)
-                } else {
-                    setServers(data.items.map(transformServerData))
-                    setTotalCount(data.total)
-                    setHasNext(offset + data.items.length < data.total)
+        const fetchServers = async () => {
+            setLoading(true)
+            setError(null)
+            try {
+                const base = new URL(env.MCP2_URL)
+                const endpoint = `${base.origin}/servers`
+
+                const res = await fetch(endpoint, { signal, headers: { "Accept": "application/json" } })
+                if (!res.ok) {
+                    throw new Error(`${res.status}: ${res.statusText}`)
                 }
+                const data = (await res.json()) as Mcp2ServersResponse
+                const links = Array.isArray(data?.servers) ? data.servers : []
+
+                const mapped: MCPServer[] = links.map((link) => ({
+                    id: link.id,
+                    name: link.id,
+                    description: "MCP2 server",
+                    url: link.url,
+                    category: "General",
+                    tools: [],
+                    icon: <TrendingUp className="h-6 w-6" />,
+                    verified: true,
+                }))
+
+                setAllServers(mapped)
             } catch (e: unknown) {
-                if (e instanceof Error && e.name !== "AbortError") {
-                    setError(e.message)
-                } else if (!(e instanceof Error)) {
-                    setError("Failed to fetch servers")
-                }
+                if (e instanceof Error && e.name !== "AbortError") setError(e.message)
+                else if (!(e instanceof Error)) setError("Failed to fetch servers")
+                setAllServers([])
             } finally {
                 setLoading(false)
             }
@@ -165,7 +182,17 @@ export default function ClientServersPage() {
 
         fetchServers()
         return () => controller.abort()
-    }, [page])
+    }, [])
+
+    // Slice current page
+    useEffect(() => {
+        const start = (page - 1) * PAGE_SIZE
+        const end = start + PAGE_SIZE
+        const slice = allServers.slice(start, end)
+        setServers(slice)
+        setTotalCount(allServers.length)
+        setHasNext(end < allServers.length)
+    }, [page, allServers])
 
     useEffect(() => {
         let mounted = true

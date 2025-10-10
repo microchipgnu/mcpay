@@ -1,7 +1,8 @@
 "use client"
 
 import { useState, useCallback } from 'react'
-import { AccountModalTab } from '@/types/ui'
+// Local type to avoid dependency on removed '@/types/ui'
+type AccountModalTab = 'funds' | 'wallets' | 'settings' | 'developer'
 
 
 interface UseAccountModalReturn {

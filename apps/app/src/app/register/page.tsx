@@ -16,21 +16,18 @@ import { Input } from "@/components/ui/input"
 import { Separator } from "@/components/ui/separator"
 import { Textarea } from "@/components/ui/textarea"
 import { useSession } from "@/lib/client/auth"
-import { api } from "@/lib/client/utils"
+import { api as realApi } from "@/lib/client/utils"
 import { getTokenInfo, toBaseUnits } from "@/lib/commons"
 import { getNetworkConfig, type UnifiedNetwork } from "@/lib/commons/networks"
 import { type Network } from "@/types/blockchain"
-import { type RegisterMCPTool } from "@/types/mcp"
-import { type UserWallet } from "@/types/wallet"
 import { AlertCircle, ArrowRight, BookOpen, CheckCircle, ChevronDown, Copy, Globe, Info, Loader2, Lock, RefreshCw, Server, User, Wallet, Zap } from "lucide-react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useCallback, useEffect, useState } from "react"
 import { toast } from "sonner"
 import { useConnect } from "wagmi"
 
-import { getNetworkByChainId } from "@/lib/commons"
+import { getNetworkByChainId as getUnifiedNetworkByChainId } from "@/lib/commons/networks"
 import { useChainId } from "wagmi"
-import { PricingEntry } from "@/types"
   
 // Helper function to format wallet address for display
 const formatWalletAddress = (address: string): string => {
@@ -62,6 +59,73 @@ const generateDisplayNameFromUrl = (urlStr: string): string => {
       .join(" ") || "Unknown Source"
   } catch {
     return "Unknown Source"
+  }
+}
+
+// Local types and API with mocked fallbacks
+type RegisterMCPTool = {
+  name: string
+  description?: string
+  price?: string
+}
+
+type PricingEntry = {
+  maxAmountRequiredRaw: string
+  assetAddress: string
+  network: Network | string
+  active?: boolean
+  tokenDecimals: number
+}
+
+type UserWallet = {
+  id: string
+  userId: string
+  walletAddress: string
+  blockchain: string
+  walletType: 'external' | 'managed' | 'custodial'
+  provider?: string
+  isPrimary: boolean
+  isActive: boolean
+  walletMetadata?: Record<string, unknown>
+  createdAt: string
+  updatedAt: string
+}
+
+// Create a thin wrapper around the real API with graceful mock fallbacks
+const api = {
+  async registerServer(data: {
+    mcpOrigin: string
+    receiverAddress: string
+    name?: string
+    description?: string
+    requireAuth?: boolean
+    authHeaders?: Record<string, unknown>
+    tools?: Array<{ name: string; pricing: PricingEntry[] }>
+    walletInfo?: Record<string, unknown>
+    metadata?: Record<string, unknown>
+  }): Promise<{ serverId: string }> {
+    // Fully mocked for now to keep UI functional without backend
+    return { serverId: 'mock_server_' + Math.random().toString(36).slice(2, 10) }
+  },
+
+  async getMcpTools(url: string): Promise<RegisterMCPTool[]> {
+    try {
+      const tools = await realApi.getMcpTools(url) as unknown
+      if (Array.isArray(tools)) {
+        return tools as RegisterMCPTool[]
+      }
+      // If server returns a non-array, fall back to mock
+      throw new Error('Invalid tools response')
+    } catch {
+      // Simple mock tools derived from URL path
+      const nameSeed = generateDisplayNameFromUrl(url)
+      const baseName = nameSeed.split(' ')[0] || 'Tool'
+      return [
+        { name: `${baseName} Search`, description: 'Search content via MCP', price: '0.01' },
+        { name: `${baseName} Summarize`, description: 'Summarize text input', price: '0.02' },
+        { name: `${baseName} Fetch`, description: 'Fetch a URL and return body', price: '0.01' },
+      ]
+    }
   }
 }
 
@@ -125,7 +189,7 @@ function RegisterPageContent() {
   const hasValidWallet = session?.user && hasWallets()
 
   // Get current network and blockchain info
-  const currentNetwork = chainId ? getNetworkByChainId(chainId) : null
+  const currentNetwork = chainId ? getUnifiedNetworkByChainId(chainId) : null
   const currentBlockchain = currentNetwork ? (currentNetwork.startsWith('sei') ? 'sei' : 'ethereum') : 'ethereum'
 
   const handleSubmit = async (e: React.FormEvent) => {

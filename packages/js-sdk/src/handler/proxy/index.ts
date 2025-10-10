@@ -41,6 +41,7 @@ function wrapUpstreamResponse(upstream: Response): Response {
 export function withProxy(hooks: Hook[]) {
     return async (req: Request): Promise<Response> => {
         const targetUrl = await resolveTargetUrl(req);
+        console.log(`[${new Date().toISOString()}] Target URL: ${targetUrl}`);
         if (!targetUrl) {
             return new Response("target-url missing", { status: 400 });
         }

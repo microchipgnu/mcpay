@@ -1,18 +1,8 @@
+import { STABLECOIN_CONFIGS, getNetworkTokens, type UnifiedNetwork } from "@/lib/commons/networks"
+import { Client } from "@modelcontextprotocol/sdk/client/index.js"
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js"
 import { experimental_createMCPClient as createMCPClient } from "ai"
-import { Client } from "@modelcontextprotocol/sdk/client/index.js"
-import { PricingEntry } from "@/types/payments"
-import { toBaseUnits, AmountConversionError } from "@/lib/commons"
-import { STABLECOIN_CONFIGS, getNetworkTokens, type UnifiedNetwork } from "@/lib/commons/networks"
-import { nanoid } from "nanoid"
-
-type PaymentConfig = {
-  type: 'simple' | 'advanced'
-  price: number
-  currency?: string
-  network?: string
-  recipient?: string
-}
+import { Price } from "x402/types"
 
 // Server metadata type definition
 export interface MCPServerMetadata {
@@ -47,7 +37,7 @@ export interface MCPToolWithPayments {
   description?: string
   inputSchema?: Record<string, unknown>
   annotations?: Record<string, unknown>
-  pricing?: PricingEntry[]
+  pricing?: Price[]
 }
 
 // Comprehensive server information
@@ -107,135 +97,6 @@ export async function getMcpTools(url: string) {
   }
 }
 
-/**
- * Enhanced version that extracts payment information from tool annotations
- */
-export async function getMcpToolsWithPayments(url: string, userWalletAddress: string) {
-  try {
-    const transport = new StreamableHTTPClientTransport(new URL(url))
-    const client = new Client({ name: "mcpay-inspect", version: "1.0.0" })
-
-    await client.connect(transport)
-    const toolsResult = await client.listTools()
-
-    return toolsResult.tools.map((tool) => {
-      // Extract payment information from annotations
-      const pricingInfo = extractPaymentFromAnnotations(tool.annotations, userWalletAddress)
-
-      return {
-        name: tool.name,
-        description: tool.description,
-        inputSchema: tool.inputSchema,
-        annotations: tool.annotations,
-        pricing: pricingInfo
-      }
-    })
-  } catch (error) {
-    console.warn("Warning: MCP tools with payments unavailable (returning empty set):", error)
-    return []
-  }
-}
-
-/**
- * Gets comprehensive MCP server information including metadata and tools
- */
-export async function getMcpServerInfo(url: string, userWalletAddress: string): Promise<MCPServerInfo> {
-  try {
-    console.log('Getting MCP server info for URL:', url)
-    const transport = new StreamableHTTPClientTransport(new URL(url))
-    const client = new Client({ name: "mcpay-inspect", version: "1.0.0" })
-
-    console.log('Connecting to MCP server...')
-    await client.connect(transport)
-
-    let serverInfo;
-    let serverCapabilities;
-    let prompts;
-    let toolsResult;
-
-    // Get server metadata
-    console.log('Fetching server metadata...')
-    try {
-      serverInfo = client.getServerVersion()
-      serverCapabilities = client.getServerCapabilities()
-    } catch (err) {
-      console.warn('Error fetching server metadata:', err)
-    }
-
-    console.log('Fetching server prompts...')
-    try {
-      prompts = await client.listPrompts()
-    } catch (err) {
-      console.warn('Error fetching prompts:', err)
-      prompts = { prompts: [] }
-    }
-
-    // Helper function to safely extract string values
-    const getString = (value: unknown): string | undefined => {
-      return typeof value === 'string' ? value : undefined
-    }
-
-    console.log('Building server metadata object...')
-    const metadata: MCPServerMetadata = {
-      name: serverInfo?.name || 'Unknown Server',
-      version: getString(serverInfo?.version) || 'Unknown Version',
-      description: getString(serverInfo?.description),
-      protocolVersion: getString(serverInfo?.protocolVersion),
-      capabilities: serverCapabilities,
-    }
-    console.log('Server metadata:', metadata)
-
-    // Get tools with payment information
-    console.log('Fetching tools list...')
-    let tools: MCPToolWithPayments[] = []
-    try {
-      toolsResult = await client.listTools()
-      console.log(`Found ${toolsResult.tools.length} tools`)
-
-      tools = toolsResult.tools.map((tool) => {
-        console.log('Processing tool:', tool.name)
-        const pricingInfo = extractPaymentFromAnnotations(tool.annotations, userWalletAddress)
-
-        return {
-          name: tool.name,
-          description: tool.description,
-          inputSchema: tool.inputSchema,
-          annotations: tool.annotations,
-          pricing: pricingInfo,
-        }
-      })
-    } catch (err) {
-      console.warn('Error fetching tools:', err)
-    }
-
-    const hasPayments = tools.some(tool => tool.pricing && tool.pricing.length > 0)
-    console.log('Tools with payments:', hasPayments)
-
-    return {
-      metadata,
-      tools,
-      toolCount: tools.length,
-      hasPayments,
-      prompts
-    }
-  } catch (error) {
-    console.error("Error fetching comprehensive MCP server info:", error)
-    // Return partial data instead of throwing
-    return {
-      metadata: {
-        name: 'Unknown Server',
-        version: 'Unknown Version',
-        description: undefined,
-        protocolVersion: undefined,
-        capabilities: undefined,
-      },
-      tools: [],
-      toolCount: 0,
-      hasPayments: false,
-      prompts: { prompts: [] }
-    }
-  }
-}
 
 export async function getMcpPrompts(url: string) {
   const transport = new StreamableHTTPClientTransport(new URL(url))
@@ -271,159 +132,6 @@ export async function getMcpPrompts(url: string) {
   return {
     prompts: enrichedPrompts
   }
-}
-
-/**
- * Extracts payment information from tool annotations using proper amount conversion
- */
-export function extractPaymentFromAnnotations(annotations: unknown, userWalletAddress: string): PricingEntry[] | undefined {
-  // Type guard to check if annotations has the expected structure
-  if (!annotations || typeof annotations !== 'object') return undefined
-
-  const annotationsObj = annotations as Record<string, unknown>
-  if (!annotationsObj.payment) return undefined
-
-  const payment = annotationsObj.payment as PaymentConfig | PaymentConfig[]
-  console.log('Extracting payment from annotations:', payment)
-
-  // Handle array of payment options (take the first one)
-  const paymentOption = Array.isArray(payment) ? payment[0] : payment
-
-  if (!paymentOption || typeof paymentOption !== 'object') return undefined
-
-  try {
-    // Handle simple payment format (USD price that needs conversion)
-    if (isSimplePaymentOption(paymentOption)) {
-      const price = paymentOption.price
-      const currency = paymentOption.currency || 'USD'
-      const network = (paymentOption.network || 'sei-testnet') as UnifiedNetwork
-
-      // For USD prices, always return both base-sepolia and sei-testnet USDC options
-      if (currency === 'USD' || currency === 'usd') {
-        const baseSepolia = resolveTokenForCurrency('USDC', 'base-sepolia')
-        const seiTestnet = resolveTokenForCurrency('USDC', 'sei-testnet')
-        
-        if (!baseSepolia || !seiTestnet) {
-          throw new Error('USDC not available on required networks (base-sepolia and sei-testnet)')
-        }
-
-        // TODO: Uncomment this in the future.
-        return [
-        //   {
-        //   id: nanoid(),
-        //   active: true,
-        //   createdAt: new Date().toISOString(),
-        //   updatedAt: new Date().toISOString(),
-        //   assetAddress: baseSepolia.address || getDefaultUSDCAddress('base-sepolia'),
-        //   network: 'base-sepolia',
-        //   maxAmountRequiredRaw: toBaseUnits(String(price || 0), baseSepolia.decimals),
-        //   tokenDecimals: baseSepolia.decimals,
-        // }, 
-        {
-          id: nanoid(),
-          active: true,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-          assetAddress: seiTestnet.address || getDefaultUSDCAddress('sei-testnet'),
-          network: 'sei-testnet',
-          maxAmountRequiredRaw: toBaseUnits(String(price || 0), seiTestnet.decimals),
-          tokenDecimals: seiTestnet.decimals,
-        }]
-      }
-
-      // For other currencies, try to resolve the token
-      const token = resolveTokenForCurrency(currency, network)
-      if (!token) {
-        console.warn(`Token ${currency} not found on network ${network}`)
-        return undefined
-      }
-
-      return [{
-        assetAddress: token.address || getDefaultTokenAddress(currency, network),
-        maxAmountRequiredRaw: toBaseUnits(String(price || 0), token.decimals),
-        tokenDecimals: token.decimals,
-        active: true,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        id: nanoid(),
-        network,
-      }]
-    }
-
-    // Handle advanced payment format (rawAmount already in base units)
-    if (isAdvancedPaymentOption(paymentOption)) {
-      const tokenSymbol = paymentOption.tokenSymbol || paymentOption.currency || 'USDC'
-      const network = (paymentOption.network || 'sei-testnet') as UnifiedNetwork
-      const rawAmount = String(paymentOption.rawAmount || 0)
-      // const recipient = paymentOption.recipient || userWalletAddress
-
-      // Validate the rawAmount is a valid base unit amount
-      if (!/^\d+$/.test(rawAmount)) {
-        throw new AmountConversionError(`Invalid rawAmount format: ${rawAmount}`)
-      }
-
-      // For USDC, always return both base-sepolia and sei-testnet options
-      if (tokenSymbol.toUpperCase() === 'USDC') {
-        const baseSepolia = resolveTokenForCurrency('USDC', 'base-sepolia')
-        const seiTestnet = resolveTokenForCurrency('USDC', 'sei-testnet')
-        
-        if (!baseSepolia || !seiTestnet) {
-          throw new Error('USDC not available on required networks (base-sepolia and sei-testnet)')
-        }
-
-        return [
-        // TODO: Uncomment this in the future.
-        //   {
-        //   id: nanoid(),
-        //   active: true,
-        //   createdAt: new Date().toISOString(),
-        //   updatedAt: new Date().toISOString(),
-        //   assetAddress: baseSepolia.address || getDefaultUSDCAddress('base-sepolia'),
-        //   network: 'base-sepolia',
-        //   maxAmountRequiredRaw: rawAmount,
-        //   tokenDecimals: baseSepolia.decimals,
-        // }, 
-        {
-          id: nanoid(),
-          active: true,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-          assetAddress: seiTestnet.address || getDefaultUSDCAddress('sei-testnet'),
-          network: 'sei-testnet',
-          maxAmountRequiredRaw: rawAmount,
-          tokenDecimals: seiTestnet.decimals,
-        }]
-      }
-
-      // For other tokens, use the specified network
-      const token = resolveTokenForCurrency(tokenSymbol, network)
-      if (!token) {
-        console.warn(`Token ${tokenSymbol} not found on network ${network}`)
-        return undefined
-      }
-
-      return [{
-        assetAddress: token.address || getDefaultTokenAddress(tokenSymbol, network),
-        maxAmountRequiredRaw: rawAmount,
-        tokenDecimals: token.decimals,
-        active: true,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        id: nanoid(),
-        network,
-      }]
-    }
-
-  } catch (error) {
-    console.error('Error extracting payment from annotations:', error)
-    if (error instanceof AmountConversionError) {
-      console.error('Amount conversion error:', error.message)
-    }
-    return undefined
-  }
-
-  console.log('Could not extract payment info from:', paymentOption)
-  return undefined
 }
 
 // Type guard functions
@@ -495,16 +203,4 @@ function getDefaultTokenAddress(tokenSymbol: string, network: UnifiedNetwork): s
  */
 function getDefaultUSDCAddress(network: UnifiedNetwork): string {
   return getDefaultTokenAddress('USDC', network)
-}
-
-/**
- * Validates that a payment info object has required fields
- */
-export function validatePaymentInfo(payment: PricingEntry): boolean {
-  return !!(
-    payment.assetAddress &&
-    payment.network &&
-    payment.maxAmountRequiredRaw &&
-    !isNaN(parseFloat(payment.maxAmountRequiredRaw))
-  )
 }

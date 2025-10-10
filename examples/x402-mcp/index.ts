@@ -63,7 +63,7 @@ app.use("*", (c) => {
 
 serve({
     fetch: app.fetch,
-    port: 3010,
+    port: 3022,
 });
 
-console.log("Server is running on port http://localhost:3010");
+console.log("Server is running on port http://localhost:3022");

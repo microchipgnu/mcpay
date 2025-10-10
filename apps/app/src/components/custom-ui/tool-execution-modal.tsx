@@ -10,6 +10,7 @@ import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } f
 import { Input } from "@/components/ui/input"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Textarea } from "@/components/ui/textarea"
+import { createInjectedSigner } from "@/lib/client/signer"
 import { urlUtils } from "@/lib/client/utils"
 import { switchToNetwork } from "@/lib/client/wallet-utils"
 import {
@@ -20,9 +21,8 @@ import {
 } from "@/lib/commons"
 import { getNetworkInfo } from "@/lib/commons/tokens"
 import { type Network } from "@/types/blockchain"
-import { PricingEntry } from "@/types/payments"
-import { InputProperty, MCPClient, MCPToolFromClient, MCPToolsCollection, ToolExecutionModalProps, ToolInputSchema, type ToolFromMcpServerWithStats } from "@/types/mcp"
-import { type UserWallet } from "@/types/wallet"
+import { Client } from "@modelcontextprotocol/sdk/client/index.js"
+import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js"
 import {
   AlertCircle,
   CheckCircle,
@@ -38,12 +38,9 @@ import {
 import { withX402Client } from "mcpay/client"
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { toast } from "sonner"
-import { Account, privateKeyToAccount } from "viem/accounts"
+import { Account } from "viem/accounts"
 import { useAccount, useChainId, useWalletClient } from "wagmi"
-import { Client } from "@modelcontextprotocol/sdk/client/index.js";
-import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js"
 import type { MultiNetworkSigner } from "x402/types"
-import { createInjectedSigner } from "@/lib/client/signer"
 
 // Helper function to format wallet address for display
 const formatWalletAddress = (address: string): string => {
@@ -101,6 +98,79 @@ const getThemeClasses = (isDark: boolean) => ({
 // =============================================================================
 // MAIN COMPONENT
 // =============================================================================
+
+interface PricingEntry {
+  id?: string
+  assetAddress: string
+  network: string
+  tokenDecimals: number
+  maxAmountRequiredRaw: string
+  active?: boolean
+}
+
+interface ToolFromMcpServerWithStats {
+  id: string
+  name: string
+  description: string
+  inputSchema: ToolInputSchema
+  outputSchema?: unknown
+  pricing?: PricingEntry[]
+  isMonetized?: boolean
+}
+
+interface ToolExecutionModalProps {
+  isOpen: boolean
+  onClose: () => void
+  tool: ToolFromMcpServerWithStats
+  serverId: string
+  url?: string
+}
+
+
+interface ToolInputSchema {
+  type?: string
+  properties?: Record<string, InputProperty>
+  required?: string[]
+}
+
+interface MCPToolFromClient {
+  name: string
+  description?: string
+  inputSchema?: { jsonSchema?: ToolInputSchema }
+  parameters?: { jsonSchema?: ToolInputSchema }
+  execute?: (params: Record<string, unknown>, options: { toolCallId: string; messages: unknown[] }) => Promise<unknown>
+}
+
+
+interface MCPToolsCollection {
+  [key: string]: MCPToolFromClient
+}
+
+interface InputProperty {
+  type?: 'string' | 'number' | 'integer' | 'boolean' | 'object' | 'array'
+  title?: string
+  description?: string
+  default?: unknown
+  enum?: unknown[]
+  minimum?: number
+  maximum?: number
+  properties?: Record<string, InputProperty>
+  required?: string[]
+  items?: InputProperty
+}
+
+
+interface UserWallet {
+  id: string
+  walletAddress: string
+  walletType: 'external' | 'managed' | 'custodial' | string
+  provider?: string
+  isPrimary?: boolean
+  isActive?: boolean
+  createdAt?: string
+}
+
+
 
 export function ToolExecutionModal({ isOpen, onClose, tool, serverId, url }: ToolExecutionModalProps) {
   const { isDark } = useTheme()

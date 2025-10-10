@@ -657,6 +657,6 @@ setInterval(maybeUpdateFromToolOutput, 800);
 
 app.use("*", (c) => handler(c.req.raw));
 
-serve({ fetch: app.fetch, port: 3020 });
+serve({ fetch: app.fetch, port: 3021 });
 
 console.log("Server listening at http://localhost:3020");

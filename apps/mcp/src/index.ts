@@ -474,7 +474,11 @@ app.all("/mcp", async (c) => {
 //     return handler(c.req.raw);
 // });
 
+
+const port = 3005;
+console.log(`[MCP] Server starting on port http://localhost:${port}`);
+
 serve({
     fetch: app.fetch,
-    port: getPort(),
+    port: port
 });

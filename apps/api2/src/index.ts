@@ -586,7 +586,7 @@ app.all('/*', async (c) => {
     return response;
 });
 
-const portPromise = getPort({ port: process.env.PORT ? Number(process.env.PORT) : 3000 });
+const portPromise = getPort({ port: process.env.PORT ? Number(process.env.PORT) : 3001 });
 const port = await portPromise;
 serve({
   fetch: app.fetch,

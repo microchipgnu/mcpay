@@ -1,35 +1,28 @@
 'use client'
 
 import {
-    Activity,
-    AlertCircle,
-    CheckCircle,
-    Copy,
-    Download,
-    ExternalLink,
-    Github,
-    Package,
-    Plug,
-    Shield,
-    Wrench,
-    Zap
+  Activity,
+  AlertCircle,
+  CheckCircle,
+  Copy,
+  Download,
+  ExternalLink,
+  Github,
+  Package,
+  Plug,
+  Shield,
+  Wrench
 } from "lucide-react"
 import { useState } from "react"
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { oneDark, oneLight } from 'react-syntax-highlighter/dist/esm/styles/prism'
 import { toast } from "sonner"
-import { api, urlUtils } from "../../lib/client/utils"
 import { useSession } from "../../lib/client/auth"
-import { DailyServerAnalytics, McpServerWithStats, ServerSummaryAnalytics } from "../../types"
+import { api, urlUtils } from "../../lib/client/utils"
 import { useTheme } from "../providers/theme-context"
 import { Badge } from "../ui/badge"
 import { Button } from "../ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../ui/card"
-
-interface IntegrationTabProps {
-  serverData: McpServerWithStats & { dailyAnalytics: DailyServerAnalytics[], summaryAnalytics: ServerSummaryAnalytics }
-  onTabChange: (tab: string) => void
-}
 
 interface IntegrationContentConfig {
   sections: IntegrationSection[]
@@ -66,6 +59,39 @@ interface LinkItem {
   icon?: React.ComponentType<{ className?: string }> | string
   onClick?: () => void
 }
+
+interface McpServerWithStats {
+  serverId: string
+  name: string
+  dailyAnalytics: DailyServerAnalytics[]
+  summaryAnalytics: ServerSummaryAnalytics
+}
+
+interface DailyServerAnalytics {
+  date: string
+  totalRequests: number
+  uniqueUsers: number
+  revenueDetails: {
+    amount_raw: string
+    decimals: number
+  }[]
+}
+
+interface ServerSummaryAnalytics {
+  totalRequests: number
+  uniqueUsers: number
+  revenueDetails: {
+    amount_raw: string
+    decimals: number
+  }[]
+}
+
+interface IntegrationTabProps {
+  serverData: McpServerWithStats & { dailyAnalytics: DailyServerAnalytics[], summaryAnalytics: ServerSummaryAnalytics }
+  onTabChange: (tab: string) => void
+}
+
+
 
 export function IntegrationTab({ serverData, onTabChange }: IntegrationTabProps) {
   const { isDark } = useTheme()

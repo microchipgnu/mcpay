@@ -1,30 +1,43 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
-import Link from "next/link"
-import { useRouter, useSearchParams } from "next/navigation"
-import { CheckCircle2, ArrowUpRight, Copy } from "lucide-react"
-import { toast } from "sonner"
-import { Button } from "@/components/ui/button"
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
-import { Skeleton } from "@/components/ui/skeleton"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import Footer from "@/components/custom-ui/footer"
-import { useTheme } from "@/components/providers/theme-context"
-import { api } from "@/lib/client/utils"
-import { getExplorerUrl } from "@/lib/client/blockscout"
-import { formatAmount, isNetworkSupported, type UnifiedNetwork } from "@/lib/commons"
-import type { PaymentListItem } from "@/types/payments"
 import { TokenIcon } from "@/components/custom-ui/token-icon"
+import { useTheme } from "@/components/providers/theme-context"
+import { Button } from "@/components/ui/button"
 import {
   Pagination,
   PaginationContent,
+  PaginationEllipsis,
   PaginationItem,
   PaginationLink,
   PaginationNext,
   PaginationPrevious,
-  PaginationEllipsis,
 } from "@/components/ui/pagination"
+import { Skeleton } from "@/components/ui/skeleton"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { getExplorerUrl } from "@/lib/client/blockscout"
+import { api } from "@/lib/client/utils"
+import { isNetworkSupported, type UnifiedNetwork } from "@/lib/commons"
+import { ArrowUpRight, CheckCircle2, Copy } from "lucide-react"
+import Link from "next/link"
+import { useRouter, useSearchParams } from "next/navigation"
+import { useEffect, useMemo, useState } from "react"
+import { toast } from "sonner"
+
+type PaymentListItem = {
+  id: string
+  status: PaymentStatus
+  serverId: string
+  serverName: string
+  tool: string
+  amountFormatted: string
+  currency: string
+  network: string
+  user: string
+  timestamp: string
+  txHash: string
+}
 
 /* ---------------- Types used by UI ---------------- */
 type PaymentStatus = "success" | "pending" | "failed"
@@ -140,7 +153,7 @@ export default function ClientExplorerPage() {
           serverId: p.serverId,
           serverName: p.serverName,
           tool: p.tool,
-          amountFormatted: formatAmount(String(p.amountRaw), Number(p.tokenDecimals), { precision: 2, showSymbol: false, symbol: p.currency }),
+          amountFormatted: p.amountFormatted,
           currency: p.currency,
           network: p.network,
           user: p.user,
@@ -226,7 +239,7 @@ export default function ClientExplorerPage() {
                   {loading
                     ? Array.from({ length: PAGE_SIZE }).map((_, i) => (
                       <TableRow key={`sk-${i}`}>
-                        {[...Array(8)].map((__, j) => (
+                        {[...Array(7)].map((__, j) => (
                           <TableCell key={j} className={td}>
                             <Skeleton className="h-5 w-24" />
                           </TableCell>

@@ -1,21 +1,20 @@
 "use client"
 
-import { Button } from "@/components/ui/button"
+import BuiltWithSection from "@/components/custom-ui/built-with-section"
+import ContentCards from "@/components/custom-ui/content-cards"
+import ContentCardsSmall from "@/components/custom-ui/content-cards-small"
+import FAQSection from "@/components/custom-ui/faq-section"
+import Footer from "@/components/custom-ui/footer"
+import Hero from "@/components/custom-ui/hero"
+import MinimalExplorer from "@/components/custom-ui/minimal-explorer"
+import ServersGrid from "@/components/custom-ui/servers-grid"
+import TypingAnimation from "@/components/custom-ui/typing-animation"
 import { useTheme } from "@/components/providers/theme-context"
-import { urlUtils } from "@/lib/client/utils"
+import { Button } from "@/components/ui/button"
+import { useWindowScroll } from "@/hooks/use-chat-scroll"
 import { ArrowRight, Rocket, TrendingUp } from "lucide-react"
 import Link from "next/link"
 import { useEffect, useState } from "react"
-import Hero from "@/components/custom-ui/hero"
-import ServersGrid from "@/components/custom-ui/servers-grid"
-import ContentCards from "@/components/custom-ui/content-cards"
-import Footer from "@/components/custom-ui/footer"
-import MinimalExplorer from "@/components/custom-ui/minimal-explorer"
-import BuiltWithSection from "@/components/custom-ui/built-with-section"
-import FAQSection from "@/components/custom-ui/faq-section"
-import ContentCardsSmall from "@/components/custom-ui/content-cards-small"
-import TypingAnimation from "@/components/custom-ui/typing-animation"
-import { useWindowScroll } from "@/hooks/use-chat-scroll"
 
 interface APITool {
   id: string;
@@ -103,6 +102,98 @@ export default function MCPBrowser() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
+  // Mock data for MCP servers
+  useEffect(() => {
+    // Simulate async delay for loading
+    const timeout = setTimeout(() => {
+      const mockServers: MCPServer[] = [
+        {
+          id: "1",
+          name: "OpenAI GPT",
+          description: "Powerful AI model for text, images, code, and more.",
+          url: "https://api.example.com/openai",
+          category: "AI",
+          tools: [
+            {
+              name: "chat",
+              description: "Text chat with GPT-4",
+              inputSchema: {
+                type: "object",
+                properties: {
+                  prompt: { type: "string", description: "Prompt to send" },
+                }
+              },
+              annotations: {
+                title: "Chat",
+                readOnlyHint: false,
+                destructiveHint: false,
+              }
+            }
+          ],
+          icon: <TrendingUp className="h-6 w-6" />,
+          verified: true,
+        },
+        {
+          id: "2",
+          name: "Stable Diffusion",
+          description: "Generate images from text using Stable Diffusion.",
+          url: "https://api.example.com/stablediff",
+          category: "Image",
+          tools: [
+            {
+              name: "generate",
+              description: "Generate image from prompt",
+              inputSchema: {
+                type: "object",
+                properties: {
+                  prompt: { type: "string", description: "Describe the image" },
+                }
+              },
+              annotations: {
+                title: "Generate Image",
+                readOnlyHint: false,
+                destructiveHint: false,
+              }
+            }
+          ],
+          icon: <TrendingUp className="h-6 w-6" />,
+          verified: true,
+        },
+        {
+          id: "3",
+          name: "Llama3",
+          description: "Open-source large language model for chat and code.",
+          url: "https://api.example.com/llama3",
+          category: "AI",
+          tools: [
+            {
+              name: "chat",
+              description: "Advanced NLP chat from Meta",
+              inputSchema: {
+                type: "object",
+                properties: {
+                  prompt: { type: "string", description: "Chat prompt" },
+                }
+              },
+              annotations: {
+                title: "Chat",
+                readOnlyHint: false,
+                destructiveHint: false,
+              }
+            }
+          ],
+          icon: <TrendingUp className="h-6 w-6" />,
+          verified: false,
+        },
+      ];
+      setMcpServers(mockServers);
+      setLoading(false);
+    }, 700);
+
+    return () => clearTimeout(timeout);
+  }, []);
+
+
   const { isDark } = useTheme()
   const { isAtBottom: hasReachedBottom } = useWindowScroll(200)
 
@@ -143,27 +234,6 @@ export default function MCPBrowser() {
     }
   }
 
-  useEffect(() => {
-    const fetchServers = async () => {
-      try {
-        setLoading(true)
-        setError(null)
-
-        const serversResponse = await fetch(urlUtils.getApiUrl('/servers?limit=6&type=trending'))
-        if (!serversResponse.ok) {
-          throw new Error(`Failed to fetch servers: ${serversResponse.status}`)
-        }
-
-        const servers: APIServer[] = await serversResponse.json()
-        setMcpServers(servers.map(transformServerData))
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to fetch servers')
-      } finally {
-        setLoading(false)
-      }
-    }
-    fetchServers()
-  }, [])
 
   if (error) {
     const errorInfo = getFriendlyErrorMessage(error)

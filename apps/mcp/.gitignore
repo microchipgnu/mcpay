@@ -29,3 +29,4 @@ lerna-debug.log*
 .vercel
 
 sqlite.db
+.env*.local

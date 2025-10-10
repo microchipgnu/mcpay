@@ -2,8 +2,6 @@
 
 import { Card, CardContent } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
-import { apiCall } from "@/lib/client/utils"
-import { ComprehenstiveAnalytics } from "@/types/mcp"
 import { easeOut } from "motion"
 import {
   AnimatePresence,
@@ -11,27 +9,16 @@ import {
   useReducedMotion,
   type Variants,
 } from "motion/react"
-import { useEffect, useMemo, useState } from "react"
+import { useMemo } from "react"
 
 export default function HeroStats() { 
-  const [stats, setStats] = useState<ComprehenstiveAnalytics | null>(null)
   const prefersReduced = useReducedMotion()
 
-  useEffect(() => {
-    let mounted = true
-    const fetchAnalytics = async () => {
-      try {
-        const analytics = await apiCall<ComprehenstiveAnalytics>("/analytics/usage")
-        if (mounted) setStats(analytics)
-      } catch {
-        if (mounted) setStats(null)
-      }
-    }
-    fetchAnalytics()
-    return () => {
-      mounted = false
-    }
-  }, [])
+  const stats = {
+    activeServers: 0,
+    totalTools: 0,
+    totalRequests: 0,
+  }
 
   // Same motion + timings as hero secondary objects
   const fadeUp: Variants = useMemo(

@@ -4,16 +4,25 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { fromBaseUnits } from "@/lib/commons"
-import { RevenueDetail } from "@/lib/gateway/db/schema"
-import { type DailyServerAnalytics } from "@/types/mcp"
-import { BarChart3, DollarSign, TrendingUp, Users } from "lucide-react"
+import { BarChart3, DollarSign, Users } from "lucide-react"
 import { useMemo } from "react"
-import { Area, AreaChart, Bar, BarChart, Line, LineChart, ResponsiveContainer, XAxis, YAxis } from "recharts"
+import { Area, AreaChart, Bar, BarChart, Line, LineChart, XAxis, YAxis } from "recharts"
+
+interface DailyServerAnalytics {
+  date: string
+  totalRequests: number
+  uniqueUsers: number
+  revenueDetails: {
+    amount_raw: string
+    decimals: number
+  }[]
+}
 
 interface AnalyticsChartProps {
   dailyAnalytics: DailyServerAnalytics[]
   isDark?: boolean
 }
+
 
 interface ChartDataPoint {
   date: string

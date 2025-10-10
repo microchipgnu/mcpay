@@ -93,7 +93,7 @@ export const getTrustedOrigins = (): string[] => {
 
 export const getGitHubConfig = () => ({
   clientId: env.GITHUB_CLIENT_ID,
-  clientSecret: env.GITHUB_CLIENT_SECRET,
+  clientSecret: env.GITHUB_CLIENT_SECRET
 });
 
 export const getDatabaseUrl = () => env.DATABASE_URL;

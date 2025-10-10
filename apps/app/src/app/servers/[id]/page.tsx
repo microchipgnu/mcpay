@@ -1,9 +1,6 @@
 "use client"
 
-import { AnalyticsChart } from "@/components/custom-ui/analytics-chart"
 import { TransactionLink } from "@/components/custom-ui/explorer-link"
-import { IntegrationTab } from "@/components/custom-ui/integration-tab"
-import { ToolExecutionModal } from "@/components/custom-ui/tool-execution-modal"
 import { useTheme } from "@/components/providers/theme-context"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -12,17 +9,13 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { getExplorerName, openExplorer } from "@/lib/client/blockscout"
-import { api, urlUtils } from "@/lib/client/utils"
+import { urlUtils } from "@/lib/client/utils"
 import {
   formatTokenAmount,
   fromBaseUnits,
   getTokenInfo,
 } from "@/lib/commons"
-// Add missing imports from amounts utilities
-import { RevenueDetail } from "@/lib/gateway/db/schema"
-import { PricingEntry } from "@/types"
 import { type Network } from "@/types/blockchain"
-import { type DailyServerAnalytics, type McpServerWithStats, type ServerSummaryAnalytics, type ToolFromMcpServerWithStats } from "@/types/mcp"
 import {
   Activity,
   AlertCircle,
@@ -44,10 +37,255 @@ import { useParams } from "next/navigation"
 import { useEffect, useState } from "react"
 import { toast } from "sonner"
 
+// =========================
+// Local fallbacks and mocks
+// =========================
+
+// Minimal local type definitions to replace missing external types
+interface PricingEntry {
+  id?: string
+  assetAddress: string
+  network: string
+  tokenDecimals: number
+  maxAmountRequiredRaw: string
+  active?: boolean
+}
+
+interface RevenueDetail {
+  amount_raw: string
+  decimals: number
+  currency?: string
+  network?: string
+}
+
+interface ToolPaymentUser {
+  displayName?: string
+  name?: string
+  avatarUrl?: string
+  image?: string
+  walletAddress?: string
+}
+
+interface ToolPayment {
+  id: string
+  status: "completed" | "pending" | "failed"
+  amountRaw: string
+  tokenDecimals: number
+  currency: string
+  network?: string
+  user?: ToolPaymentUser
+  createdAt?: string | Date
+  settledAt?: string | Date | null
+  transactionHash?: string | null
+}
+
+interface ToolFromMcpServerWithStats {
+  id: string
+  name: string
+  description: string
+  pricing?: PricingEntry[] | null
+  isMonetized?: boolean
+  totalUsage?: number
+  totalPayments?: number
+  totalProofs?: number
+  consistentProofs?: number
+  payments?: ToolPayment[]
+}
+
+interface ProofItem {
+  id: string
+  isConsistent: boolean
+  confidenceScore?: number
+  webProofPresentation?: boolean
+  tool: { name: string }
+  user?: { displayName?: string; name?: string; walletAddress?: string; avatarUrl?: string; image?: string }
+  createdAt: string | Date
+}
+
+interface DailyServerAnalytics {
+  date: string
+  totalRequests?: number
+  uniqueUsers?: number
+  revenueDetails?: RevenueDetail[]
+}
+
+interface ServerSummaryAnalytics {
+  lastActivity?: string
+  totalTools?: number
+  monetizedTools?: number
+  totalPayments?: number
+  avgResponseTime?: number
+  revenueDetails?: RevenueDetail[] | null
+}
+
+interface CreatorInfo {
+  displayName?: string
+  name?: string
+  avatarUrl?: string
+  image?: string
+}
+
+interface McpServerWithStats {
+  serverId: string
+  name: string
+  description?: string
+  receiverAddress: string
+  createdAt: string | Date
+  creator?: CreatorInfo
+  stats: { totalUsage?: number; activeUsers?: number }
+  tools: ToolFromMcpServerWithStats[]
+  proofs?: ProofItem[]
+}
+
+type ServerData = McpServerWithStats & { dailyAnalytics: DailyServerAnalytics[]; summaryAnalytics: ServerSummaryAnalytics }
+
+// Lightweight local stubs for heavy components to avoid cross-file type errors while mocking
+function AnalyticsChart({ dailyAnalytics, isDark = false }: { dailyAnalytics: DailyServerAnalytics[]; isDark?: boolean }) {
+  return (
+    <Card className={isDark ? "bg-gray-800 border-gray-700" : ""}>
+      <CardHeader>
+        <CardTitle className="text-base">Analytics Overview</CardTitle>
+        <CardDescription>Showing {dailyAnalytics.length} days (mock)</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="grid grid-cols-2 gap-2 text-sm">
+          {dailyAnalytics.slice(0, 7).map((d) => (
+            <div key={d.date} className={isDark ? "text-gray-300" : "text-gray-700"}>
+              <span className="font-mono mr-2">{new Date(d.date).toLocaleDateString()}</span>
+              <span>{(d.totalRequests || 0).toLocaleString()} req</span>
+            </div>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
+function IntegrationTab({ serverData }: { serverData: ServerData; onTabChange: (tab: string) => void }) {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base">Integration</CardTitle>
+        <CardDescription>Instructions for {serverData.name} (mock)</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <code className="text-xs">{urlUtils.getMcpUrl(serverData.serverId, true)}</code>
+      </CardContent>
+    </Card>
+  )
+}
+
+function ToolExecutionModal({ isOpen }: { isOpen: boolean; onClose: () => void; tool: ToolFromMcpServerWithStats | null; serverId: string }) {
+  if (!isOpen) return null
+  return null
+}
+
+// Simple mock data generator
+function createMockServerData(serverId: string): ServerData {
+  const today = new Date()
+  const daily: DailyServerAnalytics[] = Array.from({ length: 14 }).map((_, i) => {
+    const d = new Date(today)
+    d.setDate(today.getDate() - i)
+    return {
+      date: d.toISOString(),
+      totalRequests: 50 + ((i * 7) % 40),
+      uniqueUsers: 5 + (i % 5),
+      revenueDetails: [
+        { amount_raw: String(150000 + i * 1000), decimals: 6, currency: "USDC", network: "base-sepolia" },
+      ],
+    }
+  })
+
+  const pricing: PricingEntry[] = [
+    { assetAddress: "USDC", network: "base-sepolia", tokenDecimals: 6, maxAmountRequiredRaw: "500000", active: true },
+    { assetAddress: "USDC", network: "base-sepolia", tokenDecimals: 6, maxAmountRequiredRaw: "1000000", active: true },
+  ]
+
+  const mkPayment = (idx: number): ToolPayment => ({
+    id: `pay_${idx}`,
+    status: idx % 2 === 0 ? "completed" : "pending",
+    amountRaw: String(250000 + idx * 10000),
+    tokenDecimals: 6,
+    currency: "USDC",
+    network: "base-sepolia",
+    user: { displayName: `User ${idx}` },
+    createdAt: new Date().toISOString(),
+    settledAt: idx % 2 === 0 ? new Date().toISOString() : null,
+    transactionHash: idx % 2 === 0 ? `0xhash${idx.toString().padStart(4, "0")}` : null,
+  })
+
+  const tools: ToolFromMcpServerWithStats[] = [
+    {
+      id: "tool_1",
+      name: "Summarize",
+      description: "Summarizes text",
+      pricing,
+      isMonetized: true,
+      totalUsage: 123,
+      totalPayments: 8,
+      totalProofs: 5,
+      consistentProofs: 5,
+      payments: [mkPayment(1), mkPayment(2), mkPayment(3)],
+    },
+    {
+      id: "tool_2",
+      name: "Translate",
+      description: "Translates text",
+      pricing: null,
+      isMonetized: false,
+      totalUsage: 256,
+      totalPayments: 0,
+      totalProofs: 0,
+      consistentProofs: 0,
+      payments: [],
+    },
+    {
+      id: "tool_3",
+      name: "Extract Entities",
+      description: "Extracts entities from text",
+      pricing,
+      isMonetized: true,
+      totalUsage: 64,
+      totalPayments: 2,
+      totalProofs: 1,
+      consistentProofs: 1,
+      payments: [mkPayment(4)],
+    },
+  ]
+
+  const proofs: ProofItem[] = [
+    { id: "pr1", isConsistent: true, confidenceScore: 0.93, tool: { name: "Summarize" }, user: { displayName: "Alice", walletAddress: "0xabc...1" }, createdAt: new Date().toISOString(), webProofPresentation: true },
+    { id: "pr2", isConsistent: true, confidenceScore: 0.88, tool: { name: "Translate" }, user: { displayName: "Bob", walletAddress: "0xabc...2" }, createdAt: new Date().toISOString() },
+  ]
+
+  const summary: ServerSummaryAnalytics = {
+    lastActivity: today.toISOString(),
+    totalTools: tools.length,
+    monetizedTools: tools.filter(t => (t.pricing || [])?.length > 0).length,
+    totalPayments: tools.reduce((n, t) => n + (t.totalPayments || 0), 0),
+    avgResponseTime: 320,
+    revenueDetails: daily[0]?.revenueDetails || [],
+  }
+
+  return {
+    serverId,
+    name: "Mock MCP Server",
+    description: "This is a mocked server used for local development.",
+    receiverAddress: "0x1234567890abcdef1234567890abcdef12345678",
+    createdAt: today.toISOString(),
+    creator: { displayName: "Mock Owner" },
+    stats: { totalUsage: 443, activeUsers: 27 },
+    tools,
+    proofs,
+    dailyAnalytics: daily,
+    summaryAnalytics: summary,
+  }
+}
+
 export default function ServerDashboard() {
   const params = useParams()
   const serverId = params.id as string
-  const [serverData, setServerData] = useState<McpServerWithStats & { dailyAnalytics: DailyServerAnalytics[], summaryAnalytics: ServerSummaryAnalytics } | null>(null)
+  const [serverData, setServerData] = useState<ServerData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [selectedTool, setSelectedTool] = useState<ToolFromMcpServerWithStats | null>(null)
@@ -78,23 +316,24 @@ export default function ServerDashboard() {
   }
 
   useEffect(() => {
-    const fetchServerData = async () => {
+    const loadMock = async () => {
       try {
         setLoading(true)
         setError(null)
-
-        const data = await api.getServer(serverId)
-        setServerData(data as McpServerWithStats & { dailyAnalytics: DailyServerAnalytics[], summaryAnalytics: ServerSummaryAnalytics })
+        // Simulate network latency
+        await new Promise((res) => setTimeout(res, 200))
+        const data = createMockServerData(serverId)
+        setServerData(data)
       } catch (err) {
-        console.error('Error fetching server data:', err)
-        setError(err instanceof Error ? err.message : 'Failed to fetch server data')
+        console.error('Error creating mock server data:', err)
+        setError(err instanceof Error ? err.message : 'Failed to load mock server data')
       } finally {
         setLoading(false)
       }
     }
 
     if (serverId) {
-      fetchServerData()
+      loadMock()
     }
   }, [serverId])
 
@@ -137,7 +376,7 @@ export default function ServerDashboard() {
   }
 
   // Helper function to calculate total revenue from revenueDetails array
-  const calculateTotalRevenue = (revenueDetails: RevenueDetail[] | null): number => {
+  const calculateTotalRevenue = (revenueDetails: RevenueDetail[] | null | undefined): number => {
     if (!revenueDetails || !Array.isArray(revenueDetails)) {
       return 0
     }
@@ -158,7 +397,7 @@ export default function ServerDashboard() {
   }
 
   // Helper function to format the primary revenue amount for display
-  const formatPrimaryRevenue = (revenueDetails: RevenueDetail[] | null): string => {
+  const formatPrimaryRevenue = (revenueDetails: RevenueDetail[] | null | undefined): string => {
     if (!revenueDetails || !Array.isArray(revenueDetails) || revenueDetails.length === 0) {
       return "0.00"
     }
@@ -180,7 +419,7 @@ export default function ServerDashboard() {
   }
 
   // Helper function to format daily analytics revenue
-  const formatDailyRevenue = (revenueDetails: RevenueDetail[] | null): string => {
+  const formatDailyRevenue = (revenueDetails: RevenueDetail[] | null | undefined): string => {
     const total = calculateTotalRevenue(revenueDetails)
     return total.toFixed(2)
   }

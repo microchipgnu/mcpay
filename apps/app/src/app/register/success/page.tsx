@@ -8,11 +8,8 @@ import { Separator } from "@/components/ui/separator"
 import { CheckCircle, Server, Calendar, User, Globe, ExternalLink, ChevronDown, ChevronRight, Shield, Database, Hash, AlertCircle, Home, Plus, Eye, Wrench, DollarSign, Zap } from "lucide-react"
 import { useTheme } from "@/components/providers/theme-context"
 import { openBlockscout } from "@/lib/client/blockscout"
-import { api } from "@/lib/client/utils"
 import { useSearchParams } from "next/navigation"
 import Link from "next/link"
-import { ServerRegistrationData, ServerRegistrationMetadata } from "@/types/mcp"
-import { PricingEntry } from "@/types"
 import { 
   formatTokenAmount,
   fromBaseUnits,
@@ -21,7 +18,81 @@ import {
 import { type Network } from "@/types/blockchain"
 import Image from "next/image"
 
+// Local types and a mocked API for registration details
+type PricingEntry = {
+  maxAmountRequiredRaw: string
+  assetAddress: string
+  network: string
+  tokenDecimals: number
+  active?: boolean
+}
 
+type ServerRegistrationMetadata = {
+  registeredFromUI?: boolean
+  timestamp?: string
+  toolsCount?: number
+  monetizedToolsCount?: number
+}
+
+type RegisteredTool = {
+  name: string
+  description?: string
+  pricing?: PricingEntry[]
+}
+
+type ServerRegistrationData = {
+  id: string
+  serverId: string
+  name: string
+  description?: string
+  receiverAddress: string
+  mcpOrigin: string
+  requireAuth: boolean
+  status: 'active' | 'pending' | 'inactive'
+  creatorId: string
+  createdAt: string
+  updatedAt: string
+  metadata: ServerRegistrationMetadata
+  tools: RegisteredTool[]
+}
+
+function createMockRegistration(serverId: string): ServerRegistrationData {
+  const now = new Date().toISOString()
+  const pricing: PricingEntry[] = [
+    { assetAddress: '0x036CbD53842c5426634e7929541eC2318f3dCF7e', network: 'base-sepolia', tokenDecimals: 6, maxAmountRequiredRaw: '100000', active: true },
+  ]
+  return {
+    id: 'reg_' + Math.random().toString(36).slice(2, 10),
+    serverId,
+    name: 'Mock MCP Server',
+    description: 'This is a mocked registration record for development.',
+    receiverAddress: '0x1234567890abcdef1234567890abcdef12345678',
+    mcpOrigin: 'https://mock.example.com/mcp?token=abc',
+    requireAuth: true,
+    status: 'active',
+    creatorId: 'user_mock_123',
+    createdAt: now,
+    updatedAt: now,
+    metadata: {
+      registeredFromUI: true,
+      timestamp: now,
+      toolsCount: 3,
+      monetizedToolsCount: 2,
+    },
+    tools: [
+      { name: 'Summarize', description: 'Summarize text input', pricing },
+      { name: 'Translate', description: 'Translate text' },
+      { name: 'Fetch', description: 'Fetch a URL and return body', pricing },
+    ],
+  }
+}
+
+const api = {
+  async getServerRegistration(serverId: string): Promise<ServerRegistrationData> {
+    // Fully mocked for now; replace with real call when backend is available
+    return createMockRegistration(serverId)
+  }
+}
 
 // Enhanced token display with verification badge
 const TokenDisplay = ({
@@ -242,7 +313,7 @@ function RegisterSuccessContent() {
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-8 max-w-lg mx-auto">
               <div className={`p-4 rounded-xl border ${isDark ? "bg-gray-800/50 border-gray-700" : "bg-white border-gray-200"} backdrop-blur-sm`}>
                 <div className={`text-2xl font-bold ${isDark ? "text-white" : "text-gray-900"}`}>
-                  {(registrationData.metadata as ServerRegistrationMetadata)?.toolsCount || 0}
+                  {registrationData.metadata?.toolsCount || 0}
                 </div>
                 <div className={`text-sm ${isDark ? "text-gray-400" : "text-gray-600"}`}>
                   Total Tools
@@ -250,7 +321,7 @@ function RegisterSuccessContent() {
               </div>
               <div className={`p-4 rounded-xl border ${isDark ? "bg-gray-800/50 border-gray-700" : "bg-white border-gray-200"} backdrop-blur-sm`}>
                 <div className="text-2xl font-bold text-green-600">
-                  {(registrationData.metadata as ServerRegistrationMetadata)?.monetizedToolsCount || 0}
+                  {registrationData.metadata?.monetizedToolsCount || 0}
                 </div>
                 <div className={`text-sm ${isDark ? "text-gray-400" : "text-gray-600"}`}>
                   Monetized
@@ -380,7 +451,7 @@ function RegisterSuccessContent() {
                   <div className={`p-3 rounded-lg ${isDark ? "bg-gray-800" : "bg-gray-50"} flex items-center gap-3`}>
                     <Globe className={`h-4 w-4 ${isDark ? "text-gray-400" : "text-gray-600"}`} />
                     <span className={`text-sm ${isDark ? "text-gray-300" : "text-gray-600"}`}>
-                      {registrationData.metadata.registeredFromUI ? 'Web Interface' : 'API'}
+                      {registrationData.metadata?.registeredFromUI ? 'Web Interface' : 'API'}
                     </span>
                   </div>
                 </div>
@@ -489,7 +560,7 @@ function RegisterSuccessContent() {
                                 Network
                               </span>
                               <Badge variant="outline" className="text-xs py-0 px-2">
-                                {(tool.pricing as PricingEntry)?.network || 'base-sepolia'}
+                                {(tool.pricing as PricingEntry[] | undefined)?.[0]?.network || 'base-sepolia'}
                               </Badge>
                             </div>
                           </div>
@@ -623,7 +694,7 @@ function RegisterSuccessContent() {
                         Metadata Timestamp
                       </label>
                       <div className={`p-3 rounded-lg ${isDark ? "bg-gray-800" : "bg-gray-50"} text-sm ${isDark ? "text-gray-300" : "text-gray-600"}`}>
-                        {formatDate((registrationData.metadata as ServerRegistrationMetadata)?.timestamp || registrationData.createdAt)}
+                        {formatDate(registrationData.metadata?.timestamp || registrationData.createdAt)}
                       </div>
                     </div>
 

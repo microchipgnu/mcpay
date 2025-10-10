@@ -6,7 +6,7 @@ import dotenv from "dotenv";
 import { drizzle } from "drizzle-orm/neon-http";
 import { neon, neonConfig } from "@neondatabase/serverless";
 import * as schema from "../../auth-schema.js";
-import { getDatabaseUrl, getGitHubConfig, getTrustedOrigins, isTest } from "../env.js";
+import env, { getDatabaseUrl, getGitHubConfig, getTrustedOrigins, isTest } from "../env.js";
 import { CDPWalletMetadata } from "./3rd-parties/cdp/types.js";
 import { txOperations } from "./db/actions.js";
 
@@ -20,6 +20,7 @@ const sql = neon(getDatabaseUrl());
 export const db = drizzle(sql, { schema });
 
 export const auth = betterAuth({
+    baseURL: env.BETTER_AUTH_URL,
     database: drizzleAdapter(db, {
         provider: "pg"
     }),
@@ -28,7 +29,10 @@ export const auth = betterAuth({
         enabled: true,
     },
     socialProviders: {
-        github: getGitHubConfig(),
+        github: {
+          clientId: env.GITHUB_CLIENT_ID,
+          clientSecret: env.GITHUB_CLIENT_SECRET,
+        }
     },
     advanced: {
         crossSubDomainCookies: {
@@ -36,7 +40,6 @@ export const auth = betterAuth({
         },
     },
     plugins: [
-        oAuthProxy(),
         apiKey({
             enableSessionForAPIKeys: true,
             enableMetadata: true,

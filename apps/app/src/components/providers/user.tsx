@@ -2,9 +2,8 @@
 
 import { useSession } from "@/lib/client/auth"
 import { api } from "@/lib/client/utils"
-import type { UserWallet } from "@/types/wallet"
-import type { BalancesByChain } from "@/types/ui"
 import { createContext, useContext, useCallback, useEffect, useState, type ReactNode } from "react"
+import type { UserWallet, BalancesByChain } from "@/types/wallet"
 
 // Define the shape of wallet data with balances
 export interface UserWalletData {
@@ -17,8 +16,8 @@ export interface UserWalletData {
     mainnetValueUsd: number
     testnetValueUsd: number
   }
-  mainnetBalancesByChain: BalancesByChain
-  testnetBalancesByChain: BalancesByChain
+  mainnetBalancesByChain: Partial<Record<string, unknown[]>>
+  testnetBalancesByChain: Partial<Record<string, unknown[]>>
 }
 
 // Define the context interface
@@ -121,8 +120,8 @@ export function UserProvider({ children }: { children: ReactNode }) {
           mainnetValueUsd: number
           testnetValueUsd: number
         }
-        mainnetBalancesByChain: BalancesByChain
-        testnetBalancesByChain: BalancesByChain
+        mainnetBalancesByChain: Partial<Record<string, unknown[]>>
+        testnetBalancesByChain: Partial<Record<string, unknown[]>>
       }
 
       setWalletData({

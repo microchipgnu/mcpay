@@ -1,15 +1,15 @@
 "use client"
 
-import { useState } from "react"
-import Link from "next/link"
-import { toast } from "sonner"
+import { MCPServer } from "@/app/page"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Check, Copy, Hammer, Activity } from "lucide-react"
-import { MCPServer } from "@/app/page"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { urlUtils } from "@/lib/client/utils"
+import { Check, Copy, Hammer } from "lucide-react"
+import Link from "next/link"
+import { useState } from "react"
+import { toast } from "sonner"
 
 export default function ServersGrid({
   servers,
