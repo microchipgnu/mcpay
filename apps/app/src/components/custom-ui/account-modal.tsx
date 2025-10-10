@@ -7,6 +7,7 @@ import { Dialog, DialogContent, DialogHeader } from "@/components/ui/dialog"
 import { Drawer, DrawerContent, DrawerHeader } from "@/components/ui/drawer"
 import { AlertCircle, Github, Loader2 } from "lucide-react"
 import { signIn, useSession } from "@/lib/client/auth"
+import env from "@/env"
 
 // Keep the same external API
 type AccountModalProps = {
@@ -26,7 +27,7 @@ export function AccountModal({ isOpen, onClose }: AccountModalProps) {
   const [error, setError] = useState<string>("")
   const [isMobile, setIsMobile] = useState(false)
 
-  const iframeOrigin = "http://localhost:3005"
+  const iframeOrigin = env.NEXT_PUBLIC_AUTH_URL
   const iframeUrl = useMemo(() => {
     const theme = isDark ? "dark" : "light"
     return `${iframeOrigin}?theme=${theme}`
