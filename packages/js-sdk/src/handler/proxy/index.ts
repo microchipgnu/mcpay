@@ -159,7 +159,17 @@ export function withProxy(hooks: Hook[]) {
             // Unified parsing path: if SSE, collect and parse last data message; if JSON, parse JSON; else pass-through
             let data: unknown;
             if (isStreaming) {
-                const text = await upstream.text();
+                let text: string | null = null;
+                try {
+                    text = await upstream.text();
+                } catch (e) {
+                    // If reading text fails (e.g., decompression), pass upstream through as-is
+                    return new Response(upstream.body, {
+                        status: upstream.status,
+                        statusText: upstream.statusText,
+                        headers: new Headers(upstream.headers),
+                    });
+                }
                 try {
                     const dataLines = text
                         .split('\n')
@@ -173,20 +183,20 @@ export function withProxy(hooks: Hook[]) {
                     }
                 } catch (e) {
                     return new Response(text, {
-                    status: upstream.status,
-                    statusText: upstream.statusText,
-                    headers: new Headers(upstream.headers),
+                        status: upstream.status,
+                        statusText: upstream.statusText,
+                        headers: new Headers(upstream.headers),
                     });
                 }
             } else if (isJson) {
                 try {
                     data = await upstream.json();
                 } catch (e) {
-                    const text = await upstream.text().catch(() => "");
-                    return new Response(text, {
-                    status: upstream.status,
-                    statusText: upstream.statusText,
-                    headers: new Headers(upstream.headers),
+                    // If parsing fails (e.g., decompression), pass upstream through as-is
+                    return new Response(upstream.body, {
+                        status: upstream.status,
+                        statusText: upstream.statusText,
+                        headers: new Headers(upstream.headers),
                     });
                 }
             } else {
