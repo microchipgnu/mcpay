@@ -74,9 +74,19 @@ export function withProxy(hooks: Hook[]) {
 
         // Only process tool calls through hooks
         if (!isToolCall) {
+            // We are re-serializing the JSON body, so sanitize headers to avoid mismatches
+            const forwardHeadersSimple = new Headers(req.headers);
+            forwardHeadersSimple.delete("content-length");
+            forwardHeadersSimple.delete("host");
+            forwardHeadersSimple.delete("connection");
+            forwardHeadersSimple.delete("transfer-encoding");
+            // Critical: ensure we are not advertising compression for an uncompressed body
+            forwardHeadersSimple.delete("content-encoding");
+            forwardHeadersSimple.set("content-type", "application/json");
+
             const upstream = await fetch(targetUrl, {
                 method: req.method,
-                headers: req.headers,
+                headers: forwardHeadersSimple,
                 body: JSON.stringify(body)
             });
             return wrapUpstreamResponse(upstream);
@@ -136,6 +146,8 @@ export function withProxy(hooks: Hook[]) {
             forwardHeaders.delete("host");
             forwardHeaders.delete("connection");
             forwardHeaders.delete("transfer-encoding");
+            // Critical: ensure we are not advertising compression for an uncompressed body
+            forwardHeaders.delete("content-encoding");
             // Ensure correct content type for JSON body
             forwardHeaders.set("content-type", "application/json");
 

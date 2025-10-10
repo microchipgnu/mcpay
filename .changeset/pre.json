@@ -6,14 +6,16 @@
     "docs": "0.0.0",
     "auth-example": "0.1.0",
     "openai-apps-minimal-nextjs": "0.1.0",
-    "mcpay": "0.1.7-beta.10"
+    "mcpay": "0.1.7-beta.11"
   },
   "changesets": [
     "fair-dingos-report",
+    "fifty-weeks-wash",
     "free-tigers-switch",
     "kind-owls-ring",
     "neat-symbols-accept",
     "ready-cobras-attend",
+    "ripe-chicken-attack",
     "rotten-toes-own",
     "wide-sides-make"
   ]
