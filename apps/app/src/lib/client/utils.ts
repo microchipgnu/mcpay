@@ -68,7 +68,7 @@ export const urlUtils = {
     const MCP_PROXY_URL = env.NEXT_PUBLIC_MCP_PROXY_URL
     if (usesMpc2) {
       // Compose the target MCP2 URL
-      const mcp2Url = `${urlUtils.getMcp2Url()}?id=${serverIdOrUrl}`
+      const mcp2Url = `${urlUtils.getMcp2Url()}/mcp?id=${serverIdOrUrl}`
 
       console.log(`[${new Date().toISOString()}] MCP2 URL: ${mcp2Url}`);
       // Base64 encode the MCP2 URL
