@@ -205,7 +205,7 @@ app.all("/mcp", async (c) => {
             recipient: recipient,
             prices,
             facilitator: {
-                url: "https://facilitator.mcpay.tech",
+                url: "https://facilitator.payai.network",
             },
         }),
         new AuthHeadersHook(async (_req, extra) => {
