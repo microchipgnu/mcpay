@@ -27,7 +27,9 @@ export function AccountModal({ isOpen, onClose }: AccountModalProps) {
   const [error, setError] = useState<string>("")
   const [isMobile, setIsMobile] = useState(false)
 
-  const iframeOrigin = env.NEXT_PUBLIC_AUTH_URL
+  const iframeOrigin = process.env.NEXT_PUBLIC_AUTH_URL
+
+  console.log("iframeOrigin", iframeOrigin)
   const iframeUrl = useMemo(() => {
     const theme = isDark ? "dark" : "light"
     return `${iframeOrigin}?theme=${theme}`
