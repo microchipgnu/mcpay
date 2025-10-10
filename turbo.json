@@ -14,8 +14,8 @@
     "UPSTASH_REDIS_REST_URL",
     "UPSTASH_REDIS_REST_TOKEN",
     "BETTER_AUTH_URL",
-    "MCP2_URL",
-    "MCP_PROXY_URL"
+    "NEXT_PUBLIC_MCP2_URL",
+    "NEXT_PUBLIC_MCP_PROXY_URL"
   ],
   "tasks": {
     "build": { "dependsOn": ["^build"], "outputs": ["dist/**", ".next/**"] },

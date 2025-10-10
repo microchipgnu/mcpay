@@ -149,7 +149,7 @@ export default function ClientServersPage() {
             setLoading(true)
             setError(null)
             try {
-                const base = new URL(env.MCP2_URL)
+                const base = new URL(env.NEXT_PUBLIC_MCP2_URL)
                 const endpoint = `${base.origin}/servers`
 
                 const res = await fetch(endpoint, { signal, headers: { "Accept": "application/json" } })
