@@ -1,4 +1,6 @@
 import { z } from 'zod';
+import { config } from 'dotenv';
+config();
 
 // Define the schema for environment variables
 const envSchema = z.object({
