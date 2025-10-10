@@ -31,6 +31,10 @@ function jsonResponse(obj: unknown, status = 200): Response {
 function wrapUpstreamResponse(upstream: Response): Response {
     // Clone headers to avoid immutable header guards on upstream responses
     const headers = new Headers(upstream.headers);
+    // If the runtime already decompressed the body, avoid advertising compression again
+    headers.delete("content-encoding");
+    headers.delete("content-length");
+    headers.delete("transfer-encoding");
     return new Response(upstream.body, {
         status: upstream.status,
         statusText: upstream.statusText,
@@ -194,10 +198,14 @@ export function withProxy(hooks: Hook[]) {
                         data = JSON.parse(lastMessage);
                     }
                 } catch (e) {
+                    const headers = new Headers(upstream.headers);
+                    headers.delete("content-encoding");
+                    headers.delete("content-length");
+                    headers.delete("transfer-encoding");
                     return new Response(text, {
                         status: upstream.status,
                         statusText: upstream.statusText,
-                        headers: new Headers(upstream.headers),
+                        headers,
                     });
                 }
             } else if (isJson) {
@@ -253,6 +261,9 @@ export function withProxy(hooks: Hook[]) {
 
                 envelope["result"] = currentRes as unknown as Record<string, unknown>;
                 const headers = new Headers(upstream.headers);
+                headers.delete("content-encoding");
+                headers.delete("content-length");
+                headers.delete("transfer-encoding");
                 headers.set("content-type", "application/json");
                 return new Response(JSON.stringify(envelope), {
                     status: upstream.status,
@@ -291,6 +302,9 @@ export function withProxy(hooks: Hook[]) {
                 const id = (originalRpc?.id as string | number | undefined) ?? 0;
                 const envelope = { jsonrpc: "2.0", id, result: currentRes };
                 const headers = new Headers(upstream.headers);
+                headers.delete("content-encoding");
+                headers.delete("content-length");
+                headers.delete("transfer-encoding");
                 headers.set("content-type", "application/json");
                 return new Response(JSON.stringify(envelope), {
                     status: upstream.status,
@@ -301,6 +315,9 @@ export function withProxy(hooks: Hook[]) {
 
             // Fallback: return JSON as-is without attempting to run hooks
             const headers = new Headers(upstream.headers);
+            headers.delete("content-encoding");
+            headers.delete("content-length");
+            headers.delete("transfer-encoding");
             headers.set("content-type", "application/json");
             return new Response(JSON.stringify(data), {
                 status: upstream.status,

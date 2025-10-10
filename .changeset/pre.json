@@ -6,7 +6,7 @@
     "docs": "0.0.0",
     "auth-example": "0.1.0",
     "openai-apps-minimal-nextjs": "0.1.0",
-    "mcpay": "0.1.7-beta.11"
+    "mcpay": "0.1.7-beta.12"
   },
   "changesets": [
     "fair-dingos-report",
@@ -17,6 +17,7 @@
     "ready-cobras-attend",
     "ripe-chicken-attack",
     "rotten-toes-own",
+    "tall-chairs-sort",
     "wide-sides-make"
   ]
 }
