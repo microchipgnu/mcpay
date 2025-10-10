@@ -5,9 +5,6 @@ const envSchema = z.object({
   // Node.js environment
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
 
-  // Database
-  DATABASE_URL: z.url('DATABASE_URL must be a valid URL').default(''),
-
   NEXT_PUBLIC_AUTH_URL: z.url('NEXT_PUBLIC_AUTH_URL must be a valid URL').default(''),
   // MCP2 Configuration
   MCP2_URL: z.url().default('http://localhost:3006'),
@@ -55,15 +52,6 @@ export type Env = typeof env;
 export const isDevelopment = () => env.NODE_ENV === 'development';
 export const isProduction = () => env.NODE_ENV === 'production';
 export const isTest = () => env.NODE_ENV === 'test';
-// Optional: Runtime environment validation (call this at app startup)
-export const validateEnvironment = () => {
-  console.log('✅ Environment variables validated successfully');
-  
-  if (isDevelopment()) {
-    console.log('🔧 Running in development mode');
-    console.log(`📊 Database: ${env.DATABASE_URL.split('@')[1] || 'local'}`);
-  }
-};
 
 // Export default as the env object for convenience
 export default env;

@@ -13,7 +13,9 @@
     "CDP_WALLET_SECRET",
     "UPSTASH_REDIS_REST_URL",
     "UPSTASH_REDIS_REST_TOKEN",
-    "BETTER_AUTH_URL"
+    "BETTER_AUTH_URL",
+    "MCP2_URL",
+    "MCP_PROXY_URL"
   ],
   "tasks": {
     "build": { "dependsOn": ["^build"], "outputs": ["dist/**", ".next/**"] },
