@@ -109,12 +109,12 @@ app.use("*", cors());
 
 // Admin: register or update an MCP server config
 app.post("/register", async (c) => {
-    const body = await c.req.json().catch(() => null);
+    const body = await c.req.json().catch(() => null) as { id?: string; mcpOrigin?: string; requireAuth?: boolean; authHeaders?: Record<string, string>; receiverAddressByNetwork?: Record<string, string>; recipient?: Record<string, string>; tools?: Record<string, string>; metadata?: Record<string, unknown> };
     if (!body || typeof body !== 'object') {
         return c.json({ error: "invalid_json" }, 400);
     }
 
-    const { id, mcpOrigin } = body as { id?: string; mcpOrigin?: string };
+    const { id, mcpOrigin } = body;
     if (!id || !mcpOrigin) {
         return c.json({ error: "missing_id_or_origin" }, 400);
     }
@@ -122,13 +122,13 @@ app.post("/register", async (c) => {
     const input: Partial<StoredServerConfig> = {
         id,
         mcpOrigin,
-        requireAuth: (body as any).requireAuth === true,
-        authHeaders: (body as any).authHeaders ?? {},
+        requireAuth: body.requireAuth === true,
+        authHeaders: body.authHeaders ?? {},
         // Support both old and new recipient formats for backwards compatibility
-        receiverAddressByNetwork: (body as any).receiverAddressByNetwork ?? {},
-        recipient: (body as any).recipient ?? undefined,
-        tools: Array.isArray((body as any).tools) ? (body as any).tools : [],
-        metadata: (body as Record<string, unknown>).metadata ?? {},
+        receiverAddressByNetwork: body.receiverAddressByNetwork ?? {},
+        recipient: body.recipient ?? undefined,
+        tools: Array.isArray(body.tools) ? body.tools : [],
+        metadata: body.metadata ?? {},
     } as StoredServerConfig;
 
     try {
