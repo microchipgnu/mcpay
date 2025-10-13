@@ -1,5 +1,5 @@
-import { CallToolRequest } from "@modelcontextprotocol/sdk/types.js";
-import { Hook, RequestExtra } from "../hooks";
+import { Request as McpRequest } from "@modelcontextprotocol/sdk/types.js";
+import { Hook, RequestExtra, CallToolRequestWithContext } from "../hooks";
 
 /**
  * Injects per-server auth headers configured in DB into the forwarded upstream request.
@@ -8,7 +8,7 @@ import { Hook, RequestExtra } from "../hooks";
 type ResolvedHeaders = Headers | Record<string, string> | Array<[string, string]> | null | undefined;
 
 export type ResolveAuthHeaders = (
-    req: CallToolRequest,
+    req: McpRequest,
     extra: RequestExtra
 ) => Promise<ResolvedHeaders> | ResolvedHeaders;
 
@@ -17,11 +17,11 @@ export class AuthHeadersHook implements Hook {
 
     constructor(private readonly resolveAuthHeaders: ResolveAuthHeaders) {}
 
-    async processCallToolRequest(req: CallToolRequest) {
+    async processCallToolRequest(req: CallToolRequestWithContext, _extra: RequestExtra) {
         return { resultType: "continue" as const, request: req };
     }
 
-    async prepareUpstreamHeaders(headers: Headers, req: CallToolRequest, extra: RequestExtra) {
+    async prepareUpstreamHeaders(headers: Headers, req: McpRequest, extra: RequestExtra) {
         const resolved = await this.resolveAuthHeaders(req, extra);
         if (!resolved) return;
 

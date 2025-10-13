@@ -108,9 +108,9 @@ export function withProxy(targetUrl: string, hooks: Hook[]) {
         // Helper for non-tool methods
         const handleGeneric = async <TReq extends McpRequest, TRes extends McpResult>(
             currentReq: TReq,
-            runRequest: (h: Hook, req: TReq) => Promise<any> | null,
-            runResponse: (h: Hook, res: TRes, req: TReq) => Promise<any> | null,
-            runError: (h: Hook, err: { code: number; message: string; data?: unknown }, req: TReq) => Promise<any> | null,
+            runRequest: (h: Hook, req: TReq) => Promise<{ resultType: "continue"; request: TReq } | { resultType: "respond"; response: TRes } | { resultType: "continueAsync"; response: TRes }> | null,
+            runResponse: (h: Hook, res: TRes, req: TReq) => Promise<{ resultType: "continue"; response: TRes }> | null,
+            runError: (h: Hook, err: { code: number; message: string; data?: unknown }, req: TReq) => Promise<{ resultType: "continue" } | { resultType: "respond"; response: TRes }> | null,
             methodName: string
         ): Promise<Response> => {
             const originalRpcLocal = originalRpc;
@@ -118,14 +118,14 @@ export function withProxy(targetUrl: string, hooks: Hook[]) {
                 const r = await (runRequest(h, currentReq) || Promise.resolve(null));
                 if (!r) continue;
                 if (r.resultType === "continue") { currentReq = r.request; continue; }
-                if ((r as any).resultType === "continueAsync") {
+                if (r.resultType === "continueAsync") {
                     const id = (originalRpcLocal?.id as string | number | undefined) ?? 0;
-                    const envelope = { jsonrpc: "2.0", id, result: (r as any).response } as const;
+                    const envelope = { jsonrpc: "2.0", id, result: r.response } as const;
                     return jsonResponse(envelope, 200);
                 }
-                if ((r as any).resultType === "respond") {
+                if (r.resultType === "respond") {
                     const id = (originalRpcLocal?.id as string | number | undefined) ?? 0;
-                    const envelope = { jsonrpc: "2.0", id, result: (r as any).response } as const;
+                    const envelope = { jsonrpc: "2.0", id, result: r.response } as const;
                     return jsonResponse(envelope, 200);
                 }
             }
@@ -133,7 +133,7 @@ export function withProxy(targetUrl: string, hooks: Hook[]) {
             const forwardHeaders = new Headers(req.headers);
             for (const h of hooks) {
                 if (h.prepareUpstreamHeaders) {
-                    try { await h.prepareUpstreamHeaders(forwardHeaders, (currentReq as unknown) as CallToolRequest, extra); } catch {}
+                    try { await h.prepareUpstreamHeaders(forwardHeaders, currentReq, extra); } catch {}
                 }
             }
             forwardHeaders.delete("content-length");
@@ -151,7 +151,7 @@ export function withProxy(targetUrl: string, hooks: Hook[]) {
                     body: JSON.stringify({
                         ...originalRpcLocal,
                         method: methodName,
-                        params: (currentReq as any).params ?? (originalRpcLocal["params"] as Record<string, unknown> | undefined)
+                        params: (currentReq as unknown as { params?: unknown })?.params ?? (originalRpcLocal["params"] as Record<string, unknown> | undefined)
                     }),
                 });
             } catch (e) {
@@ -224,14 +224,14 @@ export function withProxy(targetUrl: string, hooks: Hook[]) {
                     if (!h.processCallToolRequest) continue;
                     const r = await h.processCallToolRequest(currentReq, extra);
                     if (r.resultType === "continue") { currentReq = r.request; continue; }
-                    if ((r as any).resultType === "continueAsync") {
+                    if (r.resultType === "continueAsync") {
                         const id = (originalRpc?.id as string | number | undefined) ?? 0;
-                        const envelope = { jsonrpc: "2.0", id, result: (r as any).response } as const;
+                        const envelope = { jsonrpc: "2.0", id, result: r.response } as const;
                         return jsonResponse(envelope, 200);
                     }
-                    if ((r as any).resultType === "respond") {
+                    if (r.resultType === "respond") {
                         const id = (originalRpc?.id as string | number | undefined) ?? 0;
-                        const envelope = { jsonrpc: "2.0", id, result: (r as any).response } as const;
+                        const envelope = { jsonrpc: "2.0", id, result: r.response } as const;
                         return jsonResponse(envelope, 200);
                     }
                 }
@@ -288,8 +288,11 @@ export function withProxy(targetUrl: string, hooks: Hook[]) {
                             if (!h.processCallToolResult) continue;
                             const r = await h.processCallToolResult(currentRes, currentReq, extra);
                             if (r.resultType === "continue") { currentRes = r.response; continue; }
-                            if ((r as any).resultType === "retry") { requestedRetry = { request: (r as any).request }; break; }
-                            if ((r as any).resultType === "abort") { return jsonResponse({ error: (r as any).reason, body: (r as any).body }, 400); }
+                            if ((r as { resultType: string } | null)?.resultType === "retry") { requestedRetry = { request: (r as { request: CallToolRequest } as any).request }; break; }
+                            if ((r as { resultType: string } | null)?.resultType === "abort") {
+                                const rr = r as unknown as { reason: string; body?: unknown };
+                                return jsonResponse({ error: rr.reason, body: rr.body }, 400);
+                            }
                         }
                         if (requestedRetry && attempts < maxRetries) { attempts++; currentReq = requestedRetry.request; continue; }
                         const id = (originalRpc?.id as string | number | undefined) ?? 0;
@@ -307,8 +310,11 @@ export function withProxy(targetUrl: string, hooks: Hook[]) {
                             if (!h.processCallToolResult) continue;
                             const r = await h.processCallToolResult(currentRes, currentReq, extra);
                             if (r.resultType === "continue") { currentRes = r.response; continue; }
-                            if ((r as any).resultType === "retry") { requestedRetry = { request: (r as any).request }; break; }
-                            if ((r as any).resultType === "abort") { return jsonResponse({ error: (r as any).reason, body: (r as any).body }, 400); }
+                            if ((r as { resultType: string } | null)?.resultType === "retry") { requestedRetry = { request: (r as { request: CallToolRequest } as any).request }; break; }
+                            if ((r as { resultType: string } | null)?.resultType === "abort") {
+                                const rr = r as unknown as { reason: string; body?: unknown };
+                                return jsonResponse({ error: rr.reason, body: rr.body }, 400);
+                            }
                         }
                         if (requestedRetry && attempts < maxRetries) { attempts++; currentReq = requestedRetry.request; continue; }
                         const id = (originalRpc?.id as string | number | undefined) ?? 0;

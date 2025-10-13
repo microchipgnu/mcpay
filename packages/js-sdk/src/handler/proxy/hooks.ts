@@ -582,7 +582,7 @@ export interface Hook {
      */
     prepareUpstreamHeaders?(
         headers: Headers,
-        req: CallToolRequest,
+        req: Request,
         extra: RequestExtra
     ): Promise<void>;
 }
@@ -606,6 +606,11 @@ export type GenericResponseHookResult<TResponse> = {
   resultType: "continue";
   response: TResponse;
 };
+
+// Error hook result type used for generic handler error propagation
+export type GenericErrorHookResult<TResponse> =
+  | { resultType: "continue" }
+  | { resultType: "respond"; response: TResponse };
 
 export type MethodsWithRequestType<TRequest> = Exclude<
   {

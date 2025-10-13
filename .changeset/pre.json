@@ -6,7 +6,7 @@
     "docs": "0.0.0",
     "auth-example": "0.1.0",
     "openai-apps-minimal-nextjs": "0.1.0",
-    "mcpay": "0.1.7-beta.13"
+    "mcpay": "0.1.7-beta.14"
   },
   "changesets": [
     "cold-lizards-sniff",
@@ -16,6 +16,7 @@
     "kind-owls-ring",
     "legal-shrimps-smash",
     "neat-symbols-accept",
+    "quick-tips-study",
     "ready-cobras-attend",
     "ripe-chicken-attack",
     "rotten-toes-own",
