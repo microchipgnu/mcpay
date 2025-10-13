@@ -32,11 +32,7 @@ export const rpcLogs = pgTable(
     originRaw: text('origin_raw'),
     origin: text('origin'),
     // JSON-RPC extracted fields
-    jsonrpcId: text('jsonrpc_id'),
     method: text('method'),
-    durationMs: integer('duration_ms'),
-    errorCode: text('error_code'),
-    httpStatus: integer('http_status'),
     // Raw payloads
     request: jsonb('request').$type<unknown>().default({}),
     response: jsonb('response').$type<unknown>().default({}),
@@ -50,5 +46,4 @@ export const rpcLogs = pgTable(
     index('idx_rpc_logs_response').using('gin', table.response),
   ]
 );
-
 

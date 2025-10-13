@@ -11,6 +11,17 @@ const app = new Hono();
 app.get('/health', (c: Context) => c.json({ ok: true }));
 
 app.post('/ingest/rpc', async (c: Context) => {
+  const expected = process.env.INGESTION_SECRET;
+  if (expected) {
+    const auth = c.req.header('authorization') || '';
+    const bearer = auth.startsWith('Bearer ') ? auth.slice(7) : '';
+    const alt = c.req.header('x-api-key') || '';
+    const provided = bearer || alt;
+    if (!provided || provided !== expected) {
+      return c.json({ error: 'unauthorized' }, 401);
+    }
+  }
+
   const body = await c.req.json().catch(() => null);
   if (!body) return c.json({ error: 'invalid_json' }, 400);
 
@@ -73,11 +84,7 @@ app.post('/ingest/rpc', async (c: Context) => {
         const req = entry.request ?? entry.req ?? {};
         const res = entry.response ?? entry.res ?? {};
 
-        const jsonrpcId =
-          req?.id ?? res?.id ?? entry.jsonrpc_id ?? entry.jsonrpcId ?? entry.id;
-        const method = req?.method ?? entry.method;
-        const httpStatus = typeof entry.http_status === 'number' ? entry.http_status : entry.httpStatus;
-        const errorCode = res?.error?.code ?? entry.error_code ?? entry.errorCode;
+        const method = req?.method ?? entry.method ?? 'unknown';
         const durationMsRaw =
           entry.duration_ms ?? entry.durationMs ?? entry.response_time_ms ?? entry.responseTimeMs;
         let durationMs =
@@ -96,11 +103,7 @@ app.post('/ingest/rpc', async (c: Context) => {
           serverId,
           originRaw,
           origin,
-          jsonrpcId: jsonrpcId != null ? String(jsonrpcId) : undefined,
           method,
-          durationMs,
-          errorCode: errorCode != null ? String(errorCode) : undefined,
-          httpStatus,
           request: req,
           response: res,
           meta,
@@ -113,7 +116,6 @@ app.post('/ingest/rpc', async (c: Context) => {
     const chunkSize = 500;
     for (let i = 0; i < rows.length; i += chunkSize) {
       const chunk = rows.slice(i, i + chunkSize);
-      // @ts-ignore drizzle types allow partial defaulted inserts
       await db.insert(rpcLogs).values(chunk as any);
     }
 
@@ -207,7 +209,7 @@ app.get('/servers', async (c: Context) => {
   }
 });
 
-const port = Number(process.env.PORT) ?? 3010;
+const port = 3010;
 serve({ fetch: app.fetch, port }, (info) => {
   console.log(`[MCP-DATA] running on http://localhost:${info.port}`);
 });

@@ -45,6 +45,10 @@ const envSchema = z.object({
 
   // Database (postgres)
   DATABASE_URL: z.string().min(1, "DATABASE_URL is required"),
+
+  // MCP Data URL
+  MCP_DATA_URL: z.url("MCP_DATA_URL must be a valid URL"),
+  MCP_DATA_SECRET: z.string().min(1, "MCP_DATA_SECRET is required"),
 });
 
 function parseEnv() {

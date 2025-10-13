@@ -1,26 +1,6 @@
 import { Hook, RequestExtra } from "./hooks";
 import { CallToolRequest, CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 
-async function resolveTargetUrl(req: Request): Promise<string | null> {
-    // First, try to get target URL from header or query param (base64-encoded)
-    const directUrlEncoded = req.headers.get("x-mcpay-target-url")
-        ?? new URL(req.url).searchParams.get("target-url");
-
-    if (directUrlEncoded) {
-        try {
-
-            // The value is base64-encoded, so decode it
-            // decodeURIComponent in case it was URL-encoded as well
-            const decoded = decodeURIComponent(atob(directUrlEncoded));
-            return decoded;
-        } catch (e) {
-            // If decoding fails, treat as invalid and fall through
-        }
-    }
-
-    return null;
-}
-
 function jsonResponse(obj: unknown, status = 200): Response {
     return new Response(JSON.stringify(obj), {
         status,
@@ -42,13 +22,9 @@ function wrapUpstreamResponse(upstream: Response): Response {
     });
 }
 
-export function withProxy(hooks: Hook[]) {
+export function withProxy(targetUrl: string, hooks: Hook[]) {
     return async (req: Request): Promise<Response> => {
-        const targetUrl = await resolveTargetUrl(req);
         console.log(`[${new Date().toISOString()}] Target URL: ${targetUrl}`);
-        if (!targetUrl) {
-            return new Response("target-url missing", { status: 400 });
-        }
 
         if (!req.headers.get("content-type")?.includes("json")) {
             const upstream = await fetch(targetUrl, {

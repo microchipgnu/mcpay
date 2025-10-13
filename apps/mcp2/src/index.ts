@@ -199,7 +199,11 @@ app.all("/mcp", async (c) => {
         duplex: 'half'
     } as RequestInit);
 
-    const proxy = withProxy([
+    if (!targetUrl) {
+        return new Response("target-url missing", { status: 400 });
+    }
+
+    const proxy = withProxy(targetUrl, [
         new LoggingHook(),
         new X402MonetizationHook({
             recipient: recipient,
