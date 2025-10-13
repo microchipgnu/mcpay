@@ -8,76 +8,86 @@ export const USER_HTML = `
     <meta name="color-scheme" content="light dark" />
     <script src="https://cdn.tailwindcss.com"></script>
   </head>
-  <body class="bg-gray-50 dark:bg-gray-950 min-h-screen text-gray-900 dark:text-gray-100 overflow-x-hidden">
+  <body class="bg-neutral-50 dark:bg-neutral-950 min-h-screen text-neutral-900 dark:text-neutral-100 overflow-x-hidden">
     <div class="max-w-3xl mx-auto p-4 md:p-8" style="padding-bottom: env(safe-area-inset-bottom)">
-      <div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl shadow-lg p-4 sm:p-6">
+      <div class="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-xl shadow-lg p-4 sm:p-6">
         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div class="flex items-center gap-3">
-            <div id="avatar" class="w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center overflow-hidden">
-              <svg class="w-5 h-5 text-gray-600 dark:text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <div id="avatar" class="w-10 h-10 rounded-full bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center overflow-hidden">
+              <svg class="w-5 h-5 text-neutral-600 dark:text-neutral-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.121 17.804A9 9 0 1118.88 6.196 7 7 0 005.121 17.804z" />
               </svg>
             </div>
             <div>
-              <h2 id="user-name" class="text-base sm:text-lg font-semibold text-gray-900 dark:text-gray-100">Guest</h2>
-              <p id="user-email" class="text-xs sm:text-sm text-gray-600 dark:text-gray-400"></p>
+              <h2 id="user-name" class="text-base sm:text-lg font-semibold text-neutral-900 dark:text-neutral-100">Guest</h2>
+              <p id="user-email" class="text-xs sm:text-sm text-neutral-600 dark:text-neutral-400"></p>
             </div>
           </div>
           <div class="flex items-center gap-2">
-            <button id="signin-btn" class="flex items-center gap-2 px-4 py-2 bg-gray-900 hover:bg-gray-800 text-white dark:bg-white dark:text-gray-900 dark:hover:bg-gray-200 text-sm font-medium rounded-lg shadow focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-900 dark:focus:ring-gray-200 dark:focus:ring-offset-gray-900 w-full sm:w-auto justify-center">
+            <button id="signin-btn" class="flex items-center gap-2 px-4 py-2 bg-neutral-900 hover:bg-neutral-800 text-white dark:bg-white dark:text-neutral-900 dark:hover:bg-neutral-200 text-sm font-medium rounded-lg shadow focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-neutral-900 dark:focus:ring-neutral-200 dark:focus:ring-offset-neutral-900 w-full sm:w-auto justify-center">
               <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M12 0C5.37 0 0 5.373 0 12c0 5.303 3.438 9.8 8.205 11.387.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.726-4.042-1.61-4.042-1.61-.546-1.387-1.333-1.756-1.333-1.756-1.09-.745.083-.729.083-.729 1.205.085 1.84 1.237 1.84 1.237 1.07 1.834 2.807 1.304 3.492.997.108-.775.418-1.305.762-1.606-2.665-.304-5.466-1.334-5.466-5.933 0-1.31.468-2.38 1.236-3.22-.124-.303-.535-1.523.117-3.176 0 0 1.008-.322 3.3 1.23a11.52 11.52 0 013.003-.404c1.02.005 2.047.138 3.003.404 2.29-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.873.12 3.176.77.84 1.235 1.91 1.235 3.22 0 4.61-2.803 5.625-5.475 5.922.43.372.823 1.104.823 2.225 0 1.606-.015 2.898-.015 3.293 0 .322.216.694.825.576C20.565 21.796 24 17.298 24 12c0-6.627-5.373-12-12-12z" />
               </svg>
               Sign in with GitHub
             </button>
-            <button id="signout-btn" class="hidden px-4 py-2 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-900 dark:text-gray-100 border border-gray-200 dark:border-gray-700 text-sm font-medium rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-300 dark:focus:ring-gray-700 dark:focus:ring-offset-gray-900 w-full sm:w-auto">
+            <button id="signout-btn" class="hidden px-4 py-2 bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 text-neutral-900 dark:text-neutral-100 border border-neutral-200 dark:border-neutral-700 text-sm font-medium rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-neutral-300 dark:focus:ring-neutral-700 dark:focus:ring-offset-neutral-900 w-full sm:w-auto">
               Sign out
             </button>
           </div>
         </div>
 
-        <div class="h-px bg-gray-200 dark:bg-gray-800 my-6"></div>
+        <div class="h-px bg-neutral-200 dark:bg-neutral-800 my-6"></div>
 
-        <div id="auth-hint" class="text-sm text-gray-600 dark:text-gray-400">
+        <div id="auth-hint" class="text-sm text-neutral-600 dark:text-neutral-400">
           Please sign in to access your account dashboard.
         </div>
 
         <div id="tabs" class="hidden">
           <div class="overflow-x-auto -mx-2 px-2 snap-x">
-            <div class="inline-flex rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/40 text-sm min-w-max">
-              <button data-tab="funds" class="tab-btn shrink-0 whitespace-nowrap px-3 py-2 sm:px-4 transition-colors font-medium text-gray-700 dark:text-gray-300 snap-start">Funds</button>
-              <button data-tab="wallets" class="tab-btn shrink-0 whitespace-nowrap px-3 py-2 sm:px-4 transition-colors font-medium text-gray-700 dark:text-gray-300 snap-start">Wallets</button>
-              <button data-tab="settings" class="tab-btn shrink-0 whitespace-nowrap px-3 py-2 sm:px-4 transition-colors font-medium text-gray-700 dark:text-gray-300 snap-start">Settings</button>
-              <button data-tab="developer" class="tab-btn shrink-0 whitespace-nowrap px-3 py-2 sm:px-4 transition-colors font-medium text-gray-700 dark:text-gray-300 snap-start">Developer</button>
+            <div class="inline-flex rounded-lg border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800/40 text-sm min-w-max">
+              <button data-tab="funds" class="tab-btn shrink-0 whitespace-nowrap px-3 py-2 sm:px-4 transition-colors font-medium text-neutral-700 dark:text-neutral-300 snap-start">Funds</button>
+              <button data-tab="wallets" class="tab-btn shrink-0 whitespace-nowrap px-3 py-2 sm:px-4 transition-colors font-medium text-neutral-700 dark:text-neutral-300 snap-start">Wallets</button>
+              <button data-tab="settings" class="tab-btn shrink-0 whitespace-nowrap px-3 py-2 sm:px-4 transition-colors font-medium text-neutral-700 dark:text-neutral-300 snap-start">Settings</button>
+              <button data-tab="developer" class="tab-btn shrink-0 whitespace-nowrap px-3 py-2 sm:px-4 transition-colors font-medium text-neutral-700 dark:text-neutral-300 snap-start">Developer</button>
             </div>
           </div>
 
           <div class="mt-4 space-y-4">
             <section id="panel-funds" class="tab-panel">
-              <div class="rounded-lg border border-gray-200 dark:border-gray-700 p-4 bg-gray-50 dark:bg-gray-800/50">
+              <div class="rounded-lg border border-neutral-200 dark:border-neutral-700 p-4 bg-neutral-50 dark:bg-neutral-800/50">
                 <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-2">
                   <div class="flex items-center gap-2">
-                    <svg class="w-4 h-4 text-gray-700 dark:text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <svg class="w-4 h-4 text-neutral-700 dark:text-neutral-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8V4m0 12v4" />
                     </svg>
-                    <h4 class="font-medium text-gray-900 dark:text-gray-100">Your Funds</h4>
+                    <h4 class="font-medium text-neutral-900 dark:text-neutral-100">Your Funds</h4>
                   </div>
                 </div>
-                <div class="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100">$0.00</div>
-                <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">No balances found. Link a wallet to get started.</p>
+                <div id="funds-balance" class="text-2xl sm:text-3xl font-bold text-neutral-900 dark:text-neutral-100">$0.00</div>
+                <p id="funds-subtitle" class="text-sm text-neutral-500 dark:text-neutral-400 mt-1">No balances found. Link a wallet to get started.</p>
+                <div id="funds-breakdown" class="mt-3 grid gap-2 sm:grid-cols-2">
+                  <div class="rounded-md border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 p-3">
+                    <div class="text-xs text-neutral-600 dark:text-neutral-400">Native</div>
+                    <div id="funds-native" class="text-sm font-medium text-neutral-900 dark:text-neutral-100">—</div>
+                  </div>
+                  <div class="rounded-md border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 p-3">
+                    <div class="text-xs text-neutral-600 dark:text-neutral-400">USDC</div>
+                    <div id="funds-usdc" class="text-sm font-medium text-neutral-900 dark:text-neutral-100">—</div>
+                  </div>
+                </div>
               </div>
             </section>
 
             <section id="panel-wallets" class="tab-panel hidden">
-              <div class="rounded-lg border border-gray-200 dark:border-gray-700 p-4 bg-gray-50 dark:bg-gray-800/50">
+              <div class="rounded-lg border border-neutral-200 dark:border-neutral-700 p-4 bg-neutral-50 dark:bg-neutral-800/50">
                 <div class="flex items-center justify-between mb-2">
-                  <h4 class="font-medium text-gray-900 dark:text-gray-100">Connected Wallets</h4>
-                  <button id="reload-wallets" class="text-sm px-2 py-1 rounded border border-gray-300 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800">Reload</button>
+                  <h4 class="font-medium text-neutral-900 dark:text-neutral-100">Connected Wallets</h4>
+                  <button id="reload-wallets" class="text-sm px-2 py-1 rounded border border-neutral-300 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800">Reload</button>
                 </div>
-                <div id="wallets-empty" class="text-sm text-gray-600 dark:text-gray-400">No wallets linked yet. Link your on-chain wallet from the app.</div>
+                <div id="wallets-empty" class="text-sm text-neutral-600 dark:text-neutral-400">No wallets linked yet. Link your on-chain wallet from the app.</div>
                 <div id="wallets-table-wrap" class="overflow-x-auto hidden">
                   <table class="min-w-full text-sm">
-                    <thead class="bg-gray-50 dark:bg-gray-800/40 text-gray-700 dark:text-gray-300">
+                    <thead class="bg-neutral-50 dark:bg-neutral-800/40 text-neutral-700 dark:text-neutral-300">
                       <tr>
                         <th class="text-left font-medium px-3 py-2">Address</th>
                         <th class="text-left font-medium px-3 py-2">Provider</th>
@@ -89,7 +99,7 @@ export const USER_HTML = `
                         <th class="text-right font-medium px-3 py-2">Actions</th>
                       </tr>
                     </thead>
-                    <tbody id="wallets-tbody" class="divide-y divide-gray-200 dark:divide-gray-800"></tbody>
+                    <tbody id="wallets-tbody" class="divide-y divide-neutral-200 dark:divide-neutral-800"></tbody>
                   </table>
                 </div>
               </div>
@@ -97,40 +107,29 @@ export const USER_HTML = `
 
             <section id="panel-settings" class="tab-panel hidden">
               <div class="grid md:grid-cols-2 gap-4">
-                <div class="rounded-lg border border-gray-200 dark:border-gray-700 p-4 bg-gray-50 dark:bg-gray-800/50">
+                <div class="rounded-lg border border-neutral-200 dark:border-neutral-700 p-4 bg-neutral-50 dark:bg-neutral-800/50">
                   <div class="flex items-center gap-2 mb-2">
-                    <svg class="w-4 h-4 text-gray-700 dark:text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <svg class="w-4 h-4 text-neutral-700 dark:text-neutral-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.121 17.804A9 9 0 1118.88 6.196 7 7 0 005.121 17.804z" />
                     </svg>
-                    <h4 class="font-medium text-gray-900 dark:text-gray-100">Profile</h4>
+                    <h4 class="font-medium text-neutral-900 dark:text-neutral-100">Profile</h4>
                   </div>
-                  <dl class="text-sm text-gray-700 dark:text-gray-300 space-y-1">
-                    <div class="flex items-start justify-between gap-3 min-w-0"><dt class="shrink-0">Name</dt><dd id="profile-name" class="font-medium text-gray-900 dark:text-gray-100 text-right break-words break-all whitespace-pre-wrap max-w-[70%] sm:max-w-none">—</dd></div>
-                    <div class="flex items-start justify-between gap-3 min-w-0"><dt class="shrink-0">Email</dt><dd id="profile-email" class="font-medium text-gray-900 dark:text-gray-100 text-right break-words break-all whitespace-pre-wrap max-w-[70%] sm:max-w-none">—</dd></div>
+                  <dl class="text-sm text-neutral-700 dark:text-neutral-300 space-y-1">
+                    <div class="flex items-start justify-between gap-3 min-w-0"><dt class="shrink-0">Name</dt><dd id="profile-name" class="font-medium text-neutral-900 dark:text-neutral-100 text-right break-words break-all whitespace-pre-wrap max-w-[70%] sm:max-w-none">—</dd></div>
+                    <div class="flex items-start justify-between gap-3 min-w-0"><dt class="shrink-0">Email</dt><dd id="profile-email" class="font-medium text-neutral-900 dark:text-neutral-100 text-right break-words break-all whitespace-pre-wrap max-w-[70%] sm:max-w-none">—</dd></div>
                     <div class="flex items-start justify-between gap-3 min-w-0"><dt class="shrink-0">Email Verified</dt><dd id="profile-verified" class="font-medium text-right max-w-[70%] sm:max-w-none">—</dd></div>
-                    <div class="flex items-start justify-between gap-3 min-w-0"><dt class="shrink-0">User ID</dt><dd id="profile-id" class="font-mono text-gray-900 dark:text-gray-100 text-right break-words break-all whitespace-pre-wrap max-w-[70%] sm:max-w-none">—</dd></div>
+                    <div class="flex items-start justify-between gap-3 min-w-0"><dt class="shrink-0">User ID</dt><dd id="profile-id" class="font-mono text-neutral-900 dark:text-neutral-100 text-right break-words break-all whitespace-pre-wrap max-w-[70%] sm:max-w-none">—</dd></div>
                   </dl>
                 </div>
-                <div class="rounded-lg border border-gray-200 dark:border-gray-700 p-4 bg-gray-50 dark:bg-gray-800/50">
-                  <div class="flex items-center gap-2 mb-2">
-                    <svg class="w-4 h-4 text-gray-700 dark:text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v8m-4-4h8" />
-                    </svg>
-                    <h4 class="font-medium text-gray-900 dark:text-gray-100">Account Actions</h4>
-                  </div>
-                  <div class="flex flex-wrap gap-2">
-                    <button id="copy-id-btn" class="px-3 py-1.5 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-md text-sm hover:bg-gray-100 dark:hover:bg-gray-800 w-full sm:w-auto">Copy User ID</button>
-                    <a href="/connect" class="px-3 py-1.5 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-md text-sm hover:bg-gray-100 dark:hover:bg-gray-800 w-full sm:w-auto text-center">Open Connect</a>
-                  </div>
-                </div>
+                
               </div>
             </section>
 
             <section id="panel-developer" class="tab-panel hidden">
-              <div class="rounded-lg border border-gray-200 dark:border-gray-700 p-4 bg-gray-50 dark:bg-gray-800/50 space-y-4">
+              <div class="rounded-lg border border-neutral-200 dark:border-neutral-700 p-4 bg-neutral-50 dark:bg-neutral-800/50 space-y-4">
                 <div>
-                  <h4 class="font-medium mb-1 text-gray-900 dark:text-gray-100">Developer / API Keys</h4>
-                  <p class="text-sm text-gray-600 dark:text-gray-400">Create and manage API keys for programmatic access.</p>
+                  <h4 class="font-medium mb-1 text-neutral-900 dark:text-neutral-100">Developer / API Keys</h4>
+                  <p class="text-sm text-neutral-600 dark:text-neutral-400">Create and manage API keys for programmatic access.</p>
                 </div>
 
                 <div id="api-key-created" class="hidden rounded-md border border-green-300 bg-green-50 dark:border-green-900/50 dark:bg-green-900/20 p-3">
@@ -147,36 +146,36 @@ export const USER_HTML = `
                   </div>
                 </div>
 
-                <div class="rounded-lg border border-gray-200 dark:border-gray-700 p-3">
+                <div class="rounded-lg border border-neutral-200 dark:border-neutral-700 p-3">
                   <div class="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-                    <label class="text-xs text-gray-600 dark:text-gray-400">Name
-                      <input id="api-key-name" type="text" placeholder="project-api-key" class="mt-1 w-full px-2 py-1.5 rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm" />
+                    <label class="text-xs text-neutral-600 dark:text-neutral-400">Name
+                      <input id="api-key-name" type="text" placeholder="project-api-key" class="mt-1 w-full px-2 py-1.5 rounded border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 text-sm" />
                     </label>
-                    <label class="text-xs text-gray-600 dark:text-gray-400">Prefix
-                      <input id="api-key-prefix" type="text" value="mcpay_" class="mt-1 w-full px-2 py-1.5 rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm" />
+                    <label class="text-xs text-neutral-600 dark:text-neutral-400">Prefix
+                      <input id="api-key-prefix" type="text" value="mcpay_" class="mt-1 w-full px-2 py-1.5 rounded border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 text-sm" />
                     </label>
-                    <label class="text-xs text-gray-600 dark:text-gray-400">Expires in (days)
-                      <input id="api-key-expires-days" type="number" min="1" max="365" placeholder="30" class="mt-1 w-full px-2 py-1.5 rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm" />
+                    <label class="text-xs text-neutral-600 dark:text-neutral-400">Expires in (days)
+                      <input id="api-key-expires-days" type="number" min="1" max="365" placeholder="30" class="mt-1 w-full px-2 py-1.5 rounded border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 text-sm" />
                     </label>
-                    <label class="text-xs text-gray-600 dark:text-gray-400">Remaining (optional)
-                      <input id="api-key-remaining" type="number" min="0" placeholder="100" class="mt-1 w-full px-2 py-1.5 rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm" />
+                    <label class="text-xs text-neutral-600 dark:text-neutral-400">Remaining (optional)
+                      <input id="api-key-remaining" type="number" min="0" placeholder="100" class="mt-1 w-full px-2 py-1.5 rounded border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 text-sm" />
                     </label>
                   </div>
                   <div class="mt-3 flex items-center justify-between gap-2">
-                    <p class="text-xs text-gray-500 dark:text-gray-400">Keys inherit default permissions unless specified by the server.</p>
-                    <button id="create-api-key-btn" class="px-3 py-1.5 bg-gray-900 hover:bg-gray-800 text-white dark:bg-white dark:text-gray-900 dark:hover:bg-gray-200 text-sm font-medium rounded-md">Create API Key</button>
+                    <p class="text-xs text-neutral-500 dark:text-neutral-400">Keys inherit default permissions unless specified by the server.</p>
+                    <button id="create-api-key-btn" class="px-3 py-1.5 bg-neutral-900 hover:bg-neutral-800 text-white dark:bg-white dark:text-neutral-900 dark:hover:bg-neutral-200 text-sm font-medium rounded-md">Create API Key</button>
                   </div>
                 </div>
 
-                <div class="rounded-lg border border-gray-200 dark:border-gray-700">
-                  <div class="p-3 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
-                    <h5 class="font-medium text-gray-900 dark:text-gray-100">Your API Keys</h5>
-                    <button id="reload-api-keys" class="text-sm px-2 py-1 rounded border border-gray-300 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800">Reload</button>
+                <div class="rounded-lg border border-neutral-200 dark:border-neutral-700">
+                  <div class="p-3 border-b border-neutral-200 dark:border-neutral-700 flex items-center justify-between">
+                    <h5 class="font-medium text-neutral-900 dark:text-neutral-100">Your API Keys</h5>
+                    <button id="reload-api-keys" class="text-sm px-2 py-1 rounded border border-neutral-300 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800">Reload</button>
                   </div>
-                  <div id="api-keys-empty" class="p-4 text-sm text-gray-600 dark:text-gray-400">No API keys yet. Create one above.</div>
+                  <div id="api-keys-empty" class="p-4 text-sm text-neutral-600 dark:text-neutral-400">No API keys yet. Create one above.</div>
                   <div class="overflow-x-auto hidden" id="api-keys-table-wrap">
                     <table class="min-w-full text-sm">
-                      <thead class="bg-gray-50 dark:bg-gray-800/40 text-gray-700 dark:text-gray-300">
+                      <thead class="bg-neutral-50 dark:bg-neutral-800/40 text-neutral-700 dark:text-neutral-300">
                         <tr>
                           <th class="text-left font-medium px-3 py-2">Name</th>
                           <th class="text-left font-medium px-3 py-2">Prefix</th>
@@ -188,7 +187,7 @@ export const USER_HTML = `
                           <th class="text-right font-medium px-3 py-2">Actions</th>
                         </tr>
                       </thead>
-                      <tbody id="api-keys-tbody" class="divide-y divide-gray-200 dark:divide-gray-800"></tbody>
+                      <tbody id="api-keys-tbody" class="divide-y divide-neutral-200 dark:divide-neutral-800"></tbody>
                     </table>
                   </div>
                 </div>
@@ -200,6 +199,26 @@ export const USER_HTML = `
     </div>
 
     <script type="module">
+      function showToast(message, type = 'info') {
+        let root = document.getElementById('toast-root');
+        if (!root) {
+          root = document.createElement('div');
+          root.id = 'toast-root';
+          root.className = 'fixed bottom-4 inset-x-0 z-50 flex flex-col items-center gap-2 px-4 pointer-events-none';
+          document.body.appendChild(root);
+        }
+        const color = type === 'error' ? 'border-red-300 text-red-800 dark:border-red-800 dark:text-red-200 bg-red-50 dark:bg-red-900/20' : type === 'success' ? 'border-green-300 text-green-800 dark:border-green-900/50 dark:text-green-200 bg-green-50 dark:bg-green-900/20' : 'border-neutral-300 text-neutral-800 dark:border-neutral-700 dark:text-neutral-200 bg-white/80 dark:bg-neutral-900/80 backdrop-blur';
+        const el = document.createElement('div');
+        el.className = 'pointer-events-auto rounded-md border ' + color + ' shadow px-3 py-2 text-sm transition-opacity duration-300 opacity-0';
+        el.setAttribute('role', 'status');
+        el.textContent = message;
+        root.appendChild(el);
+        requestAnimationFrame(() => { el.style.opacity = '1'; });
+        setTimeout(() => {
+          el.style.opacity = '0';
+          setTimeout(() => el.remove(), 300);
+        }, 2200);
+      }
       const callbackURL = window.location.href;
       const authBaseURL = window.location.origin + '/api/auth';
 
@@ -214,7 +233,7 @@ export const USER_HTML = `
       const profileEmail = document.getElementById('profile-email');
       const profileVerified = document.getElementById('profile-verified');
       const profileId = document.getElementById('profile-id');
-      const copyIdBtn = document.getElementById('copy-id-btn');
+      
 
       // API Keys UI elements
       const apiKeyCreatedBanner = document.getElementById('api-key-created');
@@ -251,8 +270,8 @@ export const USER_HTML = `
         });
       }
 
-      const activeTabClasses = ['bg-gray-900','text-white','dark:bg-white','dark:text-gray-900'];
-      const inactiveTabClasses = ['bg-transparent','text-gray-700','dark:text-gray-300'];
+      const activeTabClasses = ['bg-neutral-900','text-white','dark:bg-white','dark:text-neutral-900'];
+      const inactiveTabClasses = ['bg-transparent','text-neutral-700','dark:text-neutral-300'];
 
       function setActiveTab(name) {
         document.querySelectorAll('.tab-btn').forEach((btn) => {
@@ -279,6 +298,17 @@ export const USER_HTML = `
           return data.user || null;
         } catch (err) {
           console.error('Failed to load session', err);
+          return null;
+        }
+      }
+
+      async function loadBalance() {
+        try {
+          const res = await fetch('/api/balance', { credentials: 'include' });
+          if (!res.ok) return null;
+          return await res.json();
+        } catch (err) {
+          console.error('Failed to load balance', err);
           return null;
         }
       }
@@ -335,7 +365,7 @@ export const USER_HTML = `
           const enabledAttr = enabled ? '1' : '0';
           return (
             '<tr>' +
-            '<td class="px-3 py-2 text-gray-900 dark:text-gray-100">' + (k.name || '—') + '</td>' +
+            '<td class="px-3 py-2 text-neutral-900 dark:text-neutral-100">' + (k.name || '—') + '</td>' +
             '<td class="px-3 py-2">' + (k.prefix || '—') + '</td>' +
             '<td class="px-3 py-2">' + (k.start || '—') + '</td>' +
             '<td class="px-3 py-2">' + enabledHtml + '</td>' +
@@ -344,7 +374,7 @@ export const USER_HTML = `
             '<td class="px-3 py-2">' + fmtDate(k.createdAt) + '</td>' +
             '<td class="px-3 py-2 text-right">' +
               '<div class="inline-flex gap-2">' +
-                '<button data-action="toggle" data-id="' + k.id + '" data-enabled="' + enabledAttr + '" class="px-2 py-1 text-xs rounded border border-gray-300 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800">' + toggleLabel + '</button>' +
+                '<button data-action="toggle" data-id="' + k.id + '" data-enabled="' + enabledAttr + '" class="px-2 py-1 text-xs rounded border border-neutral-300 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800">' + toggleLabel + '</button>' +
                 '<button data-action="delete" data-id="' + k.id + '" class="px-2 py-1 text-xs rounded border border-red-300 text-red-700 dark:border-red-800 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20">Delete</button>' +
               '</div>' +
             '</td>' +
@@ -354,7 +384,7 @@ export const USER_HTML = `
       }
 
       function fmtBool(value) {
-        return value ? '<span class="text-green-700 dark:text-green-300">Yes</span>' : '<span class="text-gray-600 dark:text-gray-400">No</span>';
+        return value ? '<span class="text-green-700 dark:text-green-300">Yes</span>' : '<span class="text-neutral-600 dark:text-neutral-400">No</span>';
       }
 
       function shortAddress(addr) {
@@ -384,7 +414,7 @@ export const USER_HTML = `
           const activeHtml = fmtBool(w.isActive !== false);
           return (
             '<tr>' +
-            '<td class="px-3 py-2 text-gray-900 dark:text-gray-100 font-mono">' +
+            '<td class="px-3 py-2 text-neutral-900 dark:text-neutral-100 font-mono">' +
               '<span title="' + address + '">' + shortAddress(address) + '</span>' +
             '</td>' +
             '<td class="px-3 py-2">' + provider + '</td>' +
@@ -395,7 +425,7 @@ export const USER_HTML = `
             '<td class="px-3 py-2">' + createdAt + '</td>' +
             '<td class="px-3 py-2 text-right">' +
               '<div class="inline-flex gap-2">' +
-                '<button data-action="copy-address" data-address="' + address + '" class="px-2 py-1 text-xs rounded border border-gray-300 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800">Copy</button>' +
+                '<button data-action="copy-address" data-address="' + address + '" class="px-2 py-1 text-xs rounded border border-neutral-300 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800">Copy</button>' +
                 '<button data-action="onramp" data-address="' + address + '" class="px-2 py-1 text-xs rounded border border-blue-300 text-blue-700 dark:border-blue-800 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/20">Fund</button>' +
               '</div>' +
             '</td>' +
@@ -418,7 +448,7 @@ export const USER_HTML = `
           profileId.textContent = user.id || '—';
           const verified = user.emailVerified === true || user.emailVerified === 'true';
           profileVerified.textContent = verified ? 'Yes' : 'No';
-          profileVerified.className = verified ? 'font-medium text-green-600' : 'font-medium text-gray-700 dark:text-gray-300';
+          profileVerified.className = verified ? 'font-medium text-green-600' : 'font-medium text-neutral-700 dark:text-neutral-300';
 
           if (user.image) {
             const img = document.createElement('img');
@@ -439,7 +469,7 @@ export const USER_HTML = `
           profileEmail.textContent = '—';
           profileVerified.textContent = '—';
           profileId.textContent = '—';
-          avatarEl.innerHTML = '<svg class="w-5 h-5 text-gray-600 dark:text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.121 17.804A9 9 0 1118.88 6.196 7 7 0 005.121 17.804z" /></svg>';
+          avatarEl.innerHTML = '<svg class="w-5 h-5 text-neutral-600 dark:text-neutral-300" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.121 17.804A9 9 0 1118.88 6.196 7 7 0 005.121 17.804z" /></svg>';
         }
       }
 
@@ -450,6 +480,42 @@ export const USER_HTML = `
         if (user) {
           loadApiKeys();
           loadWallets();
+          // Load funds
+          const fundsBalanceEl = document.getElementById('funds-balance');
+          const fundsSubtitleEl = document.getElementById('funds-subtitle');
+          const fundsNativeEl = document.getElementById('funds-native');
+          const fundsUsdcEl = document.getElementById('funds-usdc');
+
+          if (fundsBalanceEl) fundsBalanceEl.textContent = '—';
+          if (fundsSubtitleEl) fundsSubtitleEl.textContent = 'Fetching balances…';
+          if (fundsNativeEl) fundsNativeEl.textContent = '—';
+          if (fundsUsdcEl) fundsUsdcEl.textContent = '—';
+
+          const summary = await loadBalance();
+          if (summary && (summary.native || summary.usdc)) {
+            if (fundsSubtitleEl) {
+              const net = summary.network && summary.network.toUpperCase ? summary.network.toUpperCase() : (summary.network || '');
+              const wal = summary.walletAddress ? ('· ' + summary.walletAddress.slice(0, 6) + '…' + summary.walletAddress.slice(-4)) : '';
+              fundsSubtitleEl.textContent = (String(net) + ' ' + String(wal)).trim();
+            }
+
+            if (summary.native && fundsNativeEl) {
+              const n = summary.native;
+              fundsNativeEl.textContent = String(n.balanceFormatted) + ' ' + String(n.nativeSymbol);
+            }
+            if (summary.usdc && fundsUsdcEl) {
+              const u = summary.usdc;
+              fundsUsdcEl.textContent = String(u.balanceFormatted) + ' ' + String(u.tokenSymbol);
+            }
+            // Simple total in USD if USDC present; otherwise show native
+            if (fundsBalanceEl) {
+              if (summary.usdc) fundsBalanceEl.textContent = String(summary.usdc.balanceFormatted) + ' ' + String(summary.usdc.tokenSymbol);
+              else if (summary.native) fundsBalanceEl.textContent = String(summary.native.balanceFormatted) + ' ' + String(summary.native.nativeSymbol);
+            }
+          } else {
+            if (fundsSubtitleEl) fundsSubtitleEl.textContent = 'No balances found. Link a wallet to get started.';
+            if (fundsBalanceEl) fundsBalanceEl.textContent = '$0.00';
+          }
         }
         setActiveTab('funds');
       }
@@ -462,7 +528,7 @@ export const USER_HTML = `
           await authClient.signIn.social({ provider: 'github', callbackURL });
         } catch (err) {
           console.error('Sign-in failed', err);
-          alert('Failed to start sign-in. Check console for details.');
+          showToast('Failed to start sign-in. Check console for details.', 'error');
         } finally {
           signinBtn.disabled = false;
         }
@@ -477,7 +543,7 @@ export const USER_HTML = `
           await refreshUI();
         } catch (err) {
           console.error('Sign-out failed', err);
-          alert('Failed to sign out. Check console for details.');
+          showToast('Failed to sign out. Check console for details.', 'error');
         } finally {
           signoutBtn.disabled = false;
         }
@@ -487,11 +553,7 @@ export const USER_HTML = `
         btn.addEventListener('click', () => setActiveTab(btn.dataset.tab));
       });
 
-      copyIdBtn?.addEventListener('click', async () => {
-        const text = profileId?.textContent || '';
-        if (!text || text === '—') return;
-        try { await navigator.clipboard.writeText(text); alert('Copied User ID'); } catch {}
-      });
+      
 
       // API Keys: create
       createApiKeyBtn?.addEventListener('click', async () => {
@@ -524,7 +586,7 @@ export const USER_HTML = `
           if (apiKeyRemainingInput) apiKeyRemainingInput.value = '';
           await loadApiKeys();
         } catch (err) {
-          alert(err instanceof Error ? err.message : 'Failed to create API key');
+          showToast(err instanceof Error ? err.message : 'Failed to create API key', 'error');
         } finally {
           createApiKeyBtn.disabled = false;
         }
@@ -534,7 +596,7 @@ export const USER_HTML = `
       apiKeyCreatedCopy?.addEventListener('click', async () => {
         const value = apiKeyCreatedValue?.textContent || '';
         if (!value || value === '—') return;
-        try { await navigator.clipboard.writeText(value); alert('Copied API key'); } catch {}
+        try { await navigator.clipboard.writeText(value); showToast('Copied API key', 'success'); } catch {}
       });
       apiKeyCreatedDismiss?.addEventListener('click', () => {
         apiKeyCreatedBanner?.classList.add('hidden');
@@ -555,7 +617,7 @@ export const USER_HTML = `
         if (action === 'copy-address') {
           const address = target.getAttribute('data-address') || '';
           if (!address || address === '—') return;
-          try { await navigator.clipboard.writeText(address); alert('Copied address'); } catch {}
+          try { await navigator.clipboard.writeText(address); showToast('Copied address', 'success'); } catch {}
         } else if (action === 'onramp') {
           if (!currentUser) return alert('Please sign in first.');
           const address = target.getAttribute('data-address') || '';
@@ -569,10 +631,10 @@ export const USER_HTML = `
             if (typeof url === 'string' && url.startsWith('http')) {
               window.open(url, '_blank', 'noopener');
             } else {
-              alert('Failed to generate onramp URL');
+              showToast('Failed to generate onramp URL', 'error');
             }
           } catch (err) {
-            alert(err instanceof Error ? err.message : 'Failed to create onramp URL');
+            showToast(err instanceof Error ? err.message : 'Failed to create onramp URL', 'error');
           }
         }
       });
@@ -589,23 +651,25 @@ export const USER_HTML = `
           try {
             await apiCall('/api/keys/' + id, { method: 'DELETE' });
             await loadApiKeys();
+            showToast('API key deleted', 'success');
           } catch (err) {
-            alert(err instanceof Error ? err.message : 'Failed to delete API key');
+            showToast(err instanceof Error ? err.message : 'Failed to delete API key', 'error');
           }
         } else if (action === 'toggle') {
           const enabled = target.getAttribute('data-enabled') === '1';
           try {
             await apiCall('/api/keys/' + id, { method: 'PUT', body: JSON.stringify({ enabled: !enabled }) });
             await loadApiKeys();
+            showToast('API key updated', 'success');
           } catch (err) {
-            alert(err instanceof Error ? err.message : 'Failed to update API key');
+            showToast(err instanceof Error ? err.message : 'Failed to update API key', 'error');
           }
         }
       });
 
       // Seed Tailwind JIT CDN with dynamic classes used via JS
       const seed = document.createElement('div');
-      seed.className = 'hidden bg-gray-900 text-white dark:bg-white dark:text-gray-900 bg-transparent text-gray-700 dark:text-gray-300 text-green-700 dark:text-green-300';
+      seed.className = 'hidden bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 bg-transparent text-neutral-700 dark:text-neutral-300 text-green-700 dark:text-green-300';
       document.body.appendChild(seed);
 
       refreshUI();

@@ -8,6 +8,8 @@ import { AnalyticsHook } from "mcpay/handler";
 import { z } from "zod";
 import { getPort, getTrustedOrigins, isDevelopment } from "./env.js";
 import { auth, db } from "./lib/auth.js";
+import { getBalancesSummary } from "./lib/balance-tracker.js";
+import { isNetworkSupported, type UnifiedNetwork } from "./lib/3rd-parties/cdp/wallet/networks.js";
 import { SecurityHook } from "./lib/proxy/hooks/security-hook.js";
 import { X402WalletHook } from "./lib/proxy/hooks/x402-wallet-hook.js";
 import { CONNECT_HTML } from "./ui/connect.js";
@@ -169,6 +171,82 @@ app.get("/api/wallets", async (c) => {
         });
 
         return c.json(wallets);
+    } catch (error) {
+        return c.json({ error: (error as Error).message }, 400);
+    }
+});
+
+// Balances - handle preflight
+app.options("/api/balance", (c) => {
+    return c.body(null, 204);
+});
+
+// Balances - get current user's primary wallet balance (or specified wallet)
+app.get("/api/balance", async (c) => {
+    try {
+        const session = await auth.api.getSession({ headers: c.req.raw.headers });
+        if (!session) return c.json({ error: "Unauthorized" }, 401);
+
+        const queryWallet = c.req.query("walletAddress")?.trim();
+        const queryNetwork = c.req.query("network")?.trim();
+
+        let walletAddress = queryWallet || "";
+        let network: UnifiedNetwork | undefined = undefined;
+
+        if (queryNetwork && isNetworkSupported(queryNetwork)) {
+            network = queryNetwork as UnifiedNetwork;
+        }
+
+        if (!walletAddress) {
+            const wallets = await db.query.userWallets.findMany({
+                where: (t, { and, eq }) => and(eq(t.userId, session.user.id), eq(t.isActive, true)),
+                orderBy: (t, { desc }) => [desc(t.isPrimary), desc(t.createdAt)],
+            });
+            if (!wallets || wallets.length === 0) {
+                return c.json({ error: "No wallets found for user" }, 404);
+            }
+            const primary = wallets.find((w: any) => w.isPrimary) || wallets[0];
+            walletAddress = primary.walletAddress;
+            if (!network && typeof primary.blockchain === "string" && isNetworkSupported(primary.blockchain)) {
+                network = primary.blockchain as UnifiedNetwork;
+            }
+        }
+
+        // Fallback default network if not provided/derived
+        if (!network) {
+            network = "base" as UnifiedNetwork;
+        }
+
+        const summary = await getBalancesSummary(walletAddress as any, network);
+
+        const serializeNative = (n: any) => n ? {
+            address: n.address,
+            network: n.network,
+            chainId: n.chainId,
+            nativeSymbol: n.nativeSymbol,
+            balanceWei: String(n.balanceWei),
+            balanceFormatted: n.balanceFormatted,
+            decimals: n.decimals,
+        } : null;
+
+        const serializeToken = (t: any) => t ? {
+            address: t.address,
+            network: t.network,
+            chainId: t.chainId,
+            tokenAddress: t.tokenAddress,
+            tokenSymbol: t.tokenSymbol,
+            tokenName: t.tokenName,
+            decimals: t.decimals,
+            balance: String(t.balance),
+            balanceFormatted: t.balanceFormatted,
+        } : null;
+
+        return c.json({
+            walletAddress,
+            network,
+            native: serializeNative(summary.native),
+            usdc: serializeToken(summary.usdc),
+        });
     } catch (error) {
         return c.json({ error: (error as Error).message }, 400);
     }
