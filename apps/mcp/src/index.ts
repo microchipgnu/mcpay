@@ -4,6 +4,7 @@ import dotenv from "dotenv";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { LoggingHook, withProxy, createMcpHandler } from "mcpay/handler";
+import { AnalyticsHook } from "mcpay/handler";
 import { z } from "zod";
 import { getPort, getTrustedOrigins, isDevelopment } from "./env.js";
 import { auth, db } from "./lib/auth.js";
@@ -12,6 +13,7 @@ import { X402WalletHook } from "./lib/proxy/hooks/x402-wallet-hook.js";
 import { CONNECT_HTML } from "./ui/connect.js";
 import { USER_HTML } from "./ui/user.js";
 import { createOneClickBuyUrl } from "./lib/3rd-parties/cdp/onramp/index.js";
+import { analyticsSink } from "./lib/analytics/index.js";
 
 dotenv.config();
 
@@ -33,6 +35,9 @@ const ALLOWED_ORIGINS = new Set([
 
 
 const app = new Hono();
+
+
+
 
 app.use("*", cors({
     allowHeaders: ["Origin", "Content-Type", "Authorization", "WWW-Authenticate", "x-api-key"],
@@ -343,6 +348,26 @@ app.get("/", async (c) => {
     );
 });
 
+async function resolveTargetUrl(req: Request): Promise<string | null> {
+    // First, try to get target URL from header or query param (base64-encoded)
+    const directUrlEncoded = req.headers.get("x-mcpay-target-url")
+        ?? new URL(req.url).searchParams.get("target-url");
+
+    if (directUrlEncoded) {
+        try {
+
+            // The value is base64-encoded, so decode it
+            // decodeURIComponent in case it was URL-encoded as well
+            const decoded = decodeURIComponent(atob(directUrlEncoded));
+            return decoded;
+        } catch (e) {
+            // If decoding fails, treat as invalid and fall through
+        }
+    }
+
+    return null;
+}
+
 app.all("/mcp", async (c) => {
 
     const currentUrl = new URL(c.req.url);
@@ -357,7 +382,13 @@ app.all("/mcp", async (c) => {
             method: original.method,
         });
 
-        const withMcpProxy = (session: any) => withProxy([
+        const targetUrl = await resolveTargetUrl(original);
+        if (!targetUrl) {
+            return new Response("target-url missing", { status: 400 });
+        }
+
+        const withMcpProxy = (session: any) => withProxy(targetUrl, [
+            new AnalyticsHook(analyticsSink, targetUrl),
             new LoggingHook(),
             new X402WalletHook(session),
             new SecurityHook(),

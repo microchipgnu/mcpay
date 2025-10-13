@@ -10,6 +10,7 @@ export { Hook } from "./handler/proxy/hooks.js";
 export { LoggingHook } from "./handler/proxy/hooks/logging-hook.js";
 export { AuthHeadersHook } from "./handler/proxy/hooks/auth-headers-hook.js";
 export { X402MonetizationHook } from "./handler/proxy/hooks/x402-hook.js";
+export { AnalyticsHook } from "./handler/proxy/hooks/analytics-hook.js";
 export type {
     RequestExtra,
     ToolCallRequestHookResult,
