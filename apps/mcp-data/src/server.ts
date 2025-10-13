@@ -1,51 +1,129 @@
-import 'dotenv/config';
-import { Hono } from 'hono';
 import { serve } from '@hono/node-server';
+import 'dotenv/config';
+import { desc, eq, ilike, or, sql } from 'drizzle-orm';
+import { Context, Hono } from 'hono';
 import { db } from './db/client.js';
-import { events, mcpServers } from './db/schema.js';
-import { eq, sql, count, desc, ilike, or, and } from 'drizzle-orm';
+import { mcpServers, rpcLogs } from './db/schema.js';
 import { inspectMcp } from './inspect/mcp.js';
 
 const app = new Hono();
 
-app.get('/health', (c: any) => c.json({ ok: true }));
+app.get('/health', (c: Context) => c.json({ ok: true }));
 
-app.post('/ingest/event', async (c: any) => {
+app.post('/ingest/rpc', async (c: Context) => {
   const body = await c.req.json().catch(() => null);
   if (!body) return c.json({ error: 'invalid_json' }, 400);
 
   try {
     const asArray = Array.isArray(body) ? body : [body];
-    const rows = asArray.map((payload: any) => ({
-      ts: payload.ts ? new Date(payload.ts) : undefined,
-      requestId: payload.request_id ?? payload.requestId,
-      serverId: payload.server_id ?? payload.serverId,
-      origin: payload.origin,
-      kind: payload.kind,
-      method: payload.method,
-      statusCode: typeof payload.status_code === 'number' ? payload.status_code : payload.statusCode,
-      latencyMs: typeof payload.latency_ms === 'number' ? payload.latency_ms : payload.latencyMs,
-      errorCode: payload.error_code ?? payload.errorCode,
-      payment: payload.payment ?? {},
-      meta: payload.meta ?? {},
-    }));
+
+    const sanitizeOrigin = (raw: string) => {
+      try {
+        const u = new URL(raw);
+        u.search = '';
+        u.hash = '';
+        return u.toString();
+      } catch {
+        return raw;
+      }
+    };
+
+    const parseTimestamp = (input: any): Date | undefined => {
+      if (input == null) return undefined;
+      if (input instanceof Date) return input;
+      if (typeof input === 'number') {
+        const ms = input > 1e12 ? input : input * 1000;
+        return new Date(ms);
+      }
+      if (typeof input === 'string') {
+        const asNum = Number(input);
+        if (!Number.isNaN(asNum)) {
+          const ms = asNum > 1e12 ? asNum : asNum * 1000;
+          return new Date(ms);
+        }
+        const d = new Date(input);
+        if (!Number.isNaN(d.getTime())) return d;
+      }
+      return undefined;
+    };
+
+    const rows = await Promise.all(
+      asArray.map(async (entry: any) => {
+        const ts = parseTimestamp(entry.ts ?? entry.timestamp ?? entry.time ?? entry.date);
+
+        const originRaw = entry.origin_raw ?? entry.originRaw ?? entry.origin;
+        const origin = originRaw ? sanitizeOrigin(originRaw) : undefined;
+
+        let serverId = entry.server_id ?? entry.serverId;
+        if (!serverId && originRaw) {
+          const found = await db
+            .select({ id: mcpServers.id })
+            .from(mcpServers)
+            .where(eq(mcpServers.originRaw, originRaw));
+          if (found.length > 0) serverId = found[0].id;
+        }
+        if (!serverId && origin) {
+          const found2 = await db
+            .select({ id: mcpServers.id })
+            .from(mcpServers)
+            .where(eq(mcpServers.origin, origin));
+          if (found2.length > 0) serverId = found2[0].id;
+        }
+
+        const req = entry.request ?? entry.req ?? {};
+        const res = entry.response ?? entry.res ?? {};
+
+        const jsonrpcId =
+          req?.id ?? res?.id ?? entry.jsonrpc_id ?? entry.jsonrpcId ?? entry.id;
+        const method = req?.method ?? entry.method;
+        const httpStatus = typeof entry.http_status === 'number' ? entry.http_status : entry.httpStatus;
+        const errorCode = res?.error?.code ?? entry.error_code ?? entry.errorCode;
+        const durationMsRaw =
+          entry.duration_ms ?? entry.durationMs ?? entry.response_time_ms ?? entry.responseTimeMs;
+        let durationMs =
+          typeof durationMsRaw === 'number'
+            ? durationMsRaw
+            : typeof durationMsRaw === 'string'
+            ? Number(durationMsRaw)
+            : undefined;
+        if (typeof durationMs === 'number' && Number.isNaN(durationMs)) durationMs = undefined;
+
+        let meta: any = entry.meta ?? entry.metadata ?? {};
+        if (meta == null || typeof meta !== 'object') meta = { value: meta };
+
+        return {
+          ts,
+          serverId,
+          originRaw,
+          origin,
+          jsonrpcId: jsonrpcId != null ? String(jsonrpcId) : undefined,
+          method,
+          durationMs,
+          errorCode: errorCode != null ? String(errorCode) : undefined,
+          httpStatus,
+          request: req,
+          response: res,
+          meta,
+        };
+      })
+    );
 
     if (rows.length === 0) return c.json({ ok: true, inserted: 0 });
 
-    // Insert in chunks of 500 for Neon guidance
     const chunkSize = 500;
     for (let i = 0; i < rows.length; i += chunkSize) {
       const chunk = rows.slice(i, i + chunkSize);
       // @ts-ignore drizzle types allow partial defaulted inserts
-      await db.insert(events).values(chunk as any).onConflictDoNothing({ target: events.requestId });
+      await db.insert(rpcLogs).values(chunk as any);
     }
+
     return c.json({ ok: true, inserted: rows.length });
   } catch (e) {
     return c.json({ error: (e as Error).message }, 500);
   }
 });
 
-app.post('/index/run', async (c: any) => {
+app.post('/index/run', async (c: Context) => {
   const body = await c.req.json().catch(() => null);
   const origin = body?.origin as string | undefined;
   if (!origin) return c.json({ error: 'missing_origin' }, 400);
@@ -88,25 +166,7 @@ app.post('/index/run', async (c: any) => {
   }
 });
 
-app.get('/events/summary', async (c: any) => {
-  const origin = c.req.query('origin');
-  if (!origin) return c.json({ error: 'missing_origin' }, 400);
-  try {
-    // Minimal aggregate example: counts per kind for given origin (Drizzle ORM)
-    const countCol = count().as('count');
-    const rows = await db
-      .select({ kind: events.kind, count: countCol })
-      .from(events)
-      .where(eq(events.origin, origin))
-      .groupBy(events.kind)
-      .orderBy(desc(countCol));
-    return c.json({ origin, byKind: rows as Array<{ kind: string; count: number }> });
-  } catch (e) {
-    return c.json({ error: (e as Error).message }, 500);
-  }
-});
-
-app.get('/servers', async (c: any) => {
+app.get('/servers', async (c: Context) => {
   const query = c.req.query('query')?.trim();
   try {
     if (!query) {
@@ -147,8 +207,8 @@ app.get('/servers', async (c: any) => {
   }
 });
 
-const port = Number(((globalThis as any).process?.env?.PORT ?? 3010));
-serve({ fetch: app.fetch, port }, (info: any) => {
+const port = Number(process.env.PORT) ?? 3010;
+serve({ fetch: app.fetch, port }, (info) => {
   console.log(`[MCP-DATA] running on http://localhost:${info.port}`);
 });
 
