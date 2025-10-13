@@ -1,7 +1,10 @@
 {
   "$schema": "https://turbo.build/schema.json",
   "ui": "tui",
-  "globalDependencies": ["**/.env*", "**/*.schema.*"],
+  "globalDependencies": [
+    "**/.env*",
+    "**/*.schema.*"
+  ],
   "globalEnv": [
     "DATABASE_URL",
     "GITHUB_CLIENT_ID",
@@ -15,16 +18,43 @@
     "UPSTASH_REDIS_REST_TOKEN",
     "BETTER_AUTH_URL",
     "NEXT_PUBLIC_MCP2_URL",
-    "NEXT_PUBLIC_MCP_PROXY_URL"
+    "NEXT_PUBLIC_MCP_PROXY_URL",
+    "MCP_DATA_URL",
+    "MCP_DATA_SECRET"
   ],
   "tasks": {
-    "build": { "dependsOn": ["^build"], "outputs": ["dist/**", ".next/**"] },
-    "dev": { "cache": false, "persistent": true },
-    "lint": { "outputs": [] },
-    "typecheck": { "outputs": [] },
-    "test": { "dependsOn": ["^build"], "outputs": ["coverage/**"] },
-    "e2e": { "cache": false, "dependsOn": ["build"] }
+    "build": {
+      "dependsOn": [
+        "^build"
+      ],
+      "outputs": [
+        "dist/**",
+        ".next/**"
+      ]
+    },
+    "dev": {
+      "cache": false,
+      "persistent": true
+    },
+    "lint": {
+      "outputs": []
+    },
+    "typecheck": {
+      "outputs": []
+    },
+    "test": {
+      "dependsOn": [
+        "^build"
+      ],
+      "outputs": [
+        "coverage/**"
+      ]
+    },
+    "e2e": {
+      "cache": false,
+      "dependsOn": [
+        "build"
+      ]
+    }
   }
 }
-
-
