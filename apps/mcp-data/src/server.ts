@@ -3,7 +3,8 @@ import { Hono } from 'hono';
 import { serve } from '@hono/node-server';
 import { db } from './db/client.js';
 import { events, mcpServers } from './db/schema.js';
-import { eq, sql } from 'drizzle-orm';
+import { eq, sql, count, desc, ilike, or, and } from 'drizzle-orm';
+import { inspectMcp } from './inspect/mcp.js';
 
 const app = new Hono();
 
@@ -50,56 +51,38 @@ app.post('/index/run', async (c: any) => {
   if (!origin) return c.json({ error: 'missing_origin' }, 400);
 
   try {
-    // Probe origin minimally
-    const start = Date.now();
-    let health = { status: 'unknown', latencyMs: undefined as number | undefined } as any;
+    // Keep raw origin, and build a sanitized display origin (strip query and hash)
+    const originRaw = origin;
+    let displayOrigin = originRaw;
     try {
-      const resp = await fetch(origin, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ jsonrpc: '2.0', id: 0, method: 'ping', params: {} }) });
-      health.latencyMs = Date.now() - start;
-      health.status = resp.ok ? 'ok' : 'error';
-    } catch {
-      health.latencyMs = Date.now() - start;
-      health.status = 'error';
-    }
-
-    // Try to list tools
-    let tools: any[] = [];
-    try {
-      const tRes = await fetch(origin, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/list', params: {} }) });
-      const tJson = await tRes.json().catch(() => null) as any;
-      const listed = (tJson?.result?.tools ?? tJson?.result ?? []) as any[];
-      if (Array.isArray(listed)) tools = listed;
+      const u = new URL(originRaw);
+      u.search = '';
+      u.hash = '';
+      displayOrigin = u.toString();
     } catch {}
 
-    // Try to list resources
-    let resources: any[] = [];
-    try {
-      const rRes = await fetch(origin, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ jsonrpc: '2.0', id: 2, method: 'resources/list', params: {} }) });
-      const rJson = await rRes.json().catch(() => null) as any;
-      const listed = (rJson?.result?.resources ?? rJson?.result ?? []) as any[];
-      if (Array.isArray(listed)) resources = listed;
-    } catch {}
+    // Perform rich inspection via MCP client (best-effort)
+    const inspection = await inspectMcp(originRaw).catch(() => null);
 
     const now = new Date();
     const doc = {
-      origin,
+      originRaw,
+      origin: displayOrigin,
       lastSeenAt: now,
       indexedAt: now,
-      status: health.status,
-      tools,
-      resources,
-      metadata: { health },
-    } as any;
+      status: inspection ? 'ok' : 'error',
+      data: inspection ?? {},
+    };
 
-    // Upsert by origin
-    const existing = await db.select().from(mcpServers).where(eq(mcpServers.origin, origin));
+    // Upsert by origin_raw
+    const existing = await db.select().from(mcpServers).where(eq(mcpServers.originRaw, originRaw));
     if (existing.length > 0) {
-      await db.update(mcpServers).set(doc).where(eq(mcpServers.origin, origin));
+      await db.update(mcpServers).set(doc).where(eq(mcpServers.originRaw, originRaw));
     } else {
       await db.insert(mcpServers).values(doc);
     }
 
-    return c.json({ ok: true, health });
+    return c.json({ ok: true });
   } catch (e) {
     return c.json({ error: (e as Error).message }, 500);
   }
@@ -109,11 +92,15 @@ app.get('/events/summary', async (c: any) => {
   const origin = c.req.query('origin');
   if (!origin) return c.json({ error: 'missing_origin' }, 400);
   try {
-    // Minimal aggregate example: counts per kind for given origin
-    const rows = await db.execute(
-      sql`SELECT kind, COUNT(*)::int AS count FROM events WHERE origin = ${origin} GROUP BY kind ORDER BY count DESC`
-    );
-    return c.json({ origin, byKind: rows });
+    // Minimal aggregate example: counts per kind for given origin (Drizzle ORM)
+    const countCol = count().as('count');
+    const rows = await db
+      .select({ kind: events.kind, count: countCol })
+      .from(events)
+      .where(eq(events.origin, origin))
+      .groupBy(events.kind)
+      .orderBy(desc(countCol));
+    return c.json({ origin, byKind: rows as Array<{ kind: string; count: number }> });
   } catch (e) {
     return c.json({ error: (e as Error).message }, 500);
   }
@@ -123,18 +110,37 @@ app.get('/servers', async (c: any) => {
   const query = c.req.query('query')?.trim();
   try {
     if (!query) {
-      const rows = await db.execute(
-        sql`SELECT id, origin, title, status, last_seen_at FROM mcp_servers ORDER BY last_seen_at DESC NULLS LAST LIMIT 200`
-      );
+      const rows = await db
+        .select({
+          id: mcpServers.id,
+          origin: mcpServers.origin,
+          status: mcpServers.status,
+          last_seen_at: mcpServers.lastSeenAt,
+        })
+        .from(mcpServers)
+        .orderBy(desc(mcpServers.lastSeenAt))
+        .limit(200);
       return c.json({ servers: rows });
     }
     // Simple case-insensitive match on origin/title and tag include via JSONB
-    const rows = await db.execute(
-      sql`SELECT id, origin, title, status, last_seen_at
-          FROM mcp_servers
-          WHERE origin ILIKE '%' || ${query} || '%' OR title ILIKE '%' || ${query} || '%' OR (tags::text ILIKE '%' || ${query} || '%')
-          ORDER BY last_seen_at DESC NULLS LAST LIMIT 200`
-    );
+    const q = `%${query}%`;
+    const rows = await db
+      .select({
+        id: mcpServers.id,
+        origin: mcpServers.origin,
+        status: mcpServers.status,
+        last_seen_at: mcpServers.lastSeenAt,
+      })
+      .from(mcpServers)
+      .where(
+        or(
+          ilike(mcpServers.origin, q),
+          // JSONB text search on data -> title or tags within data
+          sql`${mcpServers.data}::text ILIKE ${q}`
+        )
+      )
+      .orderBy(desc(mcpServers.lastSeenAt))
+      .limit(200);
     return c.json({ servers: rows });
   } catch (e) {
     return c.json({ error: (e as Error).message }, 500);

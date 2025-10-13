@@ -10,9 +10,10 @@
   },
   "dependencies": {
     "@hono/node-server": "^1.19.5",
+    "@modelcontextprotocol/sdk": "1.18.2",
     "@neondatabase/serverless": "^1.0.2",
-    "drizzle-orm": "^0.44.1",
     "dotenv": "^17.2.3",
+    "drizzle-orm": "^0.44.1",
     "hono": "^4.9.9",
     "mcpay": "workspace:*",
     "zod": "^4.1.11"
@@ -24,4 +25,3 @@
     "typescript": "^5.8.3"
   }
 }
-
