@@ -392,6 +392,11 @@ export type ReadResourceErrorHookResult = z.infer<
   typeof ReadResourceErrorHookResultSchema
 >;
 
+// Backwards compatibility aliases (older imports used ToolCall* names)
+export type ToolCallRequestHookResult = CallToolRequestHookResult;
+export type ToolCallResponseHookResult = CallToolResponseHookResult;
+export type ToolCallErrorHookResult = CallToolErrorHookResult;
+
 // Extra data provided to request handlers in hooks.
 // Merge MCP SDK fields with proxy-specific metadata for compatibility
 export type RequestExtra = {
