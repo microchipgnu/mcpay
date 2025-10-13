@@ -4,7 +4,7 @@
 
 <div align="center">
     
-  ![X (formerly Twitter) Follow](https://img.shields.io/twitter/follow/mcpaytech) 
+  [![Follow on X (formerly Twitter)](https://img.shields.io/twitter/follow/mcpaytech?label=Follow%20%40mcpaytech&style=social)](https://twitter.com/mcpaytech)
   [![GitHub Repo stars](https://img.shields.io/github/stars/microchipgnu/mcpay?style=social)](https://github.com/microchipgnu/mcpay) 
   [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
@@ -13,10 +13,6 @@
 **Payments for MCPs**. Pay-per-call, no subscriptions, agent‑ready.
 
 [Website](https://mcpay.tech) · [Browse Registry](https://mcpay.tech/servers) · [Build MCP](https://mcpay.tech/build) · [Register/Monetize](https://mcpay.tech/register)
-
-> Check out the MCPay Build server dashboard at [mcpay.tech/mcpay-build](https://mcpay.tech/servers/23e2ab26-7808-4984-855c-ec6a7dc97c3a)
->
-> The code lives at [github.com/microchipgnu/mcpay-build](https://github.com/microchipgnu/mcpay-build)
 
 ---
 
