@@ -221,7 +221,45 @@ app.all("/mcp", async (c) => {
         }),
     ]);
 
-    return proxy(reqForProxy);
+    // Emit generic proxy request/response events around the proxy call
+    const ingestUrl = process.env.MCP_DATA_INGEST_URL || "http://localhost:3010/ingest/event";
+    const requestId = crypto.randomUUID();
+    const startedAt = Date.now();
+    try {
+        // Best-effort request event
+        await fetch(ingestUrl, {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({
+                kind: "proxy.request",
+                request_id: requestId,
+                origin: targetUrl,
+                method: original.method,
+                ts: new Date().toISOString(),
+                meta: {}
+            }),
+        }).catch(() => {});
+    } catch {}
+
+    const upstreamRes = await proxy(reqForProxy);
+    try {
+        const latency = Date.now() - startedAt;
+        await fetch(ingestUrl, {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({
+                kind: "proxy.response",
+                request_id: requestId,
+                origin: targetUrl,
+                status_code: upstreamRes.status,
+                latency_ms: latency,
+                ts: new Date().toISOString(),
+                meta: {}
+            }),
+        }).catch(() => {});
+    } catch {}
+
+    return upstreamRes;
 });
 
 const portPromise = getPort({ port: process.env.PORT ? Number(process.env.PORT) : 3006 });

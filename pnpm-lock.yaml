@@ -376,6 +376,43 @@ importers:
         specifier: ^5.8.3
         version: 5.9.3
 
+  apps/mcp-data:
+    dependencies:
+      '@hono/node-server':
+        specifier: ^1.19.5
+        version: 1.19.5(hono@4.9.9)
+      '@neondatabase/serverless':
+        specifier: ^1.0.2
+        version: 1.0.2
+      dotenv:
+        specifier: ^17.2.3
+        version: 17.2.3
+      drizzle-orm:
+        specifier: ^0.44.1
+        version: 0.44.6(@neondatabase/serverless@1.0.2)(@opentelemetry/api@1.9.0)(@prisma/client@5.22.0(prisma@5.22.0))(@types/better-sqlite3@7.6.13)(@types/pg@8.15.5)(@upstash/redis@1.35.4)(better-sqlite3@12.4.1)(bun-types@1.2.23(@types/react@19.2.0))(kysely@0.28.7)(pg@8.16.3)(prisma@5.22.0)
+      hono:
+        specifier: ^4.9.9
+        version: 4.9.9
+      mcpay:
+        specifier: workspace:*
+        version: link:../../packages/js-sdk
+      zod:
+        specifier: ^4.1.11
+        version: 4.1.11
+    devDependencies:
+      '@types/node':
+        specifier: ^24.7.0
+        version: 24.7.0
+      drizzle-kit:
+        specifier: ^0.31.1
+        version: 0.31.5
+      tsx:
+        specifier: ^4.7.1
+        version: 4.20.6
+      typescript:
+        specifier: ^5.8.3
+        version: 5.9.3
+
   apps/mcp2:
     dependencies:
       '@hono/node-server':

@@ -1,0 +1,27 @@
+{
+  "name": "@mcpay/mcp-data",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx --watch src/server.ts",
+    "start": "tsx src/server.ts",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate"
+  },
+  "dependencies": {
+    "@hono/node-server": "^1.19.5",
+    "@neondatabase/serverless": "^1.0.2",
+    "drizzle-orm": "^0.44.1",
+    "dotenv": "^17.2.3",
+    "hono": "^4.9.9",
+    "mcpay": "workspace:*",
+    "zod": "^4.1.11"
+  },
+  "devDependencies": {
+    "@types/node": "^24.7.0",
+    "drizzle-kit": "^0.31.1",
+    "tsx": "^4.7.1",
+    "typescript": "^5.8.3"
+  }
+}
+
