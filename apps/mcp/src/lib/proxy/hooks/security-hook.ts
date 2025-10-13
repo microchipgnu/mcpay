@@ -1,6 +1,5 @@
-import type { Hook } from "mcpay/handler";
 import type { CallToolRequest } from "@modelcontextprotocol/sdk/types.js";
-import type { RequestExtra } from "mcpay/handler";
+import type { Hook, RequestExtra } from "mcpay/handler";
 
 /**
  * Removes sensitive headers from the request

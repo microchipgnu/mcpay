@@ -1,7 +1,7 @@
 MCP Data service
 
 Setup
-- Copy .env.example to .env and set DATABASE_URL
+- Copy .env.example to .env and set `DATABASE_URL` and `INGESTION_SECRET`
 - Run migrations (to be added) and start the server
 
 Endpoints

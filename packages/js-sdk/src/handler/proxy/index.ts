@@ -1,5 +1,23 @@
 import { Hook, RequestExtra } from "./hooks";
-import { CallToolRequest, CallToolResult } from "@modelcontextprotocol/sdk/types.js";
+import {
+    CallToolRequest,
+    CallToolResult,
+    InitializeRequest,
+    InitializeResult,
+    ListPromptsRequest,
+    ListPromptsResult,
+    ListResourcesRequest,
+    ListResourcesResult,
+    ListResourceTemplatesRequest,
+    ListResourceTemplatesResult,
+    ListToolsRequest,
+    ListToolsResult,
+    Notification,
+    ReadResourceRequest,
+    ReadResourceResult,
+    Request as McpRequest,
+    Result as McpResult
+} from "@modelcontextprotocol/sdk/types.js";
 
 function jsonResponse(obj: unknown, status = 200): Response {
     return new Response(JSON.stringify(obj), {
@@ -49,257 +67,318 @@ export function withProxy(targetUrl: string, hooks: Hook[]) {
             return wrapUpstreamResponse(upstream);
         }
 
-        // Check if this is a tools/call request according to MCP standard
-        const isToolCall = body.method === "tools/call";
-
-        // Only process tool calls through hooks
-        if (!isToolCall) {
-            // We are re-serializing the JSON body, so sanitize headers to avoid mismatches
-            const forwardHeadersSimple = new Headers(req.headers);
-            forwardHeadersSimple.delete("content-length");
-            forwardHeadersSimple.delete("host");
-            forwardHeadersSimple.delete("connection");
-            forwardHeadersSimple.delete("transfer-encoding");
-            // Critical: ensure we are not advertising compression for an uncompressed body
-            forwardHeadersSimple.delete("content-encoding");
-            forwardHeadersSimple.set("content-type", "application/json");
-
-            const upstream = await fetch(targetUrl, {
-                method: req.method,
-                headers: forwardHeadersSimple,
-                body: JSON.stringify(body)
-            });
-            return wrapUpstreamResponse(upstream);
-        }
+        // Generalized MCP routing
+        const originalRpc = body as Record<string, unknown>;
+        const method = String(originalRpc["method"] || "");
+        const isNotification = !("id" in originalRpc);
 
         const url = new URL(req.url);
         const extra: RequestExtra = {
             requestId: crypto.randomUUID(),
-            sessionId: body.params?._meta?.sessionId,
+            sessionId: (originalRpc?.params as any)?._meta?.sessionId,
             originalUrl: req.url,
             targetUrl,
             inboundHeaders: new Headers(req.headers),
             serverId: url.searchParams.get("id"),
         };
 
-        // REQUEST hooks (forward)
-        const originalRpc = body as Record<string, unknown>;
-        let currentReq = body as CallToolRequest;
-        for (const h of hooks) {
-            if (h.processCallToolRequest) {
-                const r = await h.processCallToolRequest(currentReq, extra);
-                if (r.resultType === "continue") {
-                    currentReq = r.request;
-                    continue;
-                }
-                if (r.resultType === "abort") {
-                    return jsonResponse({ error: r.reason, body: r.body }, 400);
-                }
-                if (r.resultType === "respond") {
-                    // Wrap early responses in a JSON-RPC envelope so the client can parse them
-                    const id = (originalRpc?.id as string | number | undefined) ?? 0;
-                    const envelope = { jsonrpc: "2.0", id, result: r.response } as const;
-                    return jsonResponse(envelope, 200);
-                }
-            }
-        }
-
-        // Prepare upstream headers (start from inbound headers)
-        let attempts = 0;
-        const maxRetries = 1;
-        while (true) {
-            const forwardHeaders = new Headers(req.headers);
-            // Allow hooks to mutate upstream headers before forwarding
+        // Notifications: allow hooks to observe, then forward
+        if (isNotification) {
+            const notification = originalRpc as unknown as Notification;
             for (const h of hooks) {
-                if (h.prepareUpstreamHeaders) {
-                    try {
-                        await h.prepareUpstreamHeaders(forwardHeaders, currentReq, extra);
-                    } catch {
-                        // Ignore header hook errors to avoid blocking
+                if (h.processNotification) {
+                    try { await h.processNotification(notification); } catch (e) {
+                        if (h.processNotificationError) {
+                            await h.processNotificationError({ code: 0, message: (e as Error)?.message || "notification_error" }, notification);
+                        }
                     }
                 }
             }
-            
-            // send upstream
-            // Remove/normalize hop-by-hop or mismatched headers before sending a new JSON body
+            const forwardHeaders = new Headers(req.headers);
             forwardHeaders.delete("content-length");
             forwardHeaders.delete("host");
             forwardHeaders.delete("connection");
             forwardHeaders.delete("transfer-encoding");
-            // Critical: ensure we are not advertising compression for an uncompressed body
             forwardHeaders.delete("content-encoding");
-            // Ensure correct content type for JSON body
+            forwardHeaders.set("content-type", "application/json");
+            const upstream = await fetch(targetUrl, { method: req.method, headers: forwardHeaders, body: JSON.stringify(originalRpc) });
+            return wrapUpstreamResponse(upstream);
+        }
+
+        // Helper for non-tool methods
+        const handleGeneric = async <TReq extends McpRequest, TRes extends McpResult>(
+            currentReq: TReq,
+            runRequest: (h: Hook, req: TReq) => Promise<any> | null,
+            runResponse: (h: Hook, res: TRes, req: TReq) => Promise<any> | null,
+            runError: (h: Hook, err: { code: number; message: string; data?: unknown }, req: TReq) => Promise<any> | null,
+            methodName: string
+        ): Promise<Response> => {
+            const originalRpcLocal = originalRpc;
+            for (const h of hooks) {
+                const r = await (runRequest(h, currentReq) || Promise.resolve(null));
+                if (!r) continue;
+                if (r.resultType === "continue") { currentReq = r.request; continue; }
+                if ((r as any).resultType === "continueAsync") {
+                    const id = (originalRpcLocal?.id as string | number | undefined) ?? 0;
+                    const envelope = { jsonrpc: "2.0", id, result: (r as any).response } as const;
+                    return jsonResponse(envelope, 200);
+                }
+                if ((r as any).resultType === "respond") {
+                    const id = (originalRpcLocal?.id as string | number | undefined) ?? 0;
+                    const envelope = { jsonrpc: "2.0", id, result: (r as any).response } as const;
+                    return jsonResponse(envelope, 200);
+                }
+            }
+
+            const forwardHeaders = new Headers(req.headers);
+            for (const h of hooks) {
+                if (h.prepareUpstreamHeaders) {
+                    try { await h.prepareUpstreamHeaders(forwardHeaders, (currentReq as unknown) as CallToolRequest, extra); } catch {}
+                }
+            }
+            forwardHeaders.delete("content-length");
+            forwardHeaders.delete("host");
+            forwardHeaders.delete("connection");
+            forwardHeaders.delete("transfer-encoding");
+            forwardHeaders.delete("content-encoding");
             forwardHeaders.set("content-type", "application/json");
 
-            const upstream = await fetch(targetUrl, {
-                method: req.method,
-                headers: forwardHeaders,
-                // Preserve the original JSON-RPC envelope while forwarding modified params
-                body: JSON.stringify({
-                    ...originalRpc,
-                    // Ensure method stays as tools/call
-                    method: "tools/call",
-                    params: currentReq.params ?? (originalRpc["params"] as Record<string, unknown> | undefined)
-                }),
-            });
+            let upstream: Response;
+            try {
+                upstream = await fetch(targetUrl, {
+                    method: req.method,
+                    headers: forwardHeaders,
+                    body: JSON.stringify({
+                        ...originalRpcLocal,
+                        method: methodName,
+                        params: (currentReq as any).params ?? (originalRpcLocal["params"] as Record<string, unknown> | undefined)
+                    }),
+                });
+            } catch (e) {
+                for (const h of hooks.slice().reverse()) {
+                    const rr = await (runError(h, { code: 0, message: (e as Error)?.message || "upstream_error" }, currentReq) || Promise.resolve(null));
+                    if (rr && rr.resultType === "respond") {
+                        const id = (originalRpcLocal?.id as string | number | undefined) ?? 0;
+                        const envelope = { jsonrpc: "2.0", id, result: rr.response } as const;
+                        return jsonResponse(envelope, 200);
+                    }
+                }
+                return jsonResponse({ jsonrpc: "2.0", id: (originalRpcLocal?.id as any) ?? 0, error: { code: -32000, message: "Upstream fetch failed" } }, 502);
+            }
 
-            // Check if response is JSON or SSE before trying to parse
             const contentType = upstream.headers.get("content-type") || "";
             const isJson = contentType.includes("application/json");
             const isStreaming = contentType.includes("text/event-stream");
 
-            // Unified parsing path: if SSE, collect and parse last data message; if JSON, parse JSON; else pass-through
             let data: unknown;
             if (isStreaming) {
                 let text: string | null = null;
+                try { text = await upstream.text(); } catch { return wrapUpstreamResponse(upstream); }
                 try {
-                    text = await upstream.text();
-                } catch (e) {
-                    // If reading text fails (e.g., decompression), pass upstream through as-is
-                    return new Response(upstream.body, {
-                        status: upstream.status,
-                        statusText: upstream.statusText,
-                        headers: new Headers(upstream.headers),
-                    });
-                }
-                try {
-                    const dataLines = text
-                        .split('\n')
-                        .filter(line => line.startsWith('data: '))
-                        .map(line => line.substring(6));
-                    if (dataLines.length === 0) {
-                        data = JSON.parse(text);
-                    } else {
-                        const lastMessage = dataLines[dataLines.length - 1];
-                        data = JSON.parse(lastMessage);
-                    }
-                } catch (e) {
-                    const headers = new Headers(upstream.headers);
-                    headers.delete("content-encoding");
-                    headers.delete("content-length");
-                    headers.delete("transfer-encoding");
-                    return new Response(text, {
-                        status: upstream.status,
-                        statusText: upstream.statusText,
-                        headers,
-                    });
-                }
+                    const dataLines = text.split('\n').filter(line => line.startsWith('data: ')).map(line => line.substring(6));
+                    if (dataLines.length === 0) { data = JSON.parse(text); } else { const lastMessage = dataLines[dataLines.length - 1]; data = JSON.parse(lastMessage); }
+                } catch { return wrapUpstreamResponse(upstream); }
             } else if (isJson) {
-                try {
-                    data = await upstream.json();
-                } catch (e) {
-                    // If parsing fails (e.g., decompression), pass upstream through as-is
-                    return new Response(upstream.body, {
-                        status: upstream.status,
-                        statusText: upstream.statusText,
-                        headers: new Headers(upstream.headers),
-                    });
-                }
+                try { data = await upstream.json(); } catch { return wrapUpstreamResponse(upstream); }
             } else {
-                return new Response(upstream.body, {
-                    status: upstream.status,
-                    statusText: upstream.statusText,
-                    headers: new Headers(upstream.headers),
-                });
+                return wrapUpstreamResponse(upstream);
             }
 
-            // If the data looks like a JSON-RPC response with a result field, optionally run hooks on the result only
             const maybeRpc = data as Record<string, unknown>;
-            if (maybeRpc && typeof maybeRpc === "object" && "jsonrpc" in maybeRpc && "result" in maybeRpc) {
-                const envelope = { ...maybeRpc } as Record<string, unknown>;
-                const originalResult = (envelope["result"] ?? null) as CallToolResult;
+            if (maybeRpc && typeof maybeRpc === "object" && "jsonrpc" in maybeRpc) {
+                if ("error" in maybeRpc) {
+                    for (const h of hooks.slice().reverse()) {
+                        const rr = await (runError(h, { code: (maybeRpc.error as any)?.code ?? -32000, message: (maybeRpc.error as any)?.message ?? "error" }, currentReq) || Promise.resolve(null));
+                        if (rr && rr.resultType === "respond") {
+                            const id = (originalRpcLocal?.id as string | number | undefined) ?? 0;
+                            const envelope = { jsonrpc: "2.0", id, result: rr.response } as const;
+                            return jsonResponse(envelope, 200);
+                        }
+                    }
+                    return wrapUpstreamResponse(upstream);
+                }
+                if ("result" in maybeRpc) {
+                    let currentRes = (maybeRpc["result"] ?? null) as TRes;
+                    for (const h of hooks.slice().reverse()) {
+                        const r = await (runResponse(h, currentRes, currentReq) || Promise.resolve(null));
+                        if (r && r.resultType === "continue") { currentRes = r.response; continue; }
+                    }
+                    const id = (originalRpcLocal?.id as string | number | undefined) ?? 0;
+                    const envelope = { jsonrpc: "2.0", id, result: currentRes };
+                    const headers = new Headers(upstream.headers);
+                    headers.delete("content-encoding"); headers.delete("content-length"); headers.delete("transfer-encoding"); headers.set("content-type", "application/json");
+                    return new Response(JSON.stringify(envelope), { status: upstream.status, statusText: upstream.statusText, headers });
+                }
+            }
 
-                // RESPONSE hooks (reverse). Hooks must not break RPC envelope.
-                let currentRes = originalResult;
-                let requestedRetry: { request: CallToolRequest } | null = null;
-                for (const h of hooks.slice().reverse()) {
-                    if (h.processCallToolResult) {
-                        const r = await h.processCallToolResult(currentRes, currentReq, extra);
-                        if (r.resultType === "continue") {
-                            currentRes = r.response;
-                            continue;
-                        }
-                        if (r.resultType === "retry") {
-                            requestedRetry = { request: r.request };
-                            break;
-                        }
-                        if (r.resultType === "abort") {
-                            return jsonResponse({ error: r.reason, body: r.body }, 400);
-                        }
+            return wrapUpstreamResponse(upstream);
+        };
+
+        switch (method) {
+            case "tools/call": {
+                // Specialized tools/call handler with retry support
+                let currentReq = originalRpc as CallToolRequest;
+
+                // request hooks
+                for (const h of hooks) {
+                    if (!h.processCallToolRequest) continue;
+                    const r = await h.processCallToolRequest(currentReq, extra);
+                    if (r.resultType === "continue") { currentReq = r.request; continue; }
+                    if ((r as any).resultType === "continueAsync") {
+                        const id = (originalRpc?.id as string | number | undefined) ?? 0;
+                        const envelope = { jsonrpc: "2.0", id, result: (r as any).response } as const;
+                        return jsonResponse(envelope, 200);
+                    }
+                    if ((r as any).resultType === "respond") {
+                        const id = (originalRpc?.id as string | number | undefined) ?? 0;
+                        const envelope = { jsonrpc: "2.0", id, result: (r as any).response } as const;
+                        return jsonResponse(envelope, 200);
                     }
                 }
 
-                if (requestedRetry && attempts < maxRetries) {
-                    attempts++;
-                    currentReq = requestedRetry.request;
-                    continue; // resend
-                }
-
-                envelope["result"] = currentRes as unknown as Record<string, unknown>;
-                const headers = new Headers(upstream.headers);
-                headers.delete("content-encoding");
-                headers.delete("content-length");
-                headers.delete("transfer-encoding");
-                headers.set("content-type", "application/json");
-                return new Response(JSON.stringify(envelope), {
-                    status: upstream.status,
-                    statusText: upstream.statusText,
-                    headers
-                });
-            }
-
-            // If upstream returned a bare CallToolResult-like object (no JSON-RPC envelope), wrap it
-            if (maybeRpc && typeof maybeRpc === "object" && !("jsonrpc" in maybeRpc) && ("content" in maybeRpc || "isError" in maybeRpc)) {
-                let currentRes = maybeRpc as unknown as CallToolResult;
-                let requestedRetry: { request: CallToolRequest } | null = null;
-                for (const h of hooks.slice().reverse()) {
-                    if (h.processCallToolResult) {
-                        const r = await h.processCallToolResult(currentRes, currentReq, extra);
-                        if (r.resultType === "continue") {
-                            currentRes = r.response;
-                            continue;
-                        }
-                        if (r.resultType === "retry") {
-                            requestedRetry = { request: r.request };
-                            break;
-                        }
-                        if (r.resultType === "abort") {
-                            return jsonResponse({ error: r.reason, body: r.body }, 400);
+                let attempts = 0;
+                const maxRetries = 1;
+                while (true) {
+                    const forwardHeaders = new Headers(req.headers);
+                    for (const h of hooks) {
+                        if (h.prepareUpstreamHeaders) {
+                            try { await h.prepareUpstreamHeaders(forwardHeaders, currentReq, extra); } catch {}
                         }
                     }
-                }
+                    forwardHeaders.delete("content-length");
+                    forwardHeaders.delete("host");
+                    forwardHeaders.delete("connection");
+                    forwardHeaders.delete("transfer-encoding");
+                    forwardHeaders.delete("content-encoding");
+                    forwardHeaders.set("content-type", "application/json");
 
-                if (requestedRetry && attempts < maxRetries) {
-                    attempts++;
-                    currentReq = requestedRetry.request;
-                    continue; // resend
-                }
+                    const upstream = await fetch(targetUrl, {
+                        method: req.method,
+                        headers: forwardHeaders,
+                        body: JSON.stringify({
+                            ...originalRpc,
+                            method: "tools/call",
+                            params: currentReq.params ?? (originalRpc["params"] as Record<string, unknown> | undefined)
+                        }),
+                    });
 
-                const id = (originalRpc?.id as string | number | undefined) ?? 0;
-                const envelope = { jsonrpc: "2.0", id, result: currentRes };
-                const headers = new Headers(upstream.headers);
-                headers.delete("content-encoding");
-                headers.delete("content-length");
-                headers.delete("transfer-encoding");
-                headers.set("content-type", "application/json");
-                return new Response(JSON.stringify(envelope), {
-                    status: upstream.status,
-                    statusText: upstream.statusText,
-                    headers
-                });
+                    const contentType = upstream.headers.get("content-type") || "";
+                    const isJson = contentType.includes("application/json");
+                    const isStreaming = contentType.includes("text/event-stream");
+
+                    let data: unknown;
+                    if (isStreaming) {
+                        let text: string | null = null;
+                        try { text = await upstream.text(); } catch { return wrapUpstreamResponse(upstream); }
+                        try {
+                            const dataLines = text.split('\n').filter(line => line.startsWith('data: ')).map(line => line.substring(6));
+                            if (dataLines.length === 0) { data = JSON.parse(text); } else { const lastMessage = dataLines[dataLines.length - 1]; data = JSON.parse(lastMessage); }
+                        } catch { return wrapUpstreamResponse(upstream); }
+                    } else if (isJson) {
+                        try { data = await upstream.json(); } catch { return wrapUpstreamResponse(upstream); }
+                    } else {
+                        return wrapUpstreamResponse(upstream);
+                    }
+
+                    const maybeRpc = data as Record<string, unknown>;
+                    if (maybeRpc && typeof maybeRpc === "object" && "jsonrpc" in maybeRpc && "result" in maybeRpc) {
+                        let currentRes = (maybeRpc["result"] ?? null) as CallToolResult;
+                        let requestedRetry: { request: CallToolRequest } | null = null;
+                        for (const h of hooks.slice().reverse()) {
+                            if (!h.processCallToolResult) continue;
+                            const r = await h.processCallToolResult(currentRes, currentReq, extra);
+                            if (r.resultType === "continue") { currentRes = r.response; continue; }
+                            if ((r as any).resultType === "retry") { requestedRetry = { request: (r as any).request }; break; }
+                            if ((r as any).resultType === "abort") { return jsonResponse({ error: (r as any).reason, body: (r as any).body }, 400); }
+                        }
+                        if (requestedRetry && attempts < maxRetries) { attempts++; currentReq = requestedRetry.request; continue; }
+                        const id = (originalRpc?.id as string | number | undefined) ?? 0;
+                        const envelope = { jsonrpc: "2.0", id, result: currentRes };
+                        const headers = new Headers(upstream.headers);
+                        headers.delete("content-encoding"); headers.delete("content-length"); headers.delete("transfer-encoding"); headers.set("content-type", "application/json");
+                        return new Response(JSON.stringify(envelope), { status: upstream.status, statusText: upstream.statusText, headers });
+                    }
+
+                    // If upstream returns bare result-like, wrap it
+                    if (maybeRpc && typeof maybeRpc === "object" && !("jsonrpc" in maybeRpc) && ("content" in maybeRpc || "isError" in maybeRpc)) {
+                        let currentRes = maybeRpc as unknown as CallToolResult;
+                        let requestedRetry: { request: CallToolRequest } | null = null;
+                        for (const h of hooks.slice().reverse()) {
+                            if (!h.processCallToolResult) continue;
+                            const r = await h.processCallToolResult(currentRes, currentReq, extra);
+                            if (r.resultType === "continue") { currentRes = r.response; continue; }
+                            if ((r as any).resultType === "retry") { requestedRetry = { request: (r as any).request }; break; }
+                            if ((r as any).resultType === "abort") { return jsonResponse({ error: (r as any).reason, body: (r as any).body }, 400); }
+                        }
+                        if (requestedRetry && attempts < maxRetries) { attempts++; currentReq = requestedRetry.request; continue; }
+                        const id = (originalRpc?.id as string | number | undefined) ?? 0;
+                        const envelope = { jsonrpc: "2.0", id, result: currentRes };
+                        const headers = new Headers(upstream.headers);
+                        headers.delete("content-encoding"); headers.delete("content-length"); headers.delete("transfer-encoding"); headers.set("content-type", "application/json");
+                        return new Response(JSON.stringify(envelope), { status: upstream.status, statusText: upstream.statusText, headers });
+                    }
+
+                    // Fallback
+                    return wrapUpstreamResponse(upstream);
+                }
             }
-
-            // Fallback: return JSON as-is without attempting to run hooks
-            const headers = new Headers(upstream.headers);
-            headers.delete("content-encoding");
-            headers.delete("content-length");
-            headers.delete("transfer-encoding");
-            headers.set("content-type", "application/json");
-            return new Response(JSON.stringify(data), {
-                status: upstream.status,
-                statusText: upstream.statusText,
-                headers
-            });
+            
+            case "initialize":
+                return handleGeneric<InitializeRequest, InitializeResult>(
+                    originalRpc as InitializeRequest,
+                    (h, reqObj) => h.processInitializeRequest ? h.processInitializeRequest(reqObj, extra) : null,
+                    (h, res, reqObj) => h.processInitializeResult ? h.processInitializeResult(res, reqObj, extra) : null,
+                    (h, err, reqObj) => h.processInitializeError ? h.processInitializeError(err, reqObj, extra) : null,
+                    "initialize"
+                );
+            case "tools/list":
+                return handleGeneric<ListToolsRequest, ListToolsResult>(
+                    originalRpc as ListToolsRequest,
+                    (h, reqObj) => h.processListToolsRequest ? h.processListToolsRequest(reqObj, extra) : null,
+                    (h, res, reqObj) => h.processListToolsResult ? h.processListToolsResult(res, reqObj, extra) : null,
+                    (h, err, reqObj) => h.processListToolsError ? h.processListToolsError(err, reqObj, extra) : null,
+                    "tools/list"
+                );
+            case "prompts/list":
+                return handleGeneric<ListPromptsRequest, ListPromptsResult>(
+                    originalRpc as ListPromptsRequest,
+                    (h, reqObj) => h.processListPromptsRequest ? h.processListPromptsRequest(reqObj, extra) : null,
+                    (h, res, reqObj) => h.processListPromptsResult ? h.processListPromptsResult(res, reqObj, extra) : null,
+                    (h, err, reqObj) => h.processListPromptsError ? h.processListPromptsError(err, reqObj, extra) : null,
+                    "prompts/list"
+                );
+            case "resources/list":
+                return handleGeneric<ListResourcesRequest, ListResourcesResult>(
+                    originalRpc as ListResourcesRequest,
+                    (h, reqObj) => h.processListResourcesRequest ? h.processListResourcesRequest(reqObj, extra) : null,
+                    (h, res, reqObj) => h.processListResourcesResult ? h.processListResourcesResult(res, reqObj, extra) : null,
+                    (h, err, reqObj) => h.processListResourcesError ? h.processListResourcesError(err, reqObj, extra) : null,
+                    "resources/list"
+                );
+            case "resources/templates/list":
+                return handleGeneric<ListResourceTemplatesRequest, ListResourceTemplatesResult>(
+                    originalRpc as ListResourceTemplatesRequest,
+                    (h, reqObj) => h.processListResourceTemplatesRequest ? h.processListResourceTemplatesRequest(reqObj, extra) : null,
+                    (h, res, reqObj) => h.processListResourceTemplatesResult ? h.processListResourceTemplatesResult(res, reqObj, extra) : null,
+                    (h, err, reqObj) => h.processListResourceTemplatesError ? h.processListResourceTemplatesError(err, reqObj, extra) : null,
+                    "resources/templates/list"
+                );
+            case "resources/read":
+                return handleGeneric<ReadResourceRequest, ReadResourceResult>(
+                    originalRpc as ReadResourceRequest,
+                    (h, reqObj) => h.processReadResourceRequest ? h.processReadResourceRequest(reqObj, extra) : null,
+                    (h, res, reqObj) => h.processReadResourceResult ? h.processReadResourceResult(res, reqObj, extra) : null,
+                    (h, err, reqObj) => h.processReadResourceError ? h.processReadResourceError(err, reqObj, extra) : null,
+                    "resources/read"
+                );
+            default:
+                return handleGeneric<McpRequest, McpResult>(
+                    originalRpc as McpRequest,
+                    (h, reqObj) => h.processOtherRequest ? h.processOtherRequest(reqObj, extra) : null,
+                    (h, res, reqObj) => h.processOtherResult ? h.processOtherResult(res, reqObj, extra) : null,
+                    (h, err, reqObj) => h.processOtherError ? h.processOtherError(err, reqObj, extra) : null,
+                    method
+                );
         }
     };
 }
