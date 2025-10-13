@@ -1,14 +1,14 @@
 # [MCPay](https://mcpay.tech)
 
+![](/assets/gh_cover.png)
+
 <div align="center">
     
   ![X (formerly Twitter) Follow](https://img.shields.io/twitter/follow/mcpaytech) 
-  [![GitHub Repo stars](https://img.shields.io/github/stars/Merit-Systems/echo?style=social)](https://github.com/microchipgnu/mcpay) 
+  [![GitHub Repo stars](https://img.shields.io/github/stars/microchipgnu/mcpay?style=social)](https://github.com/microchipgnu/mcpay) 
   [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
 </div>
-
-![](/assets/gh_cover.png)
 
 **Payments for MCPs**. Pay-per-call, no subscriptions, agent‑ready.
 
