@@ -10,13 +10,20 @@
 
 </div>
 
-**Payments for MCPs**. Pay-per-call, no subscriptions, agent‑ready.
 
-[Website](https://mcpay.tech) · [Browse Registry](https://mcpay.tech/servers) · [Build MCP](https://mcpay.tech/build) · [Register/Monetize](https://mcpay.tech/register)
+<div align="center">
+
+[Website](https://mcpay.tech) &nbsp;&nbsp;|&nbsp;&nbsp;
+[Browse Registry](https://mcpay.tech/servers) &nbsp;&nbsp;|&nbsp;&nbsp;
+[Register/Monetize](https://mcpay.tech/register)
+
+</div>
 
 ---
 
 ## What is MCPay?
+
+**Payments for MCPs**. Pay-per-call, no subscriptions, agent‑ready.
 
 MCPay is a **payment layer for MCP servers and plain HTTP APIs**. It uses the long‑dormant `HTTP 402 Payment Required` status and the **x402** pattern so that a client (human app or AI agent) can:
 
