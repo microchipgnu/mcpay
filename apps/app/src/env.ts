@@ -18,7 +18,7 @@ const rawClientEnv = {
   NEXT_PUBLIC_AUTH_URL: process.env.NEXT_PUBLIC_AUTH_URL,
   NEXT_PUBLIC_MCP2_URL: process.env.NEXT_PUBLIC_MCP2_URL ?? 'https://mcp2.mcpay.tech',
   NEXT_PUBLIC_MCP_PROXY_URL: process.env.NEXT_PUBLIC_MCP_PROXY_URL ?? 'https://mcp.mcpay.tech',
-  NEXT_PUBLIC_MCP_DATA_URL: process.env.NEXT_PUBLIC_MCP_DATA_URL ?? 'http://localhost:3010',
+  NEXT_PUBLIC_MCP_DATA_URL: process.env.NEXT_PUBLIC_MCP_DATA_URL ?? 'https://data.mcpay.tech',
 };
 
 // Validate without crashing the browser or dev server
