@@ -3,36 +3,25 @@
 import type React from "react"
 import { Suspense } from "react"
 
-import { AccountModal } from "@/components/custom-ui/account-modal"
-import Footer from "@/components/custom-ui/footer"
-import { useAccountModal } from "@/components/hooks/use-account-modal"
 import { useTheme } from "@/components/providers/theme-context"
-import { usePrimaryWallet, useUser, useUserWallets } from "@/components/providers/user"
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Checkbox } from "@/components/ui/checkbox"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
-import { Separator } from "@/components/ui/separator"
-import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { useSession } from "@/lib/client/auth"
-import { api as realApi, mcpDataApi, urlUtils } from "@/lib/client/utils"
-import { getTokenInfo, toBaseUnits } from "@/lib/commons"
-import { getNetworkConfig, type UnifiedNetwork } from "@/lib/commons/networks"
+import { Textarea } from "@/components/ui/textarea"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import { mcpDataApi, api as realApi, urlUtils } from "@/lib/client/utils"
+import { useUserWallets, usePrimaryWallet } from "@/components/providers/user"
+import { SupportedEVMNetworks, SupportedSVMNetworks } from "x402/types"
 import { type Network } from "@/types/blockchain"
-import { AlertCircle, ArrowRight, ArrowUpRight, BookOpen, CheckCircle, ChevronDown, Copy, Globe, Info, Loader2, Lock, RefreshCw, Server, User, Wallet, Zap, Clipboard, X } from "lucide-react"
-import { useRouter, useSearchParams } from "next/navigation"
+import { AlertCircle, ArrowUpRight, BookOpen, CheckCircle, Clipboard, Eye, EyeOff, Info, Loader2, Server, Trash2, Zap, Wallet as WalletIcon, Globe, FlaskConical } from "lucide-react"
 import Link from "next/link"
-import { useCallback, useEffect, useState } from "react"
+import { useEffect, useState } from "react"
 import { toast } from "sonner"
-import { useConnect } from "wagmi"
+import { MonetizeWizard } from "@/components/custom-ui/monetize-wizard"
 
-import { getNetworkByChainId as getUnifiedNetworkByChainId } from "@/lib/commons/networks"
-import { useChainId } from "wagmi"
 
 // Helper function to format wallet address for display
 const formatWalletAddress = (address: string): string => {
@@ -123,7 +112,7 @@ const api = {
           return data.tools.map((t) => ({ name: t.name, description: t.description }))
         }
       }
-    } catch {}
+    } catch { }
 
     // Fallback to real client util if available
     try {
@@ -197,6 +186,39 @@ function RegisterOptionsPage() {
   const [clipboardUrlSuggestion, setClipboardUrlSuggestion] = useState<string | null>(null)
   const [clipboardPrompted, setClipboardPrompted] = useState(false)
 
+  // Monetize wizard state
+  const [monetizeOpen, setMonetizeOpen] = useState(false)
+  const [isMobile, setIsMobile] = useState(false)
+  const [monetizeStep, setMonetizeStep] = useState<1 | 2 | 3 | 4 | 5>(1)
+  const [monetizeLoading, setMonetizeLoading] = useState(false)
+  const [monetizeTools, setMonetizeTools] = useState<RegisterMCPTool[]>([])
+  const [priceByTool, setPriceByTool] = useState<Record<string, number>>({})
+  const [evmRecipientAddress, setEvmRecipientAddress] = useState<string>("")
+  const [svmRecipientAddress, setSvmRecipientAddress] = useState<string>("")
+  const [recipientIsTestnet, setRecipientIsTestnet] = useState<boolean>(false)
+  const [monetizeErrorMsg, setMonetizeErrorMsg] = useState<string | null>(null)
+  const [createdServerId, setCreatedServerId] = useState<string | null>(null)
+  const [createdEndpointUrl, setCreatedEndpointUrl] = useState<string | null>(null)
+  const [requireAuth, setRequireAuth] = useState<boolean>(false)
+  const [authHeaders, setAuthHeaders] = useState<Array<{ key: string; value: string }>>([{ key: '', value: '' }])
+  const [authShowValues, setAuthShowValues] = useState<boolean>(false)
+  const [bulkHeadersText, setBulkHeadersText] = useState<string>("")
+  const wallets = useUserWallets()
+  const primaryWallet = usePrimaryWallet()
+  const [selectedWalletId, setSelectedWalletId] = useState<string | null>(null)
+  const selectedWalletAddress = (wallets.find(w => w.id === selectedWalletId)?.walletAddress) || primaryWallet?.walletAddress || ""
+  const [selectedNetworks, setSelectedNetworks] = useState<string[]>([])
+
+  const validateEvm = (addr: string): boolean => /^0x[a-fA-F0-9]{40}$/.test((addr || '').trim())
+  const validateSvm = (addr: string): boolean => /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test((addr || '').trim())
+
+  // Wizard footer state – enables/disables footer actions
+  const toolsPresent = monetizeTools.length > 0
+  const pricesValid = monetizeTools.length > 0 && monetizeTools.every((t) => Number.isFinite(priceByTool[t.name]) && (priceByTool[t.name] ?? 0) > 0)
+  const authValid = !requireAuth || authHeaders.every((h) => h.key.trim() && h.value.trim())
+  const canNext = monetizeStep === 1 ? toolsPresent : monetizeStep === 2 ? pricesValid : monetizeStep === 3 ? authValid : false
+  const canCreate = !monetizing
+
   const handleAddServer = async () => {
     if (!serverUrl.trim()) {
       toast.error('Please enter a server URL')
@@ -230,22 +252,105 @@ function RegisterOptionsPage() {
       toast.error('Please enter a server URL')
       return
     }
+    if (!urlValid) {
+      toast.error('Enter a valid server URL')
+      return
+    }
+    setMonetizeErrorMsg(null)
+    setMonetizeStep(1)
+    setMonetizeOpen(true)
+    try {
+      setMonetizeLoading(true)
+      const res = await fetch(`/api/inspect-mcp-server?url=${encodeURIComponent(serverUrl.trim())}&include=tools,prompts`)
+      const data = await res.json().catch(() => ({}))
+      const tools = Array.isArray(data?.tools) ? (data.tools as RegisterMCPTool[]) : []
+      setMonetizeTools(tools)
+      const defaults: Record<string, number> = {}
+      for (const t of tools) defaults[t.name] = 0.01
+      setPriceByTool(defaults)
+    } catch {
+      const tools = Array.isArray(previewTools) ? previewTools : []
+      setMonetizeTools(tools)
+      const defaults: Record<string, number> = {}
+      for (const t of tools) defaults[t.name] = 0.01
+      setPriceByTool(defaults)
+    } finally {
+      setMonetizeLoading(false)
+    }
+  }
 
+  const createMonetizedEndpoint = async () => {
+    if (!serverUrl.trim()) return
+    const includesEvm = selectedNetworks.some(n => (SupportedEVMNetworks as readonly string[]).includes(n))
+    const includesSvm = selectedNetworks.some(n => (SupportedSVMNetworks as readonly string[]).includes(n))
+    if (includesEvm && !validateEvm(evmRecipientAddress || selectedWalletAddress)) {
+      toast.error('Enter a valid EVM address (0x…)')
+      return
+    }
+    if (includesSvm && !validateSvm(svmRecipientAddress)) {
+      toast.error('Enter a valid SVM address')
+      return
+    }
     try {
       setMonetizing(true)
-      setMonetizeError(null)
-      // Create monetized URL using mcp2 service
-      const monetizedUrl = urlUtils.getMcpUrl(serverUrl.trim())
-      // Copy to clipboard
-      await navigator.clipboard.writeText(monetizedUrl)
-      toast.success('Monetized URL copied to clipboard!')
-      setLastMonetizedUrl(monetizedUrl)
-      // Redirect to success page or show the URL
-      window.location.href = `/register/success?monetizedUrl=${encodeURIComponent(monetizedUrl)}`
+      setMonetizeErrorMsg(null)
+      const rnd = Math.random().toString(36).slice(2, 10)
+      const id = `srv_${rnd}`
+      const authHeadersRecord: Record<string, string> = {}
+      for (const row of authHeaders) {
+        const k = (row.key || '').trim()
+        const v = row.value || ''
+        if (k && v) authHeadersRecord[k] = v
+      }
+      const formatPrice = (value: number): string => {
+        if (!Number.isFinite(value) || value < 0) return '$0'
+        const rounded = Math.round(value * 1e6) / 1e6
+        let s = String(rounded)
+        if (s.includes('.')) s = s.replace(/\.0+$/, '').replace(/(\.\d*?)0+$/, '$1')
+        return `$${s}`
+      }
+      const body = {
+        id,
+        mcpOrigin: serverUrl.trim(),
+        recipient: {
+          ...(includesEvm ? { evm: { address: (evmRecipientAddress || selectedWalletAddress), isTestnet: recipientIsTestnet } } : {}),
+          ...(includesSvm ? { svm: { address: svmRecipientAddress, isTestnet: recipientIsTestnet } } : {}),
+        },
+        tools: monetizeTools.map((t) => ({ name: t.name, pricing: formatPrice(priceByTool[t.name] ?? 0.01) })),
+        requireAuth: requireAuth === true,
+        authHeaders: requireAuth ? authHeadersRecord : {},
+        metadata: { createdAt: new Date().toISOString(), source: 'app:register', networks: selectedNetworks },
+      }
+      const resp = await fetch(`${urlUtils.getMcp2Url()}/register`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({})) as { error?: string }
+        throw new Error(err?.error || `Failed to register: ${resp.status}`)
+      }
+      const endpoint = `${urlUtils.getMcp2Url()}/mcp?id=${encodeURIComponent(id)}`
+      setCreatedServerId(id)
+      setCreatedEndpointUrl(endpoint)
+      setLastMonetizedUrl(endpoint)
+      try {
+        await navigator.clipboard.writeText(endpoint)
+        toast.success('Monetized endpoint copied to clipboard!')
+      } catch { }
+      try {
+        const result = await mcpDataApi.runIndex(endpoint)
+        if ('ok' in result && result.ok && result.serverId) {
+          toast.success('Server indexed successfully!')
+          window.location.href = `/servers/${result.serverId}`
+          return
+        }
+      } catch { }
+      setMonetizeStep(5)
     } catch (e) {
-      const errorMessage = e instanceof Error ? e.message : 'Unknown error'
-      setMonetizeError(errorMessage)
-      toast.error(`Failed to create monetization: ${errorMessage}`)
+      const msg = e instanceof Error ? e.message : 'Unknown error'
+      setMonetizeErrorMsg(msg)
+      toast.error(`Failed to create endpoint: ${msg}`)
     } finally {
       setMonetizing(false)
     }
@@ -349,6 +454,13 @@ function RegisterOptionsPage() {
     }
   }
 
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(typeof window !== 'undefined' && window.innerWidth < 768)
+    checkMobile()
+    window.addEventListener('resize', checkMobile)
+    return () => window.removeEventListener('resize', checkMobile)
+  }, [])
+
   return (
     <div className="bg-background">
       <main>
@@ -358,15 +470,13 @@ function RegisterOptionsPage() {
             <p className={`text-base ${isDark ? "text-gray-300" : "text-gray-600"}`}>
               Connect your MCP server and start accepting payments instantly.
             </p>
-            <div className="mt-3 flex justify-center">
-              <Badge variant="secondary" className="text-xs">Step 1 of 3: Connect server</Badge>
-            </div>
+
           </div>
 
           {/* URL Input Section */}
           <Card className={`border border-border bg-background mb-10`}>
             <CardHeader>
-              <div className="flex items-center justify-center gap-2">
+              <div className="flex gap-2">
                 <CardTitle className={`text-xl font-host ${isDark ? "text-white" : "text-gray-900"}`}>Server URL</CardTitle>
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -377,7 +487,14 @@ function RegisterOptionsPage() {
                   <TooltipContent>Provide the HTTP(S) endpoint your MCP server exposes.</TooltipContent>
                 </Tooltip>
               </div>
-              <CardDescription className={isDark ? "text-gray-400" : "text-gray-600"}>Enter your MCP server URL to get started</CardDescription>
+              <CardDescription className={isDark ? "text-gray-400" : "text-gray-600"}>
+                Enter your MCP server URL to get started
+                <div id="server-url-help" className={`mt-2 text-xs ${urlTouched && !urlValid && serverUrl ? 'text-red-500' : isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                  {urlTouched && !urlValid && serverUrl
+                    ? (urlError || 'Enter a valid URL')
+                    : 'URL must be https and point to your MCP endpoint.'}
+                </div>
+              </CardDescription>
             </CardHeader>
             <CardContent>
               <div className="flex gap-2 items-center">
@@ -434,11 +551,6 @@ function RegisterOptionsPage() {
                   Clear
                 </Button>
               </div>
-              <div id="server-url-help" className={`mt-2 text-sm ${urlTouched && !urlValid && serverUrl ? 'text-red-500' : isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-                {urlTouched && !urlValid && serverUrl
-                  ? (urlError || 'Enter a valid URL')
-                  : 'URL must be https and point to your MCP endpoint.'}
-              </div>
               {/* Clipboard suggestion */}
               {clipboardUrlSuggestion && !serverUrl && (
                 <div className={`mt-2 text-xs flex items-center gap-2 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
@@ -449,25 +561,6 @@ function RegisterOptionsPage() {
                   <button type="button" className={`underline underline-offset-2 ${isDark ? 'text-gray-400' : 'text-gray-500'}`} onClick={() => setClipboardPrompted(true)}>Dismiss</button>
                 </div>
               )}
-
-              {/* Examples */}
-              <div className="mt-2 text-xs">
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button type="button" variant="link" size="sm" className="h-6 px-0">Examples</Button>
-                  </PopoverTrigger>
-                  <PopoverContent align="start" className="w-[320px]">
-                    <div className="text-xs">
-                      <div className={`mb-2 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>Sample MCP endpoints:</div>
-                      <div className="flex flex-col gap-1">
-                        {['https://example.com/mcp', 'https://mcp.myserver.dev/endpoint', 'https://api.site.com/mcp'].map((ex) => (
-                          <button key={ex} onClick={() => setServerUrl(ex)} className={`text-left truncate ${isDark ? 'text-blue-400 hover:text-blue-300' : 'text-blue-600 hover:text-blue-700'} underline underline-offset-2`} type="button">{ex}</button>
-                        ))}
-                      </div>
-                    </div>
-                  </PopoverContent>
-                </Popover>
-              </div>
 
               {/* Preview tools */}
               {(isPreviewLoading || previewTools || previewError) && (
@@ -487,27 +580,46 @@ function RegisterOptionsPage() {
             </CardContent>
           </Card>
 
+          {/* Monetize Wizard */}
+          <MonetizeWizard
+            open={monetizeOpen}
+            onOpenChange={(open) => setMonetizeOpen(open)}
+            serverUrl={serverUrl}
+            tools={monetizeTools}
+            onCreate={async ({ prices, evmRecipientAddress: evmAddr, svmRecipientAddress: svmAddr, networks, requireAuth, authHeaders, testnet }) => {
+              setPriceByTool(prices)
+              setEvmRecipientAddress(evmAddr || '')
+              setSvmRecipientAddress(svmAddr || '')
+              setSelectedNetworks(networks)
+              setRequireAuth(requireAuth)
+              setAuthHeaders(Object.entries(authHeaders).map(([key, value]) => ({ key, value })))
+              setRecipientIsTestnet(testnet)
+              await createMonetizedEndpoint()
+            }}
+          />
+
           {/* Three Options Grid */}
           <div className="rounded-xl border border-border/60 bg-muted/30 p-4 md:p-6">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {/* Option 1: Monetize */}
-              <Card className={`border border-border bg-background transition-all ${urlValid ? 'ring-1 ring-[#0052FF]/30 shadow-sm' : ''}`}>
+              <Card className={`h-full flex flex-col border border-border bg-background transition-all ${urlValid ? 'shadow-sm' : ''}`}>
                 <CardHeader className="pb-4">
                   <div className="flex items-center gap-3 mb-2">
-                    <div className="p-2 bg-[#0052FF]/10 rounded-lg ring-1 ring-[#0052FF]/20">
-                      <Zap className="h-6 w-6 text-[#0052FF]" />
-                    </div>
                     <CardTitle className={`text-xl font-host ${isDark ? "text-white" : "text-gray-900"}`}>Monetize</CardTitle>
                   </div>
                   <CardDescription className="text-sm">
                     <span className={isDark ? "text-gray-300" : "text-gray-700"}>Simplify payments with a zero-code wrapper.</span>
+                    <span className={`${isDark ? "text-gray-100" : "text-gray-900"} font-semibold block mt-1`}>
+                      <span className={`pr-1`}>Already have a server live?</span>
+                      <span className="text-primary">Want to monetize it?</span>
+                    </span>
                   </CardDescription>
                 </CardHeader>
-                <CardContent className="pt-0">
+                <CardContent className="pt-0 mt-auto">
                   <Button
                     onClick={handleMonetize}
                     disabled={monetizing || !urlValid}
-                    className={`w-full transition-all duration-200 ${monetizing || !urlValid ? "opacity-60 cursor-not-allowed" : "bg-[#0052FF] hover:bg-[#0052FF]/90 hover:shadow-lg"} ${monetizing || !urlValid ? 'bg-[#0052FF]' : ''} text-white font-medium`}
+                    className={`w-full transition-all duration-200 font-medium ${isDark ? "bg-gray-700 hover:bg-gray-600 text-gray-200" : "bg-gray-600 hover:bg-gray-700 text-white"} ${monetizing || !urlValid ? "opacity-60 cursor-not-allowed" : "hover:shadow-lg"}`}
                   >
                     {monetizing ? (
                       <>
@@ -516,7 +628,6 @@ function RegisterOptionsPage() {
                       </>
                     ) : (
                       <>
-                        <Zap className="h-4 w-4 mr-2" />
                         Get Monetized URL
                       </>
                     )}
@@ -542,23 +653,24 @@ function RegisterOptionsPage() {
               </Card>
 
               {/* Option 2: Add Server */}
-              <Card className={`border border-border bg-background transition-all ${urlValid ? 'ring-1 ring-green-500/30 shadow-sm' : ''}`}>
+              <Card className={`h-full flex flex-col border border-border bg-background transition-all ${urlValid ? 'shadow-sm' : ''}`}>
                 <CardHeader className="pb-4">
                   <div className="flex items-center gap-3 mb-2">
-                    <div className="p-2 bg-green-500/10 rounded-lg ring-1 ring-green-500/20">
-                      <Server className="h-6 w-6 text-green-500" />
-                    </div>
                     <CardTitle className={`text-xl font-host ${isDark ? "text-white" : "text-gray-900"}`}>Add Server</CardTitle>
                   </div>
                   <CardDescription className="text-sm">
-                    <span className={isDark ? "text-gray-300" : "text-gray-700"}>Index your server for discovery and analytics.</span>
+                    <span className={isDark ? "text-gray-300" : "text-gray-700"}>Index your MCP server with x402 for discovery and analytics.</span>
+                    <span className={`${isDark ? "text-gray-100" : "text-gray-900"} font-semibold block mt-1`}>
+                      <span className={`pr-1`}>Does your server already speak x402?</span>
+                      <span className="text-primary">Want to index it?</span>
+                    </span>
                   </CardDescription>
                 </CardHeader>
-                <CardContent className="pt-0">
+                <CardContent className="pt-0 mt-auto">
                   <Button
                     onClick={handleAddServer}
                     disabled={indexing || !urlValid}
-                    className={`w-full transition-all duration-200 ${indexing || !urlValid ? "opacity-60 cursor-not-allowed bg-green-600" : "bg-green-600 hover:bg-green-700 hover:shadow-lg"} text-white font-medium`}
+                    className={`w-full transition-all duration-200 font-medium ${isDark ? "bg-gray-700 hover:bg-gray-600 text-gray-200" : "bg-gray-600 hover:bg-gray-700 text-white"} ${indexing || !urlValid ? "opacity-60 cursor-not-allowed" : "hover:shadow-lg"}`}
                   >
                     {indexing ? (
                       <>
@@ -567,7 +679,6 @@ function RegisterOptionsPage() {
                       </>
                     ) : (
                       <>
-                        <Server className="h-4 w-4 mr-2" />
                         Index Server
                       </>
                     )}
@@ -582,25 +693,21 @@ function RegisterOptionsPage() {
               </Card>
 
               {/* Option 3: Build with SDK */}
-              <Card className={`border border-border bg-background transition-all`}>
+              <Card className={`h-full flex flex-col border border-border bg-background transition-all`}>
                 <CardHeader className="pb-4">
                   <div className="flex items-center gap-3 mb-2">
-                    <div className={`p-2 ${isDark ? "bg-gray-700" : "bg-gray-200"} rounded-lg ring-1 ${isDark ? "ring-gray-600" : "ring-gray-300"}`}>
-                      <BookOpen className={`h-6 w-6 ${isDark ? "text-gray-300" : "text-gray-600"}`} />
-                    </div>
                     <CardTitle className={`text-xl font-host ${isDark ? "text-white" : "text-gray-900"}`}>Build with SDK</CardTitle>
                   </div>
                   <CardDescription className="text-sm">
                     <span className={isDark ? "text-gray-300" : "text-gray-700"}>Integrate payments directly in code.</span>
                   </CardDescription>
                 </CardHeader>
-                <CardContent className="pt-0">
+                <CardContent className="pt-0 mt-auto">
                   <Button
                     asChild
                     className={`w-full transition-all duration-200 ${isDark ? "bg-gray-700 hover:bg-gray-600 text-gray-200 hover:shadow-lg" : "bg-gray-600 hover:bg-gray-700 text-white hover:shadow-lg"} font-medium`}
                   >
                     <a href="https://docs.mcpay.tech" target="_blank" rel="noopener noreferrer">
-                      <BookOpen className={`h-4 w-4 mr-2 ${isDark ? "text-gray-300" : "text-gray-100"}`} />
                       View Documentation
                       <ArrowUpRight className={`h-4 w-4 ml-2 ${isDark ? "text-gray-300" : "text-gray-100"}`} />
                     </a>

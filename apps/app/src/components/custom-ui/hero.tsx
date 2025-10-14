@@ -118,11 +118,11 @@ export default function Hero({
             variants={fadeUp}
           >
             <h1 className="text-4xl font-semibold font-host mb-6">
-              Payments for MCPs
+            Open MCP & x402 infra
             </h1>
             
-            <p className="text-balance font-medium text-md text-muted-foreground sm:text-lg mb-6">
-              Add micropayments per tool calls to your servers or APIs, without rewriting infrastructure.
+            <p className="text-balance font-medium text-md text-muted-foreground sm:text-lg mb-4">
+            Add micropayments to MCP servers or APIs without rewriting infrastructure.
             </p>
 
             <div className="flex flex-col sm:flex-row gap-4 justify-center sm:justify-start">

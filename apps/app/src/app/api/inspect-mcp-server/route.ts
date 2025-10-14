@@ -29,8 +29,8 @@ async function inspect(url: string, include?: IncludeParam) {
   const doPrompts = !include || include.includes("prompts")
 
   const [tools, prompts] = await Promise.all([
-    doTools ? getToolsFromMCP(url) : Promise.resolve(undefined),
-    doPrompts ? getPromptsFromMCP(url) : Promise.resolve(undefined),
+    doTools ? getToolsFromMCP(url).catch((err) => { console.warn('tools fetch failed', err); return [] }) : Promise.resolve(undefined),
+    doPrompts ? getPromptsFromMCP(url).catch((err) => { console.warn('prompts fetch failed', err); return [] }) : Promise.resolve(undefined),
   ])
 
   return { url, tools, prompts }
@@ -60,37 +60,42 @@ async function getToolsFromMCP(url: string) {
 }
 
 async function getPromptsFromMCP(url: string) {
-  const transport = new StreamableHTTPClientTransport(new URL(url))
-  const client = new Client({ name: "mcpay-inspect", version: "1.0.0" })
-  await client.connect(transport)
-  const prompts = await client.listPrompts()
+  try {
+    const transport = new StreamableHTTPClientTransport(new URL(url))
+    const client = new Client({ name: "mcpay-inspect", version: "1.0.0" })
+    await client.connect(transport)
+    const prompts = await client.listPrompts()
 
-  const enriched: Array<{ name: string; description?: string; content: string; messages: unknown[] }> = []
-  for (const prompt of prompts.prompts) {
-    const promptDetail = await client.getPrompt({ name: prompt.name })
+    const enriched: Array<{ name: string; description?: string; content: string; messages: unknown[] }> = []
+    for (const prompt of prompts.prompts) {
+      const promptDetail = await client.getPrompt({ name: prompt.name })
 
-    const textContent = (promptDetail as any).messages
-      ?.map((message: any) => {
-        const content = message?.content
-        if (typeof content === "string") return content
-        if (content && typeof content === "object" && content.type === "text" && typeof content.text === "string") {
-          return content.text
-        }
-        return ""
+      const textContent = (promptDetail as any).messages
+        ?.map((message: any) => {
+          const content = message?.content
+          if (typeof content === "string") return content
+          if (content && typeof content === "object" && content.type === "text" && typeof content.text === "string") {
+            return content.text
+          }
+          return ""
+        })
+        .filter((text: string) => text.length > 0)
+        .join("\n\n") || ""
+
+      enriched.push({
+        name: prompt.name,
+        description: prompt.description || (promptDetail as { description?: string }).description,
+        content: textContent,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        messages: (promptDetail as any).messages || [],
       })
-      .filter((text: string) => text.length > 0)
-      .join("\n\n") || ""
+    }
 
-    enriched.push({
-      name: prompt.name,
-      description: prompt.description || (promptDetail as { description?: string }).description,
-      content: textContent,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      messages: (promptDetail as any).messages || [],
-    })
+    return enriched
+  } catch (error) {
+    console.warn("Warning: MCP prompts unavailable (returning empty set):", error)
+    return []
   }
-
-  return enriched
 }
 
 export async function GET(req: NextRequest) {
