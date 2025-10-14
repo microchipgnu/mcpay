@@ -22,6 +22,7 @@ import { getNetworkConfig, type UnifiedNetwork } from "@/lib/commons/networks"
 import { type Network } from "@/types/blockchain"
 import { AlertCircle, ArrowRight, ArrowUpRight, BookOpen, CheckCircle, ChevronDown, Copy, Globe, Info, Loader2, Lock, RefreshCw, Server, User, Wallet, Zap } from "lucide-react"
 import { useRouter, useSearchParams } from "next/navigation"
+import Link from "next/link"
 import { useCallback, useEffect, useState } from "react"
 import { toast } from "sonner"
 import { useConnect } from "wagmi"
@@ -1251,7 +1252,7 @@ function RegisterOptionsPage() {
               <CardDescription className="text-sm leading-relaxed">
                 <span className={`font-semibold ${isDark ? "text-gray-200" : "text-gray-700"}`}>Just add your server to our index.</span>{" "}
                 <span className={isDark ? "text-gray-400" : "text-gray-600"}>
-                  We'll inspect and catalog your MCP server for discovery and analytics.
+                  We&apos;ll inspect and catalog your MCP server for discovery and analytics.
                 </span>
               </CardDescription>
             </CardHeader>
@@ -1325,12 +1326,12 @@ function RegisterOptionsPage() {
                   quickstart guide
                 </a>{" "}
                 or{" "}
-                <a
+                <Link
                   href="/servers"
                   className="text-blue-500 hover:text-blue-600 underline"
                 >
                   browse existing servers
-                </a>{" "}
+                </Link>{" "}
                 for inspiration.
               </p>
             </div>
