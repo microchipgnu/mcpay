@@ -3,7 +3,7 @@
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogFooter, DialogHeader } from "@/components/ui/dialog"
 import { Drawer, DrawerContent, DrawerFooter, DrawerHeader, DrawerTitle } from "@/components/ui/drawer"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -229,7 +229,7 @@ export function MonetizeWizard({ open, onOpenChange, serverUrl, tools, onCreate 
                     </PopoverTrigger>
                     <PopoverContent align="start" className="w-[360px] max-w-[calc(100vw-6rem)]">
                       <div className="space-y-2">
-                        <div className="text-xs text-muted-foreground">Paste lines like "Key: Value" or "Key=Value".</div>
+                        <div className="text-xs text-muted-foreground">Paste lines like &quot;Key: Value&quot; or &quot;Key=Value&quot;.</div>
                         <Textarea value={bulkHeadersText} onChange={(e) => setBulkHeadersText(e.target.value)} placeholder={`Authorization: Bearer sk-xxxx\nx-api-key: abc123`} />
                         <div className="flex justify-end gap-2">
                           <Button type="button" variant="outline" size="sm" onClick={() => setBulkHeadersText("")}>Clear</Button>
@@ -239,7 +239,7 @@ export function MonetizeWizard({ open, onOpenChange, serverUrl, tools, onCreate 
                             for (const line of lines) {
                               const colon = line.indexOf(':')
                               const eq = line.indexOf('=')
-                              let idx = colon >= 0 ? colon : eq
+                              const idx = colon >= 0 ? colon : eq
                               if (idx < 0) continue
                               const k = line.slice(0, idx).trim()
                               const v = line.slice(idx + 1).trim()

@@ -67,27 +67,41 @@ async function getPromptsFromMCP(url: string) {
     const prompts = await client.listPrompts()
 
     const enriched: Array<{ name: string; description?: string; content: string; messages: unknown[] }> = []
+
+    // Type helpers to avoid explicit "any"
+    type PromptDetail = { description?: string; messages?: unknown[] }
+    type PromptMessage = { content?: unknown }
+    const isTextContent = (value: unknown): value is { type: "text"; text: string } => {
+      return (
+        typeof value === "object" &&
+        value !== null &&
+        "type" in value &&
+        "text" in value &&
+        (value as { type: unknown }).type === "text" &&
+        typeof (value as { text: unknown }).text === "string"
+      )
+    }
+
     for (const prompt of prompts.prompts) {
       const promptDetail = await client.getPrompt({ name: prompt.name })
+      const { description, messages } = (promptDetail as PromptDetail)
+      const messageArray: unknown[] = Array.isArray(messages) ? messages : []
 
-      const textContent = (promptDetail as any).messages
-        ?.map((message: any) => {
-          const content = message?.content
+      const textContent = messageArray
+        .map((message) => {
+          const content = (message as PromptMessage)?.content
           if (typeof content === "string") return content
-          if (content && typeof content === "object" && content.type === "text" && typeof content.text === "string") {
-            return content.text
-          }
+          if (isTextContent(content)) return content.text
           return ""
         })
-        .filter((text: string) => text.length > 0)
+        .filter((text) => text.length > 0)
         .join("\n\n") || ""
 
       enriched.push({
         name: prompt.name,
-        description: prompt.description || (promptDetail as { description?: string }).description,
+        description: prompt.description || description,
         content: textContent,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        messages: (promptDetail as any).messages || [],
+        messages: messageArray,
       })
     }
 

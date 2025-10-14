@@ -17,7 +17,6 @@ import {
   type TokenConfig,
   UNIFIED_NETWORKS,
   getNetworkConfig,
-  getNetworkTokens,
   getSupportedNetworks,
   getNetworkByChainId as getUnifiedNetworkByChainId
 } from './networks';
@@ -349,7 +348,7 @@ export const getTokenVerification = (address: string, network: Network): {
 // =============================================================================
 
 export {
-  getMainnetNetworks, getNetworkConfig, getNetworkStablecoins, getNetworkTokens, getTestnetNetworks, getTokenConfig, isNetworkSupported
+  getMainnetNetworks, getNetworkConfig, getNetworkStablecoins, getTestnetNetworks, getTokenConfig, isNetworkSupported
 } from './networks';
 
 // =============================================================================

@@ -85,6 +85,7 @@ const UserContext = createContext<UserContextValue | undefined>(undefined)
 // Provider component
 export function UserProvider({ children }: { children: ReactNode }) {
   const { data: session } = useSession()
+  const userId = session?.user?.id
   
   // State
   const [walletData, setWalletData] = useState<UserWalletData | null>(null)
@@ -93,8 +94,8 @@ export function UserProvider({ children }: { children: ReactNode }) {
   const [error, setError] = useState<string | null>(null)
 
   // Load user wallets with balance information
-  const loadWallets = useCallback(async (includeTestnet = true, isRefresh = false) => {
-    if (!session?.user?.id) {
+  const loadWallets = useCallback(async (_includeTestnet = true, isRefresh = false) => {
+    if (!userId) {
       setWalletData(null)
       return
     }
@@ -118,7 +119,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
         const updatedAt: string = String((w?.updatedAt as string) || createdAt)
         return {
           id: String((w?.id as string) || walletAddress || cryptoRandomId()),
-          userId: String(session.user!.id),
+          userId: String(userId),
           walletAddress,
           blockchain: String((w?.blockchain as string) || "ethereum"),
           walletType: ((w?.walletType as string) || 'external') as 'external' | 'managed' | 'custodial',
@@ -155,7 +156,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
       setIsLoading(false)
       setIsRefreshing(false)
     }
-  }, [session?.user?.id])
+  }, [userId])
 
   // Refresh wallets function
   const refreshWallets = useCallback(async () => {
@@ -171,57 +172,57 @@ export function UserProvider({ children }: { children: ReactNode }) {
     isPrimary?: boolean
     walletMetadata?: Record<string, unknown>
   }) => {
-    if (!session?.user?.id) {
+    if (!userId) {
       throw new Error('User not authenticated')
     }
 
     setError(null)
     
     try {
-      await api.addWalletToUser(session.user.id, walletInfo)
+      await api.addWalletToUser(userId, walletInfo)
       await refreshWallets()
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to add wallet'
       setError(errorMessage)
       throw error
     }
-  }, [session?.user?.id, refreshWallets])
+  }, [userId, refreshWallets])
 
   // Set primary wallet function
   const setPrimaryWallet = useCallback(async (walletId: string) => {
-    if (!session?.user?.id) {
+    if (!userId) {
       throw new Error('User not authenticated')
     }
 
     setError(null)
 
     try {
-      await api.setWalletAsPrimary(session.user.id, walletId)
+      await api.setWalletAsPrimary(userId, walletId)
       await refreshWallets()
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to set primary wallet'
       setError(errorMessage)
       throw error
     }
-  }, [session?.user?.id, refreshWallets])
+  }, [userId, refreshWallets])
 
   // Remove wallet function
   const removeWallet = useCallback(async (walletId: string) => {
-    if (!session?.user?.id) {
+    if (!userId) {
       throw new Error('User not authenticated')
     }
 
     setError(null)
 
     try {
-      await api.removeWallet(session.user.id, walletId)
+      await api.removeWallet(userId, walletId)
       await refreshWallets()
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to remove wallet'
       setError(errorMessage)
       throw error
     }
-  }, [session?.user?.id, refreshWallets])
+  }, [userId, refreshWallets])
 
   // Utility function to get primary wallet
   const getPrimaryWallet = useCallback((): UserWallet | null => {
@@ -240,13 +241,13 @@ export function UserProvider({ children }: { children: ReactNode }) {
 
   // Load wallets when user session changes
   useEffect(() => {
-    if (session?.user?.id) {
+    if (userId) {
       loadWallets(true, false) // includeTestnet=true, isRefresh=false (initial load)
     } else {
       setWalletData(null)
       setError(null)
     }
-  }, [session?.user?.id, loadWallets])
+  }, [userId, loadWallets])
 
   // Context value
   const contextValue: UserContextValue = {
