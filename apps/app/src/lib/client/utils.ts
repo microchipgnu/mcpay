@@ -227,7 +227,21 @@ export const authApi = {
   },
 
   // Get wallet balance for specific network
-  getBalance: async (walletAddress: string, network: string): Promise<{ native: any, usdc: any }> => {
+  getBalance: async (
+    walletAddress: string,
+    network: string
+  ): Promise<{
+    native: {
+      balance?: string
+      balanceFormatted?: string
+      [key: string]: unknown
+    } | null
+    usdc: {
+      balance?: string
+      balanceFormatted?: string
+      [key: string]: unknown
+    } | null
+  }> => {
     return serviceApiCall(urlUtils.getAuthUrl(), `/api/balance?walletAddress=${walletAddress}&network=${network}`)
   },
 
@@ -272,7 +286,7 @@ export type McpServer = {
   origin: string
   status: string
   last_seen_at: string
-  tools: any[]
+  tools: unknown[]
   server: {
     info: {
       name: string
@@ -299,7 +313,7 @@ export const mcpDataApi = {
     lastSeenAt?: string
     indexedAt?: string
     info: { name?: string; description?: string; icon?: string }
-    tools: any[]
+    tools: unknown[]
     summary: { lastActivity?: string; totalTools: number; totalRequests: number; totalPayments: number }
     dailyAnalytics: Array<{ date: string; totalRequests: number }>
     recentPayments: Array<{

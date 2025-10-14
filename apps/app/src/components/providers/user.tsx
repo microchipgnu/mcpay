@@ -112,20 +112,20 @@ export function UserProvider({ children }: { children: ReactNode }) {
       const raw = await authApi.getWallets()
       const items = Array.isArray(raw) ? raw : []
 
-      const wallets: UserWallet[] = items.map((w: any) => {
-        const walletAddress: string = String(w?.walletAddress || w?.address || "")
-        const createdAt: string = String(w?.createdAt || new Date().toISOString())
-        const updatedAt: string = String(w?.updatedAt || createdAt)
+      const wallets: UserWallet[] = items.map((w: Record<string, unknown>) => {
+        const walletAddress: string = String((w?.walletAddress as string) || (w?.address as string) || "")
+        const createdAt: string = String((w?.createdAt as string) || new Date().toISOString())
+        const updatedAt: string = String((w?.updatedAt as string) || createdAt)
         return {
-          id: String(w?.id || walletAddress || cryptoRandomId()),
+          id: String((w?.id as string) || walletAddress || cryptoRandomId()),
           userId: String(session.user!.id),
           walletAddress,
-          blockchain: String(w?.blockchain || "ethereum"),
-          walletType: (w?.walletType || 'external') as 'external' | 'managed' | 'custodial',
-          provider: w?.provider,
-          isPrimary: Boolean(w?.isPrimary),
-          isActive: w?.isActive === false ? false : true,
-          walletMetadata: (w?.walletMetadata || undefined) as Record<string, unknown> | undefined,
+          blockchain: String((w?.blockchain as string) || "ethereum"),
+          walletType: ((w?.walletType as string) || 'external') as 'external' | 'managed' | 'custodial',
+          provider: w?.provider as string | undefined,
+          isPrimary: Boolean(w?.isPrimary as boolean | undefined),
+          isActive: (w?.isActive as boolean | undefined) === false ? false : true,
+          walletMetadata: (w?.walletMetadata as Record<string, unknown> | undefined) || undefined,
           createdAt,
           updatedAt,
         }

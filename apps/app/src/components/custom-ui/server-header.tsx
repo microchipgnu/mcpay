@@ -20,13 +20,13 @@ export function ServerHeader({ name, description, totalTools = 0, isRemote = tru
     <div className="mb-6">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold mb-1">{name}</h1>
+          <h1 className="text-3xl font-semibold font-host mb-1">{name}</h1>
           {!!description && (
-            <p className={`text-sm ${isDark ? "text-gray-300" : "text-gray-600"}`}>{description}</p>
+            <p className="text-sm text-muted-foreground">{description}</p>
           )}
         </div>
         <div className="flex items-center gap-2">
-          <Button size="sm" onClick={onExplore}>
+          <Button size="sm" variant="ghost" onClick={onExplore}>
             Explore capabilities
           </Button>
         </div>

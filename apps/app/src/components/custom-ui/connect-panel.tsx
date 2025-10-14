@@ -43,9 +43,9 @@ export function ConnectPanel({ url, originRaw, className, stickyTop = "top-4" }:
           <CardContent className="space-y-4">
             {/* URL copy */}
             <div>
-              <p className={`text-xs mb-2 ${isDark ? "text-gray-400" : "text-gray-600"}`}>Get connection URL</p>
+              <p className="text-xs text-muted-foreground mb-2">Get connection URL</p>
               <div className="flex items-start gap-2">
-                <code className={`flex-1 block text-xs p-3 rounded-md font-mono break-all ${isDark ? "bg-gray-700 text-gray-200" : "bg-gray-100 text-gray-800"}`}>{effectiveUrl}</code>
+                <code className={`flex-1 block text-xs p-3 rounded-md font-mono break-all ${isDark ? "bg-gray-700 text-gray-200" : "bg-muted text-foreground"}`}>{effectiveUrl}</code>
                 <Button
                   size="sm"
                   variant="outline"
@@ -59,7 +59,7 @@ export function ConnectPanel({ url, originRaw, className, stickyTop = "top-4" }:
                 </Button>
               </div>
               {originRaw && (
-                <p className={`mt-2 text-[11px] ${isDark ? "text-gray-400" : "text-gray-600"}`}>
+                <p className="mt-2 text-[11px] text-muted-foreground">
                   Client doesn&apos;t support OAuth yet or link isn&apos;t working? {" "}
                   <a className="underline" href={originRaw} target="_blank" rel="noreferrer">
                     Get URL with keys instead
@@ -83,7 +83,7 @@ export function ConnectPanel({ url, originRaw, className, stickyTop = "top-4" }:
                   <div className={`max-h-72 overflow-auto rounded-md border ${isDark ? "border-gray-700" : ""}`}>
                     <ul className="divide-y divide-gray-200 dark:divide-gray-700">
                       {CLIENTS.map((client) => (
-                        <li key={client} className={`px-3 py-2 text-sm flex items-center justify-between ${isDark ? "hover:bg-gray-700/60" : "hover:bg-gray-50"}`}>
+                        <li key={client} className={`px-3 py-2 text-sm flex items-center justify-between ${isDark ? "hover:bg-gray-700/60" : "hover:bg-muted/60"}`}>
                           <span>{client}</span>
                           <Button size="sm" variant="outline" className="text-xs">Guide</Button>
                         </li>
@@ -94,7 +94,7 @@ export function ConnectPanel({ url, originRaw, className, stickyTop = "top-4" }:
               </TabsContent>
 
               <TabsContent value="json" className="mt-4">
-                <div className={`rounded-md border ${isDark ? "bg-gray-900 border-gray-700" : "bg-gray-50"}`}>
+                <div className={`rounded-md border ${isDark ? "bg-gray-900 border-gray-700" : "bg-muted"}`}>
                   <pre className="text-[11px] leading-snug p-3 overflow-x-auto"><code>{`{
   "mcp": {
     "servers": [
@@ -106,7 +106,7 @@ export function ConnectPanel({ url, originRaw, className, stickyTop = "top-4" }:
               </TabsContent>
 
               <TabsContent value="ts" className="mt-4">
-                <div className={`rounded-md border ${isDark ? "bg-gray-900 border-gray-700" : "bg-gray-50"}`}>
+                <div className={`rounded-md border ${isDark ? "bg-gray-900 border-gray-700" : "bg-muted"}`}>
                   <pre className="text-[11px] leading-snug p-3 overflow-x-auto"><code>{`import { Client } from '@modelcontextprotocol/sdk/client';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp';
 
@@ -117,7 +117,7 @@ const tools = await client.listTools();`}</code></pre>
               </TabsContent>
 
               <TabsContent value="py" className="mt-4">
-                <div className={`rounded-md border ${isDark ? "bg-gray-900 border-gray-700" : "bg-gray-50"}`}>
+                <div className={`rounded-md border ${isDark ? "bg-gray-900 border-gray-700" : "bg-muted"}`}>
                   <pre className="text-[11px] leading-snug p-3 overflow-x-auto"><code>{`import requests
 
 url = '${effectiveUrl}'

@@ -18,9 +18,9 @@ export function AboutSection({ text }: AboutSectionProps) {
   const showToggle = text.length > 240
 
   return (
-    <div className={`rounded-md border ${isDark ? "bg-gray-800 border-gray-700" : "bg-white"}`}>
+    <div className={`rounded-md border ${isDark ? "bg-gray-800 border-gray-700" : "bg-background"}`}>
       <div className="p-4">
-        <div className={`text-sm ${isDark ? "text-gray-300" : "text-gray-700"}`}>
+        <div className="text-sm text-muted-foreground">
           {expanded ? text : short}
         </div>
         {showToggle && (

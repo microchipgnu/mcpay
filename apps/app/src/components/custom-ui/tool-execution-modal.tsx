@@ -99,7 +99,7 @@ const getThemeClasses = (isDark: boolean) => ({
 // MAIN COMPONENT
 // =============================================================================
 
-interface PricingEntry {
+export interface PricingEntry {
   id?: string
   assetAddress: string
   network: string
@@ -108,7 +108,7 @@ interface PricingEntry {
   active?: boolean
 }
 
-interface ToolFromMcpServerWithStats {
+export interface ToolFromMcpServerWithStats {
   id: string
   name: string
   description: string
@@ -118,7 +118,7 @@ interface ToolFromMcpServerWithStats {
   isMonetized?: boolean
 }
 
-interface ToolExecutionModalProps {
+export interface ToolExecutionModalProps {
   isOpen: boolean
   onClose: () => void
   tool: ToolFromMcpServerWithStats

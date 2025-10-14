@@ -1,8 +1,7 @@
 "use client"
 
 import { ConnectPanel } from "@/components/custom-ui/connect-panel"
-import { TransactionLink } from "@/components/custom-ui/explorer-link"
-import { ToolExecutionModal } from "@/components/custom-ui/tool-execution-modal"
+import { ToolExecutionModal, type ToolFromMcpServerWithStats } from "@/components/custom-ui/tool-execution-modal"
 import { useTheme } from "@/components/providers/theme-context"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -13,17 +12,20 @@ import { ToolsAccordion, type ToolListItem } from "@/components/custom-ui/tools-
 import { ServerDetailsCard } from "@/components/custom-ui/server-details-card"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { mcpDataApi, urlUtils } from "@/lib/client/utils"
-import type { Network } from "@/types/blockchain"
+import { getExplorerUrl } from "@/lib/client/blockscout"
+import { isNetworkSupported, type UnifiedNetwork } from "@/lib/commons"
 import {
   Activity,
   AlertCircle,
-  CheckCircle,
+  CheckCircle2,
   Clock,
   Copy,
   Hammer,
   Loader2,
+  ArrowUpRight,
   RefreshCcw,
-  XCircle
+  XCircle,
+  CheckCircle
 } from "lucide-react"
 import { useParams } from "next/navigation"
 import { useEffect, useMemo, useState } from "react"
@@ -59,6 +61,40 @@ const formatRelative = (dateString?: string) => {
   if (h < 24) return `${h}h ago`
   const d = Math.floor(h / 24)
   return `${d}d ago`
+}
+
+// Compact relative time like the explorer (secs/mins/hrs/days)
+function formatRelativeShort(iso?: string, now = Date.now()) {
+  if (!iso) return ""
+  const diffMs = new Date(iso).getTime() - now
+  const abs = Math.abs(diffMs)
+  const sec = Math.round(abs / 1000)
+  const min = Math.round(sec / 60)
+  const hr = Math.round(min / 60)
+  const day = Math.round(hr / 24)
+  const month = Math.round(day / 30)
+  const year = Math.round(day / 365)
+
+  const value =
+    sec < 60 ? { n: Math.max(1, sec), u: "secs" } :
+      min < 60 ? { n: min, u: "mins" } :
+        hr < 24 ? { n: hr, u: "hrs" } :
+          day < 30 ? { n: day, u: "days" } :
+            month < 12 ? { n: month, u: "mos" } :
+              { n: year, u: "yrs" }
+
+  return `${value.n} ${value.u} ${diffMs <= 0 ? "ago" : "from now"}`
+}
+
+const truncateHash = (h: string, left = 6, right = 7) =>
+  h && h.length > left + right + 3 ? `${h.slice(0, left)}...${h.slice(-right)}` : h
+
+function safeTxUrl(network?: string, hash?: string) {
+  if (!network || !hash) return undefined
+  if (isNetworkSupported(network)) {
+    return getExplorerUrl(hash, network as UnifiedNetwork, 'tx')
+  }
+  return `https://etherscan.io/tx/${hash}`
 }
 
 function StatusBadge({ status }: { status?: string }) {
@@ -103,7 +139,7 @@ export default function ServerPage() {
   const [error, setError] = useState<string | null>(null)
   const [reindexing, setReindexing] = useState(false)
   const [showToolModal, setShowToolModal] = useState(false)
-  const [selectedTool, setSelectedTool] = useState<Record<string, unknown> | null>(null)
+  const [selectedTool, setSelectedTool] = useState<ToolFromMcpServerWithStats | null>(null)
 
   useEffect(() => {
     let mounted = true
@@ -134,10 +170,10 @@ export default function ServerPage() {
     try {
       setReindexing(true)
       const res = await mcpDataApi.runIndex(data.origin)
-      if ((res as any)?.ok) {
+      if ('ok' in res && (res as { ok?: boolean }).ok) {
         toast.success('Re-index triggered')
-      } else if ((res as any)?.error) {
-        toast.error(String((res as any).error))
+      } else if ('error' in res && typeof (res as { error?: string }).error === 'string') {
+        toast.error(String((res as { error?: string }).error))
       }
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Failed to trigger re-index')
@@ -156,7 +192,15 @@ export default function ServerPage() {
   }, [data?.origin])
 
   const openToolModal = (tool: Record<string, unknown>) => {
-    setSelectedTool(tool)
+    const normalized: ToolFromMcpServerWithStats = {
+      id: String(tool.id ?? tool.name ?? 'tool'),
+      name: String(tool.name ?? 'tool'),
+      description: String((tool as { description?: string })?.description ?? ''),
+      inputSchema: ((tool as { inputSchema?: unknown })?.inputSchema ?? (tool as { parameters?: { jsonSchema?: unknown } })?.parameters?.jsonSchema ?? {}) as unknown as ReturnType<typeof JSON.parse>,
+      pricing: Array.isArray((tool as { pricing?: unknown })?.pricing) ? (tool as { pricing?: unknown[] }).pricing as unknown[] as ToolFromMcpServerWithStats['pricing'] : undefined,
+      isMonetized: Boolean((tool as { isMonetized?: boolean })?.isMonetized),
+    }
+    setSelectedTool(normalized)
     setShowToolModal(true)
   }
 
@@ -205,12 +249,12 @@ export default function ServerPage() {
     <div className={`min-h-screen transition-colors duration-200 ${isDark ? "bg-gradient-to-br from-black to-gray-900 text-white" : "bg-gradient-to-br from-gray-50 to-gray-100 text-gray-900"}`}>
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
         <div className="mb-2">
-          <ServerHeader
+            <ServerHeader
             name={data.info?.name || data.origin}
             description={data.info?.description}
             totalTools={data.summary.totalTools}
             isRemote={!/localhost|127\.0\.0\.1/.test(data.origin)}
-            hasRepo={Boolean((data as any)?.info?.repo)}
+            hasRepo={Boolean((data as unknown as { info?: { repo?: unknown } })?.info?.repo)}
             onExplore={() => {
               // Scroll to tools
               const el = document.getElementById('tools-section')
@@ -317,9 +361,9 @@ export default function ServerPage() {
                   id: (t?.id as string) || (t?.name as string) || `tool-${idx}`,
                   name: (t?.name as string) || `tool-${idx}`,
                   description: (t?.description as string) || '',
-                  inputSchema: (t as any)?.inputSchema || (t as any)?.parameters?.jsonSchema || {},
-                  pricing: (t as any)?.pricing || [],
-                  isMonetized: Array.isArray((t as any)?.pricing) && ((t as any).pricing as any[]).some((p: any) => p?.active === true),
+                  inputSchema: ((t as { inputSchema?: unknown; parameters?: { jsonSchema?: unknown } })?.inputSchema || (t as { parameters?: { jsonSchema?: unknown } })?.parameters?.jsonSchema || {}) as Record<string, unknown>,
+                  pricing: Array.isArray((t as { pricing?: unknown[] })?.pricing) ? (t as { pricing?: unknown[] }).pricing as Array<{ label?: string; amount?: number; currency?: string; active?: boolean }> : [],
+                  isMonetized: Array.isArray((t as { pricing?: Array<{ active?: boolean }> })?.pricing) && ((t as { pricing?: Array<{ active?: boolean }> }).pricing || []).some((p) => p?.active === true),
                 }))}
                 onTry={(tool) => openToolModal(tool as unknown as Record<string, unknown>)}
               />
@@ -331,11 +375,11 @@ export default function ServerPage() {
             <ServerDetailsCard
               details={{
                 deploymentRef: data.indexedAt ? `indexed ${formatRelative(data.indexedAt)}` : undefined,
-                license: (data as any)?.info?.license,
+                license: (data as unknown as { info?: { license?: string } })?.info?.license,
                 isLocal: /localhost|127\.0\.0\.1/.test(data.origin),
-                publishedAt: (data as any)?.info?.publishedAt,
-                repo: (data as any)?.info?.repo,
-                homepage: (data as any)?.info?.homepage,
+                publishedAt: (data as unknown as { info?: { publishedAt?: string } })?.info?.publishedAt,
+                repo: (data as unknown as { info?: { repo?: string } })?.info?.repo,
+                homepage: (data as unknown as { info?: { homepage?: string } })?.info?.homepage,
               }}
             />
           </div>
@@ -347,46 +391,137 @@ export default function ServerPage() {
             <CardDescription>Latest payment transactions from tool usage with verified token information</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="rounded-md border">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-[100px]">Status</TableHead>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Network</TableHead>
-                    <TableHead>Transaction</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {(data.recentPayments || []).map((p) => (
-                    <TableRow key={p.id}>
-                      <TableCell>
-                        <div className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs ${p.status === 'completed' ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300' : 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300'}`}>
-                          {p.status === 'completed' ? <CheckCircle className="h-3 w-3" /> : <XCircle className="h-3 w-3" />}
-                          {p.status}
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-sm">{formatDate(p.createdAt)}</TableCell>
-                      <TableCell className="text-sm">{p.network || '-'}</TableCell>
-                      <TableCell className="text-sm">
-                        {p.transactionHash && p.network ? (
-                          <TransactionLink txHash={p.transactionHash} network={p.network as Network} variant="button" showCopyButton={true} className="text-xs" />
-                        ) : (
-                          <span className="font-mono break-all">{p.transactionHash || '-'}</span>
+            {(() => {
+              // Match explorer compact spacing
+              const th = "px-2 sm:px-3 py-3 text-[12px] uppercase tracking-widest text-muted-foreground text-left whitespace-nowrap"
+              const td = "px-2 sm:px-3 py-3.5 border-t border-border align-middle"
+
+              const onCopy = async (text?: string, message = "Copied") => {
+                if (!text) return
+                try {
+                  await navigator.clipboard.writeText(text)
+                  toast.success(message)
+                } catch {
+                  toast.error("Could not copy")
+                }
+              }
+
+              return (
+                <div className="rounded-md border overflow-x-auto">
+                  <div className="min-w-[800px]">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="border-b border-border">
+                          <TableHead className="w-[40px] pr-1 sr-only">Status</TableHead>
+                          <TableHead className={`${th} font-mono`}>Date</TableHead>
+                          <TableHead className={`${th} font-mono`}>Network</TableHead>
+                          <TableHead className={`${th} font-mono text-right pr-2`}>Transaction</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {(data.recentPayments || []).map((p) => {
+                          const txUrl = safeTxUrl(p.network, p.transactionHash)
+                          const fullDate = formatDate(p.createdAt)
+                          const rel = formatRelativeShort(p.createdAt)
+
+                          return (
+                            <TableRow key={p.id} className="hover:bg-muted/40">
+                              {/* Status icon */}
+                              <TableCell className={`${td} w-[40px] pr-1`}>
+                                <TooltipProvider>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <div
+                                        className={`inline-flex h-6 w-6 items-center justify-center rounded-sm transition-all duration-300 ${p.status === 'completed'
+                                          ? 'text-teal-700 bg-teal-500/10 hover:bg-teal-500/20 dark:text-teal-200 dark:bg-teal-800/50 dark:hover:bg-teal-800/70'
+                                          : p.status === 'failed'
+                                            ? 'text-red-700 bg-red-500/10 hover:bg-red-500/20 dark:text-red-200 dark:bg-red-800/50 dark:hover:bg-red-800/70'
+                                            : 'text-yellow-700 bg-yellow-500/10 hover:bg-yellow-500/20 dark:text-yellow-200 dark:bg-yellow-800/50 dark:hover:bg-yellow-800/70'}`}
+                                        aria-label={p.status}
+                                      >
+                                        {p.status === 'completed' ? <CheckCircle2 className="h-4 w-4" /> : p.status === 'failed' ? <XCircle className="h-4 w-4" /> : <Clock className="h-4 w-4" />}
+                                      </div>
+                                    </TooltipTrigger>
+                                    <TooltipContent className="text-xs capitalize">{p.status}</TooltipContent>
+                                  </Tooltip>
+                                </TooltipProvider>
+                              </TableCell>
+
+                              {/* Date relative with tooltip */}
+                              <TableCell className={`${td} text-[0.95rem] sm:text-sm text-muted-foreground pr-1`}>
+                                <TooltipProvider>
+                                  <Tooltip>
+                                    <TooltipTrigger className="cursor-default">
+                                      {rel}
+                                    </TooltipTrigger>
+                                    <TooltipContent className="text-xs">{fullDate}</TooltipContent>
+                                  </Tooltip>
+                                </TooltipProvider>
+                              </TableCell>
+
+                              {/* Network pill */}
+                              <TableCell className={`${td} font-mono text-xs sm:text-sm text-muted-foreground`}>
+                                <span className="font-mono text-sm border border-foreground-muted px-2 py-0.5 rounded text-foreground-muted">
+                                  {p.network || '-'}
+                                </span>
+                              </TableCell>
+
+                              {/* Transaction actions: hash + copy + open */}
+                              <TableCell className={`${td} font-mono text-right pr-0 pl-1`}>
+                                {p.transactionHash ? (
+                                  <div className="flex items-center justify-end gap-1">
+                                    <span className="text-xs sm:text-sm mr-2">{truncateHash(p.transactionHash)}</span>
+
+                                    <TooltipProvider>
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <Button
+                                            size="icon"
+                                            variant="ghost"
+                                            className="group h-7 w-7 rounded-sm"
+                                            onClick={(e) => { e.stopPropagation(); onCopy(p.transactionHash, "Copied transaction hash") }}
+                                          >
+                                            <Copy className="size-4 stroke-[2] text-muted-foreground group-hover:text-foreground transition-all duration-300" />
+                                          </Button>
+                                        </TooltipTrigger>
+                                        <TooltipContent className="text-xs">Copy</TooltipContent>
+                                      </Tooltip>
+
+                                      {txUrl && (
+                                        <Tooltip>
+                                          <TooltipTrigger asChild>
+                                            <Button asChild size="icon" variant="ghost" className="group h-7 w-7 rounded-sm">
+                                              <a href={txUrl} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}>
+                                                <ArrowUpRight className="size-5 stroke-[2] text-muted-foreground/80 group-hover:text-foreground transition-all duration-300" />
+                                              </a>
+                                            </Button>
+                                          </TooltipTrigger>
+                                          <TooltipContent className="text-xs">Transaction Details</TooltipContent>
+                                        </Tooltip>
+                                      )}
+                                    </TooltipProvider>
+                                  </div>
+                                ) : (
+                                  <span className="text-xs text-muted-foreground">—</span>
+                                )}
+                              </TableCell>
+                            </TableRow>
+                          )
+                        })}
+
+                        {(!data.recentPayments || data.recentPayments.length === 0) && (
+                          <TableRow>
+                            <TableCell colSpan={4} className="px-3 py-6 text-center text-sm">
+                              <span className={isDark ? "text-gray-400" : "text-gray-600"}>No recent payments</span>
+                            </TableCell>
+                          </TableRow>
                         )}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                  {(!data.recentPayments || data.recentPayments.length === 0) && (
-                    <TableRow>
-                      <TableCell colSpan={4}>
-                        <span className={isDark ? "text-gray-400" : "text-gray-600"}>No recent payments</span>
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
-            </div>
+                      </TableBody>
+                    </Table>
+                  </div>
+                </div>
+              )
+            })()}
           </CardContent>
         </Card>
       </div>
@@ -395,7 +530,7 @@ export default function ServerPage() {
         <ToolExecutionModal
           isOpen={showToolModal}
           onClose={() => { setShowToolModal(false); setSelectedTool(null) }}
-          tool={selectedTool as any}
+          tool={selectedTool}
           serverId={data.serverId}
           url={data.originRaw}
         />
