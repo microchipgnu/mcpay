@@ -1,10 +1,22 @@
 "use client"
 
 import { useSession } from "@/lib/client/auth"
-import { api } from "@/lib/client/utils"
+import { api, authApi } from "@/lib/client/utils"
 import { createContext, useContext, useCallback, useEffect, useState, type ReactNode } from "react"
 import type { UserWallet } from "@/types/wallet"
 import type { UnifiedNetwork } from "@/lib/commons/networks"
+
+// Lightweight random id generator used when backend id is missing
+function cryptoRandomId(): string {
+  try {
+    if (typeof crypto !== 'undefined' && 'getRandomValues' in crypto) {
+      const bytes = new Uint8Array(16)
+      crypto.getRandomValues(bytes)
+      return Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('')
+    }
+  } catch {}
+  return `id_${Math.random().toString(36).slice(2)}${Date.now().toString(36)}`
+}
 
 // Define the shape of wallet data with balances
 export interface UserWalletData {
@@ -97,41 +109,40 @@ export function UserProvider({ children }: { children: ReactNode }) {
     setError(null)
 
     try {
-      const response = await api.getUserWalletsWithBalances(includeTestnet)
-      
-      const {
-        wallets = [],
-        totalFiatValue = '0',
-        testnetTotalFiatValue = '0',
-        summary = {
-          hasMainnetBalances: false,
-          hasTestnetBalances: false,
-          mainnetValueUsd: 0,
-          testnetValueUsd: 0
-        },
-        mainnetBalancesByChain = {} as Partial<Record<UnifiedNetwork, unknown[]>>,
-        testnetBalancesByChain = {} as Partial<Record<UnifiedNetwork, unknown[]>>
-      } = response as {
-        wallets: UserWallet[]
-        totalFiatValue: string
-        testnetTotalFiatValue: string
-        summary: {
-          hasMainnetBalances: boolean
-          hasTestnetBalances: boolean
-          mainnetValueUsd: number
-          testnetValueUsd: number
+      const raw = await authApi.getWallets()
+      const items = Array.isArray(raw) ? raw : []
+
+      const wallets: UserWallet[] = items.map((w: any) => {
+        const walletAddress: string = String(w?.walletAddress || w?.address || "")
+        const createdAt: string = String(w?.createdAt || new Date().toISOString())
+        const updatedAt: string = String(w?.updatedAt || createdAt)
+        return {
+          id: String(w?.id || walletAddress || cryptoRandomId()),
+          userId: String(session.user!.id),
+          walletAddress,
+          blockchain: String(w?.blockchain || "ethereum"),
+          walletType: (w?.walletType || 'external') as 'external' | 'managed' | 'custodial',
+          provider: w?.provider,
+          isPrimary: Boolean(w?.isPrimary),
+          isActive: w?.isActive === false ? false : true,
+          walletMetadata: (w?.walletMetadata || undefined) as Record<string, unknown> | undefined,
+          createdAt,
+          updatedAt,
         }
-        mainnetBalancesByChain: Partial<Record<UnifiedNetwork, unknown[]>>
-        testnetBalancesByChain: Partial<Record<UnifiedNetwork, unknown[]>>
-      }
+      })
 
       setWalletData({
         wallets,
-        totalFiatValue: parseFloat(totalFiatValue),
-        testnetTotalFiatValue: parseFloat(testnetTotalFiatValue),
-        summary,
-        mainnetBalancesByChain,
-        testnetBalancesByChain
+        totalFiatValue: 0,
+        testnetTotalFiatValue: 0,
+        summary: {
+          hasMainnetBalances: false,
+          hasTestnetBalances: false,
+          mainnetValueUsd: 0,
+          testnetValueUsd: 0,
+        },
+        mainnetBalancesByChain: {} as Partial<Record<UnifiedNetwork, unknown[]>>,
+        testnetBalancesByChain: {} as Partial<Record<UnifiedNetwork, unknown[]>>,
       })
     } catch (error) {
       console.error('Failed to load user wallets:', error)

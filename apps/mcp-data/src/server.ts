@@ -228,8 +228,167 @@ app.get('/servers', async (c: Context) => {
 
 app.get('/server/:id', async (c: Context) => {
   const id = c.req.param('id');
-  const server = await db.select().from(mcpServers).where(eq(mcpServers.id, id));
-  return c.json({ server });
+
+  try {
+    const rows = await db
+      .select({
+        id: mcpServers.id,
+        origin: mcpServers.origin,
+        originRaw: mcpServers.originRaw,
+        status: mcpServers.status,
+        lastSeenAt: mcpServers.lastSeenAt,
+        indexedAt: mcpServers.indexedAt,
+        data: mcpServers.data,
+      })
+      .from(mcpServers)
+      .where(eq(mcpServers.id, id));
+
+    if (rows.length === 0) return c.json({ error: 'not_found' }, 404);
+
+    const server = rows[0];
+
+    // Pull recent RPC logs for this server to derive lightweight analytics
+    const logs = await db
+      .select({
+        id: rpcLogs.id,
+        ts: rpcLogs.ts,
+        method: rpcLogs.method,
+        request: rpcLogs.request,
+        response: rpcLogs.response,
+        meta: rpcLogs.meta,
+      })
+      .from(rpcLogs)
+      .where(eq(rpcLogs.serverId, id))
+      .orderBy(desc(rpcLogs.ts))
+      .limit(500);
+
+    const toLowerCaseHeaders = (h: unknown): Record<string, unknown> => {
+      if (!h || typeof h !== 'object') return {};
+      const out: Record<string, unknown> = {};
+      for (const [k, v] of Object.entries(h as Record<string, unknown>)) {
+        out[String(k).toLowerCase()] = v;
+      }
+      return out;
+    };
+
+    const safeBase64Decode = (input: unknown): string | undefined => {
+      if (typeof input !== 'string' || input.length === 0) return undefined;
+      try {
+        const decoded = Buffer.from(input, 'base64').toString('utf8');
+        return decoded;
+      } catch {
+        return undefined;
+      }
+    };
+
+    const safeJsonParse = (input: unknown): unknown => {
+      if (typeof input !== 'string' || input.length === 0) return undefined;
+      try {
+        return JSON.parse(input);
+      } catch {
+        return undefined;
+      }
+    };
+
+    const detectPayment = (req: unknown, res: unknown, meta: unknown) => {
+      const request = (req && typeof req === 'object') ? (req as Record<string, unknown>) : {};
+      const response = (res && typeof res === 'object') ? (res as Record<string, unknown>) : {};
+      const metaObj = (meta && typeof meta === 'object') ? (meta as Record<string, unknown>) : {};
+
+      const headersLc = toLowerCaseHeaders((request as { headers?: unknown }).headers);
+      const headerToken = (headersLc['x-payment'] as string | undefined) || undefined;
+
+      const paramsObj = ((request as { params?: unknown }).params && typeof (request as { params?: unknown }).params === 'object'
+        ? (request as { params?: Record<string, unknown> }).params
+        : undefined);
+      const reqMeta = (paramsObj && typeof (paramsObj as any)._meta === 'object'
+        ? ((paramsObj as any)._meta as Record<string, unknown>)
+        : undefined);
+      const reqMetaToken = reqMeta && (reqMeta['x402/payment'] as string | undefined);
+      const metaToken = metaObj && (metaObj['x402/payment'] as string | undefined);
+
+      const resMeta = (response._meta as Record<string, unknown> | undefined) || undefined;
+      const paymentResponse = resMeta && (resMeta['x402/payment-response'] as Record<string, unknown> | undefined);
+      const x402Error = resMeta && (resMeta['x402/error'] as { accepts?: unknown } | undefined);
+
+      const hasPayment = !!paymentResponse;
+      const paymentRequestRaw = reqMetaToken || metaToken;
+      const paymentRequestDecoded = safeBase64Decode(paymentRequestRaw) ?? paymentRequestRaw;
+      const paymentRequestJson = typeof paymentRequestDecoded === 'string' ? safeJsonParse(paymentRequestDecoded) : undefined;
+      const paymentRequested = !!((x402Error && Array.isArray(x402Error.accepts)) || paymentRequestRaw);
+      const paymentProvided = !!(headerToken || reqMetaToken || metaToken);
+
+      return {
+        hasPayment, paymentRequested, paymentProvided, metadata: {
+          paymentResponse,
+          x402Error,
+          paymentRequest: paymentRequestJson,
+        }
+      };
+    };
+
+    // Build summary
+    const totalRequests = logs.length;
+    const lastActivity = logs[0]?.ts ?? server.lastSeenAt;
+
+    // Derive recent payments from logs where payment response present
+    const payments = logs
+      .map(l => ({ l, p: detectPayment(l.request, l.response, l.meta) }))
+      .filter(x => !!x.p.hasPayment)
+      .slice(0, 50)
+      .map(x => {
+        const pr = x.p.metadata.paymentResponse as any | undefined;
+        return {
+          id: x.l.id,
+          createdAt: x.l.ts,
+          status: pr?.success === false ? 'failed' : 'completed',
+          network: pr?.network,
+          transactionHash: pr?.transaction,
+          payer: pr?.payer,
+        };
+      });
+
+    // Daily analytics: count by day for recent 30 days based on available logs
+    const byDay = new Map<string, number>();
+    for (const l of logs) {
+      const d = new Date(l.ts!);
+      const key = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
+      byDay.set(key, (byDay.get(key) || 0) + 1);
+    }
+    const dailyAnalytics = Array.from(byDay.entries())
+      .sort((a, b) => (a[0] < b[0] ? 1 : -1))
+      .slice(0, 30)
+      .map(([date, totalRequests]) => ({ date, totalRequests }));
+
+    // Extract basic info and tools from inspection data
+    const name = (server.data as any)?.server?.info?.name || '';
+    const description = (server.data as any)?.server?.info?.description || '';
+    const icon = (server.data as any)?.server?.info?.icon || '';
+    const tools = Array.isArray((server.data as any)?.tools) ? (server.data as any).tools : [];
+
+    const payload = {
+      serverId: server.id,
+      origin: server.origin,
+      originRaw: server.originRaw,
+      status: server.status,
+      lastSeenAt: server.lastSeenAt,
+      indexedAt: server.indexedAt,
+      info: { name, description, icon },
+      tools,
+      summary: {
+        lastActivity,
+        totalTools: Array.isArray(tools) ? tools.length : 0,
+        totalRequests,
+        totalPayments: payments.length,
+      },
+      dailyAnalytics,
+      recentPayments: payments,
+    };
+
+    return c.json(payload);
+  } catch (e) {
+    return c.json({ error: (e as Error).message }, 500);
+  }
 });
 
 app.get('/explorer', async (c: Context) => {

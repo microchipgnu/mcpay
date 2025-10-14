@@ -517,7 +517,7 @@ export function ToolExecutionModal({ isOpen, onClose, tool, serverId, url }: Too
         if (url) {
           mcpUrl = new URL(url)
         } else if (serverId) {
-          mcpUrl = new URL(urlUtils.getMcpUrl(serverId, true))
+          mcpUrl = new URL(urlUtils.getMcpUrl(serverId))
         } else {
           throw new Error("Either server ID or URL must be provided")
         }
@@ -544,8 +544,9 @@ export function ToolExecutionModal({ isOpen, onClose, tool, serverId, url }: Too
         }
 
 
-        const transport = new StreamableHTTPClientTransport(new URL(mcpUrl), {
+        const transport = new StreamableHTTPClientTransport(mcpUrl, {
           requestInit: {
+            credentials: 'include',
             headers: {
               'X-Wallet-Type': activeWallet?.walletType || 'unknown',
               'X-Wallet-Address': walletAddress || '',
@@ -553,6 +554,7 @@ export function ToolExecutionModal({ isOpen, onClose, tool, serverId, url }: Too
             }
           }
         });
+
 
         await mcpClient.connect(transport)
         log.info("MCP client connected")

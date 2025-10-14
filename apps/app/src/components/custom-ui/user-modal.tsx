@@ -1,27 +1,21 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useState } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
-import { Github, Loader2 } from "lucide-react"
+import { Github, Copy as CopyIcon, Check as CheckIcon, ExternalLink, Loader2 } from "lucide-react"
 import { useSession, signIn, signOut } from "@/lib/client/auth"
 import { authApi } from "@/lib/client/utils"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import { Skeleton } from "@/components/ui/skeleton"
+import { toast } from "sonner"
 
 type UserModalProps = {
   open: boolean
   onOpenChange: (open: boolean) => void
 }
 
-type NetworkBalance = {
-  network: string
-  native?: { balanceFormatted: string; nativeSymbol: string } | null
-  usdc?: { balanceFormatted: string; tokenSymbol: string } | null
-}
-
-type BalanceData = {
-  native?: { balanceFormatted: string; nativeSymbol: string } | null
-  usdc?: { balanceFormatted: string; tokenSymbol: string } | null
-}
+// Balances removed as we are no longer fetching per-network balances here
 
 
 type Wallet = {
@@ -70,69 +64,25 @@ export function UserAccountPanel({ isActive = true }: { isActive?: boolean }) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string>("")
 
-  const [walletsData, setWalletsData] = useState<{wallet: Wallet, balances?: NetworkBalance[]}[]>([])
+  const [wallets, setWallets] = useState<Wallet[]>([])
   const [walletsLoading, setWalletsLoading] = useState(false)
+  const [copiedMap, setCopiedMap] = useState<Record<string, boolean>>({})
   const [apiKeys, setApiKeys] = useState<ApiKey[]>([])
   const [apiKeysLoading, setApiKeysLoading] = useState(false)
   const [apiKeyCreated, setApiKeyCreated] = useState<string>("")
 
 
-  async function loadWalletsWithBalances() {
+  async function loadWallets() {
     setWalletsLoading(true)
     setError("")
     try {
       const wallets = await authApi.getWallets() as Wallet[]
       const walletList = Array.isArray(wallets) ? wallets : []
-
-      if (walletList.length === 0) {
-        setWalletsData([])
-        return
-      }
-
-      // For each wallet, load balances for multiple networks
-      const walletsWithBalances = await Promise.all(
-        walletList.map(async (wallet) => {
-          try {
-            // Get supported networks for this wallet type/blockchain
-            const networks = ["base", "polygon"]
-
-            // Load balances for each network
-            const balancePromises = networks.map(async (network) => {
-              try {
-                const balanceData = await authApi.getBalance(wallet.walletAddress!, network) as BalanceData
-                return {
-                  network,
-                  native: null,
-                  usdc: balanceData.usdc
-                } as NetworkBalance
-              } catch (e) {
-                // If balance fails for a network, return empty balance for that network
-                return {
-                  network,
-                  native: null,
-                  usdc: null
-                } as NetworkBalance
-              }
-            })
-
-            const balances = await Promise.all(balancePromises)
-
-            return {
-              wallet,
-              balances: balances.filter(b => b.usdc) // Only include networks with USDC balances
-            }
-          } catch (e) {
-            console.error(`Failed to load balances for wallet ${wallet.walletAddress}:`, e)
-            return { wallet, balances: [] }
-          }
-        })
-      )
-
-      setWalletsData(walletsWithBalances)
+      setWallets(walletList)
     } catch (e) {
       console.error("Failed to load wallets:", e)
       setError(e instanceof Error ? e.message : "Failed to load wallets")
-      setWalletsData([])
+      setWallets([])
     } finally {
       setWalletsLoading(false)
     }
@@ -154,14 +104,14 @@ export function UserAccountPanel({ isActive = true }: { isActive?: boolean }) {
     if (!isActive) return
     setError("")
     if (session?.user) {
-      if (activeTab === "wallets") loadWalletsWithBalances()
+      if (activeTab === "wallets") loadWallets()
       if (activeTab === "developer") loadApiKeys()
     }
   }, [isActive])
 
   useEffect(() => {
     if (!isActive || !session?.user) return
-    if (activeTab === "wallets") loadWalletsWithBalances()
+    if (activeTab === "wallets") loadWallets()
     if (activeTab === "developer") loadApiKeys()
   }, [activeTab, session?.user, isActive])
 
@@ -181,7 +131,7 @@ export function UserAccountPanel({ isActive = true }: { isActive?: boolean }) {
     setError("")
     try {
       await signOut()
-      setWalletsData([])
+      setWallets([])
       setApiKeys([])
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to sign out")
@@ -229,47 +179,28 @@ export function UserAccountPanel({ isActive = true }: { isActive?: boolean }) {
     }
   }
 
-  const totalLabel = useMemo(() => {
-    if (!walletsData || walletsData.length === 0) return "$0.00"
-
-    let totalUSD = 0
-    let primaryBalance: string | null = null
-    let primarySymbol = ""
-
-    walletsData.forEach(({ balances }) => {
-      if (balances) {
-        balances.forEach(balance => {
-          if (balance.usdc) {
-            totalUSD += parseFloat(balance.usdc.balanceFormatted || "0")
-            if (!primaryBalance) {
-              primaryBalance = balance.usdc.balanceFormatted
-              primarySymbol = balance.usdc.tokenSymbol
-            }
-          } else if (balance.native && !primaryBalance) {
-            primaryBalance = balance.native.balanceFormatted
-            primarySymbol = balance.native.nativeSymbol
-          }
-        })
-      }
-    })
-
-    if (primaryBalance) {
-      return `${primaryBalance} ${primarySymbol}`
+  function stringToHslColor(str?: string, s = 65, l = 45) {
+    if (!str) return `hsl(0 0% 80%)`
+    let hash = 0
+    for (let i = 0; i < str.length; i++) {
+      hash = str.charCodeAt(i) + ((hash << 5) - hash)
+      hash = hash & hash
     }
-    return "$0.00"
-  }, [walletsData])
+    const h = Math.abs(hash) % 360
+    return `hsl(${h} ${s}% ${l}%)`
+  }
 
-  const subtitleLabel = useMemo(() => {
-    if (!walletsData || walletsData.length === 0) return "No wallets linked yet. Link your on-chain wallet from the app."
+  function handleCopy(addr?: string) {
+    if (!addr) return
+    navigator.clipboard.writeText(addr)
+    setCopiedMap((m) => ({ ...m, [addr]: true }))
+    toast.success("Address copied")
+    setTimeout(() => {
+      setCopiedMap((m) => ({ ...m, [addr!]: false }))
+    }, 1500)
+  }
 
-    const primaryWallet = walletsData.find(({ wallet }) => wallet.isPrimary)?.wallet
-    if (primaryWallet) {
-      const networks = primaryWallet.networks?.length || 1
-      const networkText = networks > 1 ? `${networks} networks` : (primaryWallet.blockchain?.toUpperCase() || "NETWORK")
-      return `${networkText} · ${shortAddress(primaryWallet.walletAddress)}`
-    }
-    return "No primary wallet set"
-  }, [walletsData])
+  // Removed total and subtitle balance-related labels as balances are no longer fetched
 
   return (
     <div className="h-full flex flex-col p-4 sm:p-6">
@@ -338,89 +269,96 @@ export function UserAccountPanel({ isActive = true }: { isActive?: boolean }) {
         {activeTab === "wallets" && (
           <div className="h-full flex flex-col">
             <div className="flex items-center justify-between mb-4 flex-shrink-0">
-              <div className="font-medium"></div>
-              <Button size="sm" variant="outline" onClick={loadWalletsWithBalances} disabled={walletsLoading}>
-                {walletsLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Reload"}
-              </Button>
+              <div className="text-sm text-muted-foreground">
+                Linked wallets{typeof wallets?.length === 'number' ? ` · ${wallets.length}` : ''}
+              </div>
             </div>
 
             <div className="flex-1 min-h-0">
-              {walletsData.length === 0 ? (
+              {walletsLoading ? (
+                <div className="h-full overflow-y-auto pr-2">
+                  <div className="rounded-md border divide-y">
+                    {Array.from({ length: 4 }).map((_, i) => (
+                      <div key={i} className="flex items-center justify-between gap-3 p-3">
+                        <div className="flex items-center gap-2">
+                          <Skeleton className="h-7 w-7 rounded-full" />
+                          <Skeleton className="h-4 w-40" />
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Skeleton className="h-8 w-8 rounded-sm" />
+                          <Skeleton className="h-8 w-24 rounded-sm" />
+                          <Skeleton className="h-8 w-16 rounded-sm" />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : wallets.length === 0 ? (
                 <div className="flex items-center justify-center h-full text-sm text-muted-foreground">
                   No wallets linked yet. Link your on-chain wallet from the app.
                 </div>
               ) : (
                 <div className="h-full overflow-y-auto pr-2">
-                  <div className="space-y-4 pb-4">
-                    {walletsData.map(({ wallet, balances }) => (
-                      <div key={`${wallet.walletAddress}-${wallet.createdAt}`} className="border rounded-lg p-4">
-                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
-                          <div className="flex items-center gap-3">
-                            <div className="font-medium">
-                              {shortAddress(wallet.walletAddress)}
-                              {wallet.isPrimary && (
-                                <span className="ml-2 inline-flex items-center px-2 py-1 text-xs font-medium bg-primary text-primary-foreground rounded-full">
-                                  Primary
-                                </span>
-                              )}
-                            </div>
+                  <div className="rounded-md border divide-y">
+                    {[...wallets]
+                      .sort((a, b) => (b?.isPrimary ? 1 : 0) - (a?.isPrimary ? 1 : 0) || (new Date(b?.createdAt || 0).getTime() - new Date(a?.createdAt || 0).getTime()))
+                      .map((wallet) => (
+                      <div key={`${wallet.walletAddress}-${wallet.createdAt}`} className="flex items-center justify-between gap-3 p-3 hover:bg-accent/40 transition-colors h-11">
+                        <div className="flex items-center gap-2">
+                          <div className="font-mono text-sm font-medium">
+                            {shortAddress(wallet.walletAddress)}
                           </div>
-                          <div className="flex items-center gap-2">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => navigator.clipboard.writeText(wallet.walletAddress || "")}
-                            >
-                              Copy
-                            </Button>
-                            {wallet.isPrimary && (
-                              <Button
-                                size="sm"
-                                variant="default"
-                                onClick={() => wallet.walletAddress && handleOnramp(wallet.walletAddress)}
-                              >
-                                Fund
-                              </Button>
-                            )}
-                          </div>
+                          {wallet.isPrimary && (
+                            <span className="ml-1 inline-flex items-center px-1.5 py-0.5 text-[10px] font-medium bg-muted text-foreground rounded-full">
+                              Primary
+                            </span>
+                          )}
                         </div>
-
-                        {balances && balances.length > 0 ? (
-                          <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-                            {balances.map((balance) => (
-                              <div key={balance.network} className="rounded-lg border bg-card p-3">
-                                <div className="text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wide">
-                                  {balance.network}
-                                </div>
-                                <div className="space-y-2">
-                                  {balance.native && (
-                                    <div className="flex justify-between items-center">
-                                      <span className="text-sm text-muted-foreground">Native</span>
-                                      <span className="text-sm font-medium">
-                                        {balance.native.balanceFormatted} {balance.native.nativeSymbol}
-                                      </span>
-                                    </div>
-                                  )}
-                                  {balance.usdc && (
-                                    <div className="flex justify-between items-center">
-                                      <span className="text-sm text-muted-foreground">USDC</span>
-                                      <span className="text-sm font-medium">
-                                        {balance.usdc.balanceFormatted} {balance.usdc.tokenSymbol}
-                                      </span>
-                                    </div>
-                                  )}
-                                  {!balance.native && !balance.usdc && (
-                                    <div className="text-sm text-muted-foreground">No balances</div>
-                                  )}
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        ) : (
-                          <div className="text-sm text-muted-foreground py-4">
-                            Loading balances...
-                          </div>
-                        )}
+                        <div className="flex items-center gap-1.5">
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                aria-label="Copy address"
+                                size="icon"
+                                variant="outline"
+                                className="h-8 w-8"
+                                onClick={() => handleCopy(wallet.walletAddress)}
+                              >
+                                {copiedMap[wallet.walletAddress || ""] ? (
+                                  <CheckIcon className="size-4" />
+                                ) : (
+                                  <CopyIcon className="size-4" />
+                                )}
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>Copy</TooltipContent>
+                          </Tooltip>
+                          {wallet.walletAddress ? (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  aria-label="View in Zerion"
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => window.open(`https://app.zerion.io/${wallet.walletAddress}/overview`, "_blank", "noopener")}
+                                >
+                                  <ExternalLink className="h-4 w-4 mr-1" /> View
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>Open in Zerion</TooltipContent>
+                            </Tooltip>
+                          ) : null}
+                          {wallet.isPrimary && (
+                            <Button
+                              aria-label="Fund wallet"
+                              size="sm"
+                              variant="default"
+                              onClick={() => wallet.walletAddress && handleOnramp(wallet.walletAddress)}
+                            >
+                              Fund
+                            </Button>
+                          )}
+                        </div>
                       </div>
                     ))}
                   </div>

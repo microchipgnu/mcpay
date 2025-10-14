@@ -70,7 +70,7 @@ export default function Navbar() {
               variant="link"
               className={`${linkClasses} ${pathname === "/register" ? activeLinkClasses : ""}`}
             >
-              <Link href="/register">MONETIZE</Link>
+              <Link href="/register">REGISTER</Link>
             </Button>
           </div>
 
@@ -78,7 +78,7 @@ export default function Navbar() {
           <div className="flex items-center justify-end gap-1">
             <Button
               variant="ghostCustom"
-              onClick={() => openModal("funds")}
+              onClick={() => openModal("wallets")}
               disabled={sessionLoading}
               className="flex items-center gap-2 px-3 py-2 text-sm font-medium transition-colors duration-200 cursor-pointer"
               aria-label={session?.user ? "Open account" : "Connect"}
@@ -154,7 +154,7 @@ export default function Navbar() {
                       href="/register"
                       className="block font-mono tracking-wide text-lg text-muted-foreground hover:text-foreground"
                     >
-                      MONETIZE
+                      REGISTER
                     </Link>
                   </SheetClose>
                 </div>

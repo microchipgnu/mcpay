@@ -288,6 +288,40 @@ export const mcpDataApi = {
     return serviceApiCall(urlUtils.getMcpDataUrl(), '/servers')
   },
 
+  // Get a single MCP server details (rich payload)
+  getServerById: async (
+    id: string
+  ): Promise<{
+    serverId: string
+    origin: string
+    originRaw?: string
+    status?: string
+    lastSeenAt?: string
+    indexedAt?: string
+    info: { name?: string; description?: string; icon?: string }
+    tools: any[]
+    summary: { lastActivity?: string; totalTools: number; totalRequests: number; totalPayments: number }
+    dailyAnalytics: Array<{ date: string; totalRequests: number }>
+    recentPayments: Array<{
+      id: string
+      createdAt: string
+      status: 'completed' | 'failed'
+      network?: string
+      transactionHash?: string
+      payer?: string
+    }>
+  }> => {
+    return serviceApiCall(urlUtils.getMcpDataUrl(), `/server/${encodeURIComponent(id)}`)
+  },
+
+  // Trigger a fresh index by origin URL
+  runIndex: async (origin: string): Promise<{ ok: boolean } | { error: string }> => {
+    return serviceApiCall(urlUtils.getMcpDataUrl(), `/index/run`, {
+      method: 'POST',
+      body: JSON.stringify({ origin }),
+    })
+  },
+
   // Explorer stats (paginated)
   getExplorer: async (
     limit: number,
