@@ -3,6 +3,7 @@ import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
 import env from "@/env";
 import { Price } from "x402/types";
+import type { UnifiedNetwork } from "@/lib/commons/networks";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -54,34 +55,40 @@ export const urlUtils = {
     return `${API_CONFIG.baseUrl}${cleanEndpoint}`
   },
 
-  getMcp2Url: () => {
-    return env.NEXT_PUBLIC_MCP2_URL;
-  },
+  // Get service URLs from environment
+  getAuthUrl: () => env.NEXT_PUBLIC_AUTH_URL!,
+  getMcp2Url: () => env.NEXT_PUBLIC_MCP2_URL!,
+  getMcpProxyUrl: () => env.NEXT_PUBLIC_MCP_PROXY_URL!,
+  getMcpDataUrl: () => env.NEXT_PUBLIC_MCP_DATA_URL!,
 
   // Generate MCP server URL
-  getMcpUrl: (serverIdOrUrl: string, usesMpc2 = true) => {
+  getMcpUrl: (serverUrl: string) => {
     if (typeof window === "undefined" || !window.location?.origin) {
       throw new Error("window.location.origin is not available")
     }
 
-    console.log(serverIdOrUrl)
     const MCP_PROXY_URL = env.NEXT_PUBLIC_MCP_PROXY_URL
-    if (usesMpc2) {
-      // Compose the target MCP2 URL
-      const mcp2Url = `${urlUtils.getMcp2Url()}/mcp?id=${serverIdOrUrl}`
+    // Compose the target MCP2 URL
+    // const mcp2Url = `${urlUtils.getMcp2Url()}/mcp?id=${serverIdOrUrl}`
 
-      console.log(`[${new Date().toISOString()}] MCP2 URL: ${mcp2Url}`);
-      // Base64 encode the MCP2 URL
-      const base64Mcp2Url = btoa(mcp2Url)
-      // Compose the MCP proxy URL with the base64-encoded target-url param
-      const url = `${MCP_PROXY_URL}/mcp?target-url=${encodeURIComponent(base64Mcp2Url)}`
-      console.log(`[${new Date().toISOString()}] MCP URL: ${url}`);
-      return url
-    } else {
-      // Just encode the serverId directly as the target-url param
-      const base64ServerId = btoa(serverIdOrUrl)
-      return `${MCP_PROXY_URL}/mcp?target-url=${encodeURIComponent(base64ServerId)}`
-    }
+    const base64ServerUrl = btoa(serverUrl)
+    // Compose the MCP proxy URL with the base64-encoded target-url param
+    const url = `${MCP_PROXY_URL}/mcp?target-url=${encodeURIComponent(base64ServerUrl)}`
+    return url
+
+  },
+
+  // Generate full URLs for different services
+  getAuthApiUrl: (endpoint: string) => {
+    const baseUrl = urlUtils.getAuthUrl()
+    const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`
+    return `${baseUrl}${cleanEndpoint}`
+  },
+
+  getMcpDataApiUrl: (endpoint: string) => {
+    const baseUrl = urlUtils.getMcpDataUrl()
+    const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`
+    return `${baseUrl}${cleanEndpoint}`
   },
 }
 
@@ -148,6 +155,192 @@ export async function apiCall<T = unknown>(
   }
 }
 
+// Generic API call function for any service
+export async function serviceApiCall<T = unknown>(
+  baseUrl: string,
+  endpoint: string,
+  options: RequestInit = {}
+): Promise<T> {
+  const url = `${baseUrl}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`
+
+  const defaultHeaders = {
+    'Content-Type': 'application/json',
+    ...options.headers,
+  }
+
+  const config: RequestInit = {
+    ...options,
+    headers: defaultHeaders,
+    credentials: 'include'
+  }
+
+  // Add timeout
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), API_CONFIG.timeout)
+  config.signal = controller.signal
+
+  try {
+    const response = await fetch(url, config)
+    clearTimeout(timeoutId)
+
+    if (!response.ok) {
+      let errorMessage = `HTTP error! status: ${response.status}`
+      let errorDetails: unknown = null
+
+      try {
+        const errorData = await response.json()
+        errorMessage = errorData.error || errorData.message || errorMessage
+        errorDetails = errorData.details || errorData
+      } catch {
+        // Failed to parse error JSON, use status text
+        errorMessage = `${response.status}: ${response.statusText}`
+      }
+
+      // Include status code in error message for frontend handling
+      const statusAwareMessage = `${response.status}: ${errorMessage}`
+      const error = new Error(statusAwareMessage) as ApiError
+      error.status = response.status
+      error.details = errorDetails
+      throw error
+    }
+
+    return await response.json()
+  } catch (error) {
+    clearTimeout(timeoutId)
+
+    if (error instanceof Error) {
+      if (error.name === 'AbortError') {
+        throw new Error('Request timeout - please try again')
+      }
+      throw error
+    }
+
+    throw new Error('An unknown error occurred')
+  }
+}
+
+// Service-specific API functions
+export const authApi = {
+  // Get user wallets
+  getWallets: async () => {
+    return serviceApiCall(urlUtils.getAuthUrl(), '/api/wallets')
+  },
+
+  // Get wallet balance for specific network
+  getBalance: async (walletAddress: string, network: string): Promise<{ native: any, usdc: any }> => {
+    return serviceApiCall(urlUtils.getAuthUrl(), `/api/balance?walletAddress=${walletAddress}&network=${network}`)
+  },
+
+  // Get API keys
+  getApiKeys: async () => {
+    return serviceApiCall(urlUtils.getAuthUrl(), '/api/keys')
+  },
+
+  // Create API key
+  createApiKey: async (): Promise<{ key: string }> => {
+    return serviceApiCall(urlUtils.getAuthUrl(), '/api/keys', {
+      method: 'POST',
+    })
+  },
+
+  // Update API key
+  updateApiKey: async (id: string, enabled: boolean) => {
+    return serviceApiCall(urlUtils.getAuthUrl(), `/api/keys/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify({ enabled }),
+    })
+  },
+
+  // Delete API key
+  deleteApiKey: async (id: string) => {
+    return serviceApiCall(urlUtils.getAuthUrl(), `/api/keys/${id}`, {
+      method: 'DELETE',
+    })
+  },
+
+  // Get onramp URL
+  getOnrampUrl: async (walletAddress: string) => {
+    return serviceApiCall(urlUtils.getAuthUrl(), '/api/onramp/url', {
+      method: 'POST',
+      body: JSON.stringify({ walletAddress }),
+    })
+  },
+}
+
+export type McpServer = {
+  id: string
+  origin: string
+  status: string
+  last_seen_at: string
+  tools: any[]
+  server: {
+    info: {
+      name: string
+      description: string
+      icon: string
+    }
+  }
+}
+
+export const mcpDataApi = {
+  // Get MCP servers
+  getServers: async (): Promise<{ servers: McpServer[] }> => {
+    return serviceApiCall(urlUtils.getMcpDataUrl(), '/servers')
+  },
+
+  // Explorer stats (paginated)
+  getExplorer: async (
+    limit: number,
+    offset: number
+  ): Promise<{
+    stats: Array<{
+      id: string
+      ts: string
+      method: string
+      serverId: string
+      serverName: string
+      payment: {
+        hasPayment: boolean
+        paymentRequested: boolean
+        paymentProvided: boolean
+        metadata: {
+          paymentResponse?: {
+            payer: string
+            network: string
+            success: boolean
+            transaction: string
+          }
+          paymentRequest?: {
+            x402Version?: number
+            scheme?: string
+            network?: string
+            payload?: {
+              signature?: string
+              authorization?: {
+                from?: string
+                to?: string
+                value?: string
+                validAfter?: string
+                validBefore?: string
+                nonce?: string
+              }
+            }
+          }
+        }
+      }
+    }>
+    total: number
+    limit: number
+    offset: number
+    nextOffset: number
+    hasMore: boolean
+  }> => {
+    const params = new URLSearchParams({ limit: String(limit), offset: String(offset) })
+    return serviceApiCall(urlUtils.getMcpDataUrl(), `/explorer?${params.toString()}`)
+  },
+}
+
+
 // Specific API functions
 export const api = {
   // Register a new MCP server
@@ -196,8 +389,112 @@ export const api = {
   },
 
   // Get user wallets with balance information
-  getUserWalletsWithBalances: async (userId: string, includeTestnet = true) => {
-    return apiCall(`/users/${userId}/wallets?includeTestnet=${includeTestnet}`)
+  getUserWalletsWithBalances: async (includeTestnet = true) => {
+    // Fetch wallets from auth service
+    const wallets = await authApi.getWallets()
+
+    if (!Array.isArray(wallets) || wallets.length === 0) {
+      return {
+        wallets: [],
+        totalFiatValue: '0',
+        testnetTotalFiatValue: '0',
+        summary: {
+          hasMainnetBalances: false,
+          hasTestnetBalances: false,
+          mainnetValueUsd: 0,
+          testnetValueUsd: 0
+        },
+        mainnetBalancesByChain: {},
+        testnetBalancesByChain: {}
+      }
+    }
+
+    // Define networks to check for each wallet
+    const networks = includeTestnet
+      ? ["base", "polygon", "base-sepolia", "polygon-amoy"]
+      : ["base", "polygon"]
+
+    let totalFiatValue = 0
+    let testnetTotalFiatValue = 0
+    let hasMainnetBalances = false
+    let hasTestnetBalances = false
+    let mainnetValueUsd = 0
+    let testnetValueUsd = 0
+
+    const mainnetBalancesByChain: Partial<Record<UnifiedNetwork, unknown[]>> = {}
+    const testnetBalancesByChain: Partial<Record<UnifiedNetwork, unknown[]>> = {}
+
+    // For each wallet, fetch balances for each network
+    const walletsWithBalances = await Promise.all(
+      wallets.map(async (wallet: { walletAddress: string;[key: string]: unknown }) => {
+        const walletBalances = []
+
+        for (const network of networks) {
+          try {
+            const balanceData = await authApi.getBalance(wallet.walletAddress, network)
+
+            if (balanceData && balanceData.usdc) {
+              const isTestnet = network.includes('sepolia') || network.includes('amoy')
+
+              // Calculate fiat value from balance data
+              let fiatValue = 0
+              if (balanceData.usdc?.balanceFormatted) {
+                fiatValue += parseFloat(balanceData.usdc.balanceFormatted) || 0
+              }
+
+              if (isTestnet) {
+                testnetTotalFiatValue += fiatValue
+                testnetValueUsd += fiatValue
+                hasTestnetBalances = true
+
+                if (!testnetBalancesByChain[network as UnifiedNetwork]) {
+                  testnetBalancesByChain[network as UnifiedNetwork] = []
+                }
+                testnetBalancesByChain[network as UnifiedNetwork]!.push(balanceData.usdc)
+              } else {
+                totalFiatValue += fiatValue
+                mainnetValueUsd += fiatValue
+                hasMainnetBalances = true
+
+                if (!mainnetBalancesByChain[network as UnifiedNetwork]) {
+                  mainnetBalancesByChain[network as UnifiedNetwork] = []
+                }
+                mainnetBalancesByChain[network as UnifiedNetwork]!.push(balanceData.usdc)
+              }
+
+              walletBalances.push({
+                network,
+                native: null,
+                usdc: balanceData.usdc,
+                fiatValue
+              })
+            }
+          } catch (error) {
+            // If balance fails for a network, continue with other networks
+            console.warn(`Failed to get balance for ${wallet.walletAddress} on ${network}:`, error)
+          }
+        }
+
+        return {
+          ...wallet,
+          balances: walletBalances
+        }
+      })
+    )
+
+    return {
+      wallets: walletsWithBalances,
+      totalFiatValue: totalFiatValue.toString(),
+      testnetTotalFiatValue: testnetTotalFiatValue.toString(),
+      summary: {
+        hasMainnetBalances,
+        hasTestnetBalances,
+        mainnetValueUsd,
+        testnetValueUsd
+      },
+      mainnetBalancesByChain,
+      testnetBalancesByChain
+    }
   },
 
   addWalletToUser: async (userId: string, walletData: {
@@ -281,19 +578,21 @@ export const api = {
     limit: number,
     offset: number,
     status: 'completed' | 'pending' | 'failed' | undefined = 'completed'
-  ): Promise<{ items: Array<{
-    id: string;
-    status: 'success' | 'pending' | 'failed';
-    serverId: string;
-    serverName: string;
-    tool: string;
-    amountFormatted: string;
-    currency: string;
-    network: string;
-    user: string;
-    timestamp: string;
-    txHash: string;
-  }>; total: number }> => {
+  ): Promise<{
+    items: Array<{
+      id: string;
+      status: 'success' | 'pending' | 'failed';
+      serverId: string;
+      serverName: string;
+      tool: string;
+      amountFormatted: string;
+      currency: string;
+      network: string;
+      user: string;
+      timestamp: string;
+      txHash: string;
+    }>; total: number
+  }> => {
     const total = 240
 
     const baseTime = Date.now()

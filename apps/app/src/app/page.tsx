@@ -12,185 +12,27 @@ import TypingAnimation from "@/components/custom-ui/typing-animation"
 import { useTheme } from "@/components/providers/theme-context"
 import { Button } from "@/components/ui/button"
 import { useWindowScroll } from "@/hooks/use-chat-scroll"
-import { ArrowRight, Rocket, TrendingUp } from "lucide-react"
+import { mcpDataApi, McpServer } from "@/lib/client/utils"
+import { ArrowRight, Rocket } from "lucide-react"
 import Link from "next/link"
 import { useEffect, useState } from "react"
 
-interface APITool {
-  id: string;
-  name: string;
-  description: string;
-  inputSchema: Record<string, unknown>;
-  isMonetized: boolean;
-  payment: Record<string, unknown> | null;
-  status: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
-interface MCPTool {
-  name: string
-  description?: string
-  inputSchema: {
-    type: string
-    properties: Record<string, MCPInputPropertySchema>
-  }
-  annotations?: {
-    title?: string
-    readOnlyHint?: boolean
-    destructiveHint?: boolean
-    idempotentHint?: boolean
-    openWorldHint?: boolean
-  }
-}
-
-interface MCPInputPropertySchema {
-  type: string;
-  description?: string;
-  [key: string]: unknown;
-}
-
-export interface MCPServer {
-  id: string
-  name: string
-  description: string
-  url: string
-  category: string
-  tools: MCPTool[]
-  icon: React.ReactNode
-  verified?: boolean
-}
-
-interface APIServer {
-  id: string;
-  serverId: string;
-  name: string;
-  receiverAddress: string;
-  description: string;
-  metadata?: Record<string, unknown>;
-  status: string;
-  createdAt: string;
-  updatedAt: string;
-  tools: APITool[];
-}
-
-const transformServerData = (apiServer: APIServer): MCPServer => ({
-  id: apiServer.serverId,
-  name: apiServer.name || 'Unknown Server',
-  description: apiServer.description || 'No description available',
-  url: apiServer.receiverAddress,
-  category: (apiServer.metadata as Record<string, unknown>)?.category as string || 'General',
-  icon: <TrendingUp className="h-6 w-6" />,
-  verified: apiServer.status === 'active',
-  tools: apiServer.tools.map(tool => ({
-    name: tool.name,
-    description: tool.description,
-    inputSchema: {
-      type: (tool.inputSchema as Record<string, unknown>)?.type as string || "object",
-      properties: (tool.inputSchema as Record<string, unknown>)?.properties as Record<string, MCPInputPropertySchema> || {}
-    },
-    annotations: {
-      title: tool.name,
-      readOnlyHint: !tool.isMonetized,
-      destructiveHint: false,
-    },
-  })),
-});
 
 export default function MCPBrowser() {
-  const [mcpServers, setMcpServers] = useState<MCPServer[]>([])
+  const [mcpServers, setMcpServers] = useState<McpServer[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-
-  // Mock data for MCP servers
+  
   useEffect(() => {
-    // Simulate async delay for loading
-    const timeout = setTimeout(() => {
-      const mockServers: MCPServer[] = [
-        {
-          id: "1",
-          name: "OpenAI GPT",
-          description: "Powerful AI model for text, images, code, and more.",
-          url: "https://api.example.com/openai",
-          category: "AI",
-          tools: [
-            {
-              name: "chat",
-              description: "Text chat with GPT-4",
-              inputSchema: {
-                type: "object",
-                properties: {
-                  prompt: { type: "string", description: "Prompt to send" },
-                }
-              },
-              annotations: {
-                title: "Chat",
-                readOnlyHint: false,
-                destructiveHint: false,
-              }
-            }
-          ],
-          icon: <TrendingUp className="h-6 w-6" />,
-          verified: true,
-        },
-        {
-          id: "2",
-          name: "Stable Diffusion",
-          description: "Generate images from text using Stable Diffusion.",
-          url: "https://api.example.com/stablediff",
-          category: "Image",
-          tools: [
-            {
-              name: "generate",
-              description: "Generate image from prompt",
-              inputSchema: {
-                type: "object",
-                properties: {
-                  prompt: { type: "string", description: "Describe the image" },
-                }
-              },
-              annotations: {
-                title: "Generate Image",
-                readOnlyHint: false,
-                destructiveHint: false,
-              }
-            }
-          ],
-          icon: <TrendingUp className="h-6 w-6" />,
-          verified: true,
-        },
-        {
-          id: "3",
-          name: "Llama3",
-          description: "Open-source large language model for chat and code.",
-          url: "https://api.example.com/llama3",
-          category: "AI",
-          tools: [
-            {
-              name: "chat",
-              description: "Advanced NLP chat from Meta",
-              inputSchema: {
-                type: "object",
-                properties: {
-                  prompt: { type: "string", description: "Chat prompt" },
-                }
-              },
-              annotations: {
-                title: "Chat",
-                readOnlyHint: false,
-                destructiveHint: false,
-              }
-            }
-          ],
-          icon: <TrendingUp className="h-6 w-6" />,
-          verified: false,
-        },
-      ];
-      setMcpServers(mockServers);
-      setLoading(false);
-    }, 700);
 
-    return () => clearTimeout(timeout);
+    mcpDataApi.getServers().then((servers) => {
+      setMcpServers(servers.servers)
+      setLoading(false)
+    })
+
+    return () => {
+      setLoading(false)
+    }
   }, []);
 
 

@@ -12,96 +12,12 @@ import {
     PaginationNext,
     PaginationPrevious,
 } from "@/components/ui/pagination"
-import { TrendingUp } from "lucide-react"
+import { mcpDataApi, McpServer } from "@/lib/client/utils"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useEffect, useMemo, useRef, useState } from "react"
-import env from "@/env"
 
-interface APITool {
-    id: string
-    name: string
-    description: string
-    inputSchema: Record<string, unknown>
-    isMonetized: boolean
-    payment: Record<string, unknown> | null
-    status: string
-    createdAt: string
-    updatedAt: string
-}
-interface MCPInputPropertySchema {
-    type: string
-    description?: string
-    [key: string]: unknown
-}
-interface MCPTool {
-    name: string
-    description?: string
-    inputSchema: {
-        type: string
-        properties: Record<string, MCPInputPropertySchema>
-    }
-    annotations?: {
-        title?: string
-        readOnlyHint?: boolean
-        destructiveHint?: boolean
-        idempotentHint?: boolean
-        openWorldHint?: boolean
-    }
-}
-export interface MCPServer {
-    id: string
-    name: string
-    description: string
-    url: string
-    category: string
-    tools: MCPTool[]
-    icon: React.ReactNode
-    verified?: boolean
-}
-interface APIServer {
-    id: string
-    serverId: string
-    name: string
-    receiverAddress: string
-    description: string
-    metadata?: Record<string, unknown>
-    status: string
-    createdAt: string
-    updatedAt: string
-    tools: APITool[]
-}
-type ApiArrayResponse = APIServer[]
-type ApiObjectResponse = { items: APIServer[]; total: number }
-
-type Mcp2ServerLink = {
-    id: string
-    url: string
-}
-
-type Mcp2ServersResponse = {
-    servers: Mcp2ServerLink[]
-}
 
 const PAGE_SIZE = 12
-
-const transformServerData = (s: APIServer): MCPServer => ({
-    id: s.serverId,
-    name: s.name || "Unknown Server",
-    description: s.description || "No description available",
-    url: s.receiverAddress,
-    category: (s.metadata as Record<string, unknown>)?.category as string || "General",
-    icon: <TrendingUp className="h-6 w-6" />,
-    verified: s.status === "active",
-    tools: s.tools.map(t => ({
-        name: t.name,
-        description: t.description,
-        inputSchema: {
-            type: (t.inputSchema as Record<string, unknown>)?.type as string || "object",
-            properties: (t.inputSchema as Record<string, unknown>)?.properties as Record<string, MCPInputPropertySchema> || {},
-        },
-        annotations: { title: t.name, readOnlyHint: !t.isMonetized, destructiveHint: false },
-    })),
-})
 
 export default function ClientServersPage() {
     const { isDark } = useTheme()
@@ -111,8 +27,8 @@ export default function ClientServersPage() {
     const pageFromQuery = Number(searchParams.get("page") || "1")
     const [page, setPage] = useState<number>(Number.isFinite(pageFromQuery) && pageFromQuery > 0 ? pageFromQuery : 1)
 
-    const [servers, setServers] = useState<MCPServer[]>([])
-    const [allServers, setAllServers] = useState<MCPServer[]>([])
+    const [servers, setServers] = useState<McpServer[]>([])
+    const [allServers, setAllServers] = useState<McpServer[]>([])
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState<string | null>(null)
     const [hasNext, setHasNext] = useState(false)
@@ -142,35 +58,14 @@ export default function ClientServersPage() {
 
     // Fetch servers from MCP2 `/servers`
     useEffect(() => {
-        const controller = new AbortController()
-        const signal = controller.signal
-
         const fetchServers = async () => {
             setLoading(true)
             setError(null)
             try {
-                const base = new URL(env.NEXT_PUBLIC_MCP2_URL)
-                const endpoint = `${base.origin}/servers`
+                const data = await mcpDataApi.getServers()
+                const links = Array.isArray(data.servers) ? data.servers : []
 
-                const res = await fetch(endpoint, { signal, headers: { "Accept": "application/json" } })
-                if (!res.ok) {
-                    throw new Error(`${res.status}: ${res.statusText}`)
-                }
-                const data = (await res.json()) as Mcp2ServersResponse
-                const links = Array.isArray(data?.servers) ? data.servers : []
-
-                const mapped: MCPServer[] = links.map((link) => ({
-                    id: link.id,
-                    name: link.id,
-                    description: "MCP2 server",
-                    url: link.url,
-                    category: "General",
-                    tools: [],
-                    icon: <TrendingUp className="h-6 w-6" />,
-                    verified: true,
-                }))
-
-                setAllServers(mapped)
+                setAllServers(links)
             } catch (e: unknown) {
                 if (e instanceof Error && e.name !== "AbortError") setError(e.message)
                 else if (!(e instanceof Error)) setError("Failed to fetch servers")
@@ -181,7 +76,6 @@ export default function ClientServersPage() {
         }
 
         fetchServers()
-        return () => controller.abort()
     }, [])
 
     // Slice current page

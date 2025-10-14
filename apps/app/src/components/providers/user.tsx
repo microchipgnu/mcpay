@@ -3,7 +3,8 @@
 import { useSession } from "@/lib/client/auth"
 import { api } from "@/lib/client/utils"
 import { createContext, useContext, useCallback, useEffect, useState, type ReactNode } from "react"
-import type { UserWallet, BalancesByChain } from "@/types/wallet"
+import type { UserWallet } from "@/types/wallet"
+import type { UnifiedNetwork } from "@/lib/commons/networks"
 
 // Define the shape of wallet data with balances
 export interface UserWalletData {
@@ -16,8 +17,8 @@ export interface UserWalletData {
     mainnetValueUsd: number
     testnetValueUsd: number
   }
-  mainnetBalancesByChain: Partial<Record<string, unknown[]>>
-  testnetBalancesByChain: Partial<Record<string, unknown[]>>
+  mainnetBalancesByChain: Partial<Record<UnifiedNetwork, unknown[]>>
+  testnetBalancesByChain: Partial<Record<UnifiedNetwork, unknown[]>>
 }
 
 // Define the context interface
@@ -62,8 +63,8 @@ const defaultWalletData: UserWalletData = {
     mainnetValueUsd: 0,
     testnetValueUsd: 0
   },
-  mainnetBalancesByChain: {},
-  testnetBalancesByChain: {}
+  mainnetBalancesByChain: {} as Partial<Record<UnifiedNetwork, unknown[]>>,
+  testnetBalancesByChain: {} as Partial<Record<UnifiedNetwork, unknown[]>>
 }
 
 // Create the context
@@ -96,7 +97,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
     setError(null)
 
     try {
-      const response = await api.getUserWalletsWithBalances(session.user.id, includeTestnet)
+      const response = await api.getUserWalletsWithBalances(includeTestnet)
       
       const {
         wallets = [],
@@ -108,8 +109,8 @@ export function UserProvider({ children }: { children: ReactNode }) {
           mainnetValueUsd: 0,
           testnetValueUsd: 0
         },
-        mainnetBalancesByChain = {},
-        testnetBalancesByChain = {}
+        mainnetBalancesByChain = {} as Partial<Record<UnifiedNetwork, unknown[]>>,
+        testnetBalancesByChain = {} as Partial<Record<UnifiedNetwork, unknown[]>>
       } = response as {
         wallets: UserWallet[]
         totalFiatValue: string
@@ -120,8 +121,8 @@ export function UserProvider({ children }: { children: ReactNode }) {
           mainnetValueUsd: number
           testnetValueUsd: number
         }
-        mainnetBalancesByChain: Partial<Record<string, unknown[]>>
-        testnetBalancesByChain: Partial<Record<string, unknown[]>>
+        mainnetBalancesByChain: Partial<Record<UnifiedNetwork, unknown[]>>
+        testnetBalancesByChain: Partial<Record<UnifiedNetwork, unknown[]>>
       }
 
       setWalletData({

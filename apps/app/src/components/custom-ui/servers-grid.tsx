@@ -1,6 +1,6 @@
 "use client"
 
-import { MCPServer } from "@/app/page"
+import { McpServer } from "@/lib/client/utils"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -16,7 +16,7 @@ export default function ServersGrid({
   loading = false,
   className = "", // NEW
 }: {
-  servers: MCPServer[]
+  servers: McpServer[]
   loading?: boolean
   className?: string // NEW
 }) {
@@ -37,9 +37,9 @@ export default function ServersGrid({
   )
 }
 
-function ServerCard({ server }: { server: MCPServer }) {
+function ServerCard({ server }: { server: McpServer }) {
   const [copied, setCopied] = useState(false)
-  const url = urlUtils.getMcpUrl(server.id)
+  const url = urlUtils.getMcpUrl(server.origin)
 
   const handleCopy = () => {
     navigator.clipboard.writeText(url)
@@ -52,9 +52,9 @@ function ServerCard({ server }: { server: MCPServer }) {
     <Link href={`/servers/${server.id}`} className="group">
       <Card className="border border-border bg-background hover:shadow-lg rounded-lg transition-all cursor-pointer group-hover:border-foreground gap-0">
         <CardHeader className="mb-4">
-          <CardTitle className="text-lg">{server.name}</CardTitle>
+          <CardTitle className="text-lg">{server?.server?.info?.name || "Unknown Server"}</CardTitle>
           <p className="text-sm text-muted-foreground line-clamp-2">
-            {server.description}
+            {server?.server?.info?.description || "No description available"}
           </p>
         </CardHeader>
 

@@ -17,27 +17,13 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { getExplorerUrl } from "@/lib/client/blockscout"
-import { api } from "@/lib/client/utils"
+import { mcpDataApi } from "@/lib/client/utils"
 import { isNetworkSupported, type UnifiedNetwork } from "@/lib/commons"
 import { ArrowUpRight, CheckCircle2, Copy } from "lucide-react"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useEffect, useMemo, useState } from "react"
 import { toast } from "sonner"
-
-type PaymentListItem = {
-  id: string
-  status: PaymentStatus
-  serverId: string
-  serverName: string
-  tool: string
-  amountFormatted: string
-  currency: string
-  network: string
-  user: string
-  timestamp: string
-  txHash: string
-}
 
 /* ---------------- Types used by UI ---------------- */
 type PaymentStatus = "success" | "pending" | "failed"
@@ -146,23 +132,50 @@ export default function ClientExplorerPage() {
 
       try {
         const offset = (page - 1) * PAGE_SIZE
-        const { items, total } = await api.getLatestPayments(PAGE_SIZE, offset, 'completed')
-        const mapped: ExplorerRow[] = items.map((p: PaymentListItem) => ({
-          id: p.id,
-          status: p.status as PaymentStatus,
-          serverId: p.serverId,
-          serverName: p.serverName,
-          tool: p.tool,
-          amountFormatted: p.amountFormatted,
-          currency: p.currency,
-          network: p.network,
-          user: p.user,
-          timestamp: p.timestamp,
-          txHash: p.txHash,
-        }))
+        const { stats, total, hasMore } = await mcpDataApi.getExplorer(PAGE_SIZE, offset)
+        const mapped: ExplorerRow[] = stats
+          .map((s) => {
+            const pr = s.payment?.metadata?.paymentResponse as
+              | { payer?: string; network?: string; success?: boolean; transaction?: string }
+              | undefined
+            const preq = s.payment?.metadata?.paymentRequest as
+              | { network?: string; payload?: { authorization?: { value?: string } } }
+              | undefined
+
+            const network = (pr?.network || preq?.network || '-') as string
+            const txHash = pr?.transaction || ''
+            const status: PaymentStatus = pr
+              ? (pr.success ? 'success' : 'failed')
+              : (s.payment?.paymentRequested ? 'pending' : 'failed')
+
+            return {
+              id: s.id,
+              status,
+              serverId: s.serverId,
+              serverName: s.serverName,
+              tool: s.method,
+              amountFormatted: (() => {
+                // 6 decimals: value is a stringified integer, e.g., "100000" => "0.1"
+                const raw = preq?.payload?.authorization?.value
+                if (!raw || isNaN(Number(raw))) return ''
+                // Always divide by 1e6 and show up to 6 decimals (remove trailing zeros)
+                return (Number(raw) / 1e6).toLocaleString('en-US', {
+                  minimumFractionDigits: 0,
+                  maximumFractionDigits: 6,
+                })
+              })(),
+              currency: pr ? "USDC" : undefined,
+              network,
+              user: pr?.payer || '',
+              timestamp: s.ts,
+              txHash,
+            } as ExplorerRow
+          })
+          .filter(Boolean) as ExplorerRow[]
+
         setRows(mapped)
         setTotalCount(total)
-        setHasNext(offset + mapped.length < total)
+        setHasNext(hasMore)
       } catch (e: unknown) {
         if (e instanceof Error && e.name !== "AbortError") setError(e.message)
         else if (!(e instanceof Error)) setError("Failed to fetch payments")
@@ -227,7 +240,7 @@ export default function ClientExplorerPage() {
                   <TableRow className="border-b border-border">
                     <TableHead className="w-[40px] pr-1 sr-only">Status</TableHead>
                     <TableHead className={`${th} font-mono`}>Server</TableHead>
-                    <TableHead className={`${th} font-mono`}>Tool</TableHead>
+                    <TableHead className={`${th} font-mono`}>Method</TableHead>
                     <TableHead className={`${th} font-mono`}>Amount</TableHead>
                     <TableHead className={`${th} font-mono`}>Network</TableHead>
                     <TableHead className={`${th} font-mono`}>Date</TableHead>
@@ -304,7 +317,7 @@ export default function ClientExplorerPage() {
                               <Tooltip>
                                 <TooltipTrigger asChild>
                                   <div className="flex items-center gap-2 text-xs sm:text-sm">
-                                    <TokenIcon currencyOrAddress={r.currency} network={r.network} size={16} />
+                                    {r.currency && <TokenIcon currencyOrAddress={r.currency} network={r.network} size={16} />}
                                     <span className="text-foreground">{r.amountFormatted}</span>
                                   </div>
                                 </TooltipTrigger>

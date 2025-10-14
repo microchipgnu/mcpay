@@ -5,8 +5,20 @@ import { Context, Hono } from 'hono';
 import { db } from './db/client.js';
 import { mcpServers, rpcLogs } from './db/schema.js';
 import { inspectMcp } from './inspect/mcp.js';
+import { cors } from 'hono/cors';
 
 const app = new Hono();
+app.use(
+  cors({
+    origin: (origin) => {
+      // Allow all origins, or customize as needed
+      return origin ?? "*";
+    },
+    credentials: true,
+    allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowHeaders: ['Content-Type', 'Authorization', 'x-api-key'],
+  })
+);
 
 app.get('/health', (c: Context) => c.json({ ok: true }));
 
@@ -91,8 +103,8 @@ app.post('/ingest/rpc', async (c: Context) => {
           typeof durationMsRaw === 'number'
             ? durationMsRaw
             : typeof durationMsRaw === 'string'
-            ? Number(durationMsRaw)
-            : undefined;
+              ? Number(durationMsRaw)
+              : undefined;
         if (typeof durationMs === 'number' && Number.isNaN(durationMs)) durationMs = undefined;
 
         let meta: any = entry.meta ?? entry.metadata ?? {};
@@ -131,15 +143,21 @@ app.post('/index/run', async (c: Context) => {
   if (!origin) return c.json({ error: 'missing_origin' }, 400);
 
   try {
-    // Keep raw origin, and build a sanitized display origin (strip query and hash)
+    // Only strip query/hash if sensitive parameters are present (e.g. API key in query)
     const originRaw = origin;
     let displayOrigin = originRaw;
     try {
       const u = new URL(originRaw);
-      u.search = '';
-      u.hash = '';
-      displayOrigin = u.toString();
-    } catch {}
+      // Check for known sensitive keys
+      const sensitiveKeys = ['api_key', 'apikey', 'access_token', 'token', 'key', 'auth', 'api-key'];
+      const queryKeys = Array.from(u.searchParams.keys()).map(k => k.toLowerCase());
+      const hasSensitive = sensitiveKeys.some(k => queryKeys.includes(k));
+      if (hasSensitive) {
+        u.search = '';
+        u.hash = '';
+        displayOrigin = u.toString();
+      }
+    } catch { }
 
     // Perform rich inspection via MCP client (best-effort)
     const inspection = await inspectMcp(originRaw).catch(() => null);
@@ -169,45 +187,171 @@ app.post('/index/run', async (c: Context) => {
 });
 
 app.get('/servers', async (c: Context) => {
-  const query = c.req.query('query')?.trim();
   try {
-    if (!query) {
-      const rows = await db
-        .select({
-          id: mcpServers.id,
-          origin: mcpServers.origin,
-          status: mcpServers.status,
-          last_seen_at: mcpServers.lastSeenAt,
-        })
-        .from(mcpServers)
-        .orderBy(desc(mcpServers.lastSeenAt))
-        .limit(200);
-      return c.json({ servers: rows });
-    }
-    // Simple case-insensitive match on origin/title and tag include via JSONB
-    const q = `%${query}%`;
+    // Always fetch the most recent 200 servers, no query logic.
     const rows = await db
       .select({
         id: mcpServers.id,
         origin: mcpServers.origin,
         status: mcpServers.status,
         last_seen_at: mcpServers.lastSeenAt,
+        data: mcpServers.data,
       })
       .from(mcpServers)
-      .where(
-        or(
-          ilike(mcpServers.origin, q),
-          // JSONB text search on data -> title or tags within data
-          sql`${mcpServers.data}::text ILIKE ${q}`
-        )
-      )
       .orderBy(desc(mcpServers.lastSeenAt))
       .limit(200);
-    return c.json({ servers: rows });
+
+    const servers = rows.map(row => ({
+      id: row.id,
+      origin: row.origin,
+      status: row.status,
+      last_seen_at: row.last_seen_at,
+      // @ts-ignore
+      tools: row.data?.tools || [],
+      server: {
+        info: {
+          // @ts-ignore
+          name: row.data?.server?.info?.name || '',
+          // @ts-ignore
+          description: row.data?.server?.info?.description || '',
+          // @ts-ignore
+          icon: row.data?.server?.info?.icon || '',
+        },
+      }
+    }));
+
+    return c.json({ servers });
   } catch (e) {
     return c.json({ error: (e as Error).message }, 500);
   }
 });
+
+app.get('/server/:id', async (c: Context) => {
+  const id = c.req.param('id');
+  const server = await db.select().from(mcpServers).where(eq(mcpServers.id, id));
+  return c.json({ server });
+});
+
+app.get('/explorer', async (c: Context) => {
+  // Parse optional ?limit and ?offset query params for pagination
+  const limit = Math.max(1, Math.min(100, parseInt(c.req.query('limit') ?? '5', 10))) // default 5, max 100
+  const offset = Math.max(0, parseInt(c.req.query('offset') ?? '0', 10))
+
+  // Get total count for pagination metadata
+  const [{ count }] = await db.select({ count: sql`count(*)` }).from(rpcLogs);
+
+  // Fetch paginated results
+  const rows = await db
+    .select({
+      id: rpcLogs.id,
+      ts: rpcLogs.ts,
+      serverId: rpcLogs.serverId,
+      origin: rpcLogs.origin,
+      originRaw: rpcLogs.originRaw,
+      method: rpcLogs.method,
+      request: rpcLogs.request,
+      response: rpcLogs.response,
+      meta: rpcLogs.meta,
+      serverData: mcpServers.data,
+      serverOrigin: mcpServers.origin,
+    })
+    .from(rpcLogs)
+    .leftJoin(mcpServers, eq(rpcLogs.serverId, mcpServers.id))
+    .orderBy(desc(rpcLogs.ts))
+    .limit(limit)
+    .offset(offset);
+
+  const toLowerCaseHeaders = (h: unknown): Record<string, unknown> => {
+    if (!h || typeof h !== 'object') return {};
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(h as Record<string, unknown>)) {
+      out[String(k).toLowerCase()] = v;
+    }
+    return out;
+  };
+
+  const safeBase64Decode = (input: unknown): string | undefined => {
+    if (typeof input !== 'string' || input.length === 0) return undefined;
+    try {
+      // decode base64 to utf8; if it fails, return undefined
+      const decoded = Buffer.from(input, 'base64').toString('utf8');
+      return decoded;
+    } catch {
+      return undefined;
+    }
+  };
+
+  const safeJsonParse = (input: unknown): unknown => {
+    if (typeof input !== 'string' || input.length === 0) return undefined;
+    try {
+      return JSON.parse(input);
+    } catch {
+      return undefined;
+    }
+  };
+
+  const detectPayment = (req: unknown, res: unknown, meta: unknown) => {
+    const request = (req && typeof req === 'object') ? (req as Record<string, unknown>) : {};
+    const response = (res && typeof res === 'object') ? (res as Record<string, unknown>) : {};
+    const metaObj = (meta && typeof meta === 'object') ? (meta as Record<string, unknown>) : {};
+
+    const headersLc = toLowerCaseHeaders((request as { headers?: unknown }).headers);
+    const headerToken = (headersLc['x-payment'] as string | undefined) || undefined;
+
+    const paramsObj = ((request as { params?: unknown }).params && typeof (request as { params?: unknown }).params === 'object'
+      ? (request as { params?: Record<string, unknown> }).params
+      : undefined);
+    const reqMeta = (paramsObj && typeof (paramsObj as any)._meta === 'object'
+      ? ((paramsObj as any)._meta as Record<string, unknown>)
+      : undefined);
+    const reqMetaToken = reqMeta && (reqMeta['x402/payment'] as string | undefined);
+    const metaToken = metaObj && (metaObj['x402/payment'] as string | undefined);
+
+    const resMeta = (response._meta as Record<string, unknown> | undefined) || undefined;
+    const paymentResponse = resMeta && (resMeta['x402/payment-response'] as Record<string, unknown> | undefined);
+    const x402Error = resMeta && (resMeta['x402/error'] as { accepts?: unknown } | undefined);
+
+    const hasPayment = !!paymentResponse;
+    const paymentRequestRaw = reqMetaToken || metaToken;
+    const paymentRequestDecoded = safeBase64Decode(paymentRequestRaw) ?? paymentRequestRaw;
+    const paymentRequestJson = typeof paymentRequestDecoded === 'string' ? safeJsonParse(paymentRequestDecoded) : undefined;
+    const paymentRequested = !!((x402Error && Array.isArray(x402Error.accepts)) || paymentRequestRaw);
+    const paymentProvided = !!(headerToken || reqMetaToken || metaToken);
+
+    return {
+      hasPayment, paymentRequested, paymentProvided, metadata: {
+        paymentResponse,
+        x402Error,
+        paymentRequest: paymentRequestJson,
+      }
+    };
+  };
+
+  const stats = rows.map((r) => {
+    // @ts-ignore
+    const name = (r.serverData && (r.serverData as any)?.server?.info?.name) || '';
+    const payment = detectPayment(r.request, r.response, r.meta);
+    return {
+      id: r.id,
+      ts: r.ts,
+      method: r.method,
+      serverId: r.serverId,
+      serverName: name,
+      payment,
+    };
+  });
+
+  return c.json({
+    stats,
+    total: Number(count),
+    limit,
+    offset,
+    nextOffset: offset + stats.length < Number(count) ? offset + stats.length : null,
+    hasMore: offset + stats.length < Number(count),
+  });
+});
+
+
 
 const port = 3010;
 serve({ fetch: app.fetch, port }, (info) => {

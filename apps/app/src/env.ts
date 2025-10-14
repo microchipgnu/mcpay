@@ -1,49 +1,39 @@
 import { z } from 'zod';
 
-// Define the schema for environment variables
-const envSchema = z.object({
-  // Node.js environment
+// Define the schema for client-safe environment variables
+const clientEnvSchema = z.object({
+  // Next.js replaces process.env.NODE_ENV at build time
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
 
-  NEXT_PUBLIC_AUTH_URL: z.url('NEXT_PUBLIC_AUTH_URL must be a valid URL').default(''),
-  // MCP2 Configuration
-  NEXT_PUBLIC_MCP2_URL: z.url().default('https://mcp2.mcpay.tech'),
-
-  NEXT_PUBLIC_MCP_PROXY_URL: z.url().default('https://mcp.mcpay.tech'),
+  // Only expose NEXT_PUBLIC_* vars on the client
+  NEXT_PUBLIC_AUTH_URL: z.string().url().optional(),
+  NEXT_PUBLIC_MCP2_URL: z.string().url(),
+  NEXT_PUBLIC_MCP_PROXY_URL: z.string().url(),
+  NEXT_PUBLIC_MCP_DATA_URL: z.string().url(),
 });
 
-// Parse and validate environment variables
-function parseEnv() {
-  try {
-    return envSchema.parse(process.env);
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      const missingVars = error.issues
-        .filter((err) => err.code === 'invalid_type')
-        .map((err) => err.path.join('.'));
-      
-      const invalidVars = error.issues
-        .filter((err) => err.code !== 'invalid_type')
-        .map((err) => `${err.path.join('.')}: ${err.message}`);
+// Build the raw env object using individual references so Next can inline them
+const rawClientEnv = {
+  NODE_ENV: process.env.NODE_ENV,
+  NEXT_PUBLIC_AUTH_URL: process.env.NEXT_PUBLIC_AUTH_URL,
+  NEXT_PUBLIC_MCP2_URL: process.env.NEXT_PUBLIC_MCP2_URL ?? 'https://mcp2.mcpay.tech',
+  NEXT_PUBLIC_MCP_PROXY_URL: process.env.NEXT_PUBLIC_MCP_PROXY_URL ?? 'https://mcp.mcpay.tech',
+  NEXT_PUBLIC_MCP_DATA_URL: process.env.NEXT_PUBLIC_MCP_DATA_URL ?? 'http://localhost:3010',
+};
 
-      console.error('❌ Environment validation failed:');
-      
-      if (missingVars.length > 0) {
-        console.error('Missing required variables:', missingVars.join(', '));
-      }
-      
-      if (invalidVars.length > 0) {
-        console.error('Invalid variables:', invalidVars.join(', '));
-      }
-      
-      process.exit(1);
-    }
-    throw error;
+// Validate without crashing the browser or dev server
+const parsed = clientEnvSchema.safeParse(rawClientEnv);
+if (!parsed.success) {
+  const issues = parsed.error.flatten().fieldErrors;
+  if (typeof window !== 'undefined') {
+    console.warn('Environment validation failed on the client:', issues);
+  } else {
+    console.warn('Environment validation failed:', issues);
   }
 }
 
 // Export the validated environment variables
-export const env = parseEnv();
+export const env = (parsed.success ? parsed.data : rawClientEnv);
 
 // Type for the environment object
 export type Env = typeof env;

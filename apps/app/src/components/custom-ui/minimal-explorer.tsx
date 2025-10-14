@@ -7,6 +7,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { getExplorerUrl } from "@/lib/client/blockscout"
+import { mcpDataApi } from "@/lib/client/utils"
 import { isNetworkSupported, type UnifiedNetwork } from "@/lib/commons"
 import { ArrowUpRight, CheckCircle2 } from "lucide-react"
 import { easeOut } from "motion"
@@ -80,95 +81,70 @@ export default function MinimalExplorer() {
     totalRequests: 2300,
   }
 
-  /* fetch latest 5 transactions and stats */
+  /* fetch latest 5 transactions */
   useEffect(() => {
-    setLoading(true);
-    setError(null);
+    let alive = true
+    const run = async () => {
+      try {
+        setLoading(true)
+        setError(null)
+        const { stats } = await mcpDataApi.getExplorer(LIMIT, 0)
+        const mapped = stats
+          .map((s) => {
+            const pr = s.payment?.metadata?.paymentResponse as
+              | { payer?: string; network?: string; success?: boolean; transaction?: string }
+              | undefined
+            const preq = s.payment?.metadata?.paymentRequest as
+              | { network?: string; payload?: { authorization?: { value?: string } } }
+              | undefined
 
-    // Mock payments data
-    const mockPayments: ExplorerRow[] = [
-      {
-        id: "1",
-        status: "success",
-        serverId: "srv-1",
-        serverName: "OpenAI GPT",
-        tool: "chat",
-        amountFormatted: "0.0023",
-        currency: "ETH",
-        network: "ethereum",
-        user: "0x1234...abcd",
-        timestamp: new Date(Date.now() - 1000 * 60 * 2).toISOString(), // 2 mins ago
-        txHash: "0xabc123def456",
-      },
-      {
-        id: "2",
-        status: "success",
-        serverId: "srv-2",
-        serverName: "Stable Diffusion",
-        tool: "image",
-        amountFormatted: "0.0011",
-        currency: "ETH",
-        network: "ethereum",
-        user: "0x5678...efgh",
-        timestamp: new Date(Date.now() - 1000 * 60 * 10).toISOString(), // 10 mins ago
-        txHash: "0xdef456abc789",
-      },
-      {
-        id: "3",
-        status: "success",
-        serverId: "srv-3",
-        serverName: "Whisper",
-        tool: "audio",
-        amountFormatted: "0.0007",
-        currency: "ETH",
-        network: "ethereum",
-        user: "0x9abc...1234",
-        timestamp: new Date(Date.now() - 1000 * 60 * 60).toISOString(), // 1 hr ago
-        txHash: "0x789abc123def",
-      },
-      {
-        id: "4",
-        status: "success",
-        serverId: "srv-4",
-        serverName: "Claude",
-        tool: "chat",
-        amountFormatted: "0.0030",
-        currency: "ETH",
-        network: "ethereum",
-        user: "0x4321...dcba",
-        timestamp: new Date(Date.now() - 1000 * 60 * 60 * 5).toISOString(), // 5 hrs ago
-        txHash: "0x456def789abc",
-      },
-      {
-        id: "5",
-        status: "success",
-        serverId: "srv-5",
-        serverName: "Llama",
-        tool: "chat",
-        amountFormatted: "0.0015",
-        currency: "ETH",
-        network: "ethereum",
-        user: "0x8765...4321",
-        timestamp: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString(), // 1 day ago
-        txHash: "0x123789456abc",
-      },
-    ];
+            // Prefer response if exists, otherwise use request to render pending
+            const network = (pr?.network || preq?.network || '-') as string
+            const txHash = pr?.transaction || ''
+            const status: PaymentStatus = pr
+              ? (pr.success ? 'success' : 'failed')
+              : (s.payment?.paymentRequested ? 'pending' : 'failed')
 
-    // Mock stats data
-    const mockStats = {
-      activeServers: 4,
-      totalTools: 7,
-      totalRequests: 12345,
-    };
+            return {
+              id: s.id,
+              status,
+              serverId: s.serverId,
+              serverName: s.serverName,
+              tool: s.method,
+              amountFormatted: (() => {
+                // 6 decimals: value is a stringified integer, e.g., "100000" => "0.1"
+                const raw = preq?.payload?.authorization?.value
+                if (!raw || isNaN(Number(raw))) return ''
+                // Always divide by 1e6 and show up to 6 decimals (remove trailing zeros)
+                return (Number(raw) / 1e6).toLocaleString('en-US', {
+                  minimumFractionDigits: 0,
+                  maximumFractionDigits: 6,
+                })
+              })(),
+              currency: pr ? "USDC" : undefined,
+              network,
+              user: pr?.payer || '',
+              timestamp: s.ts,
+              txHash,
+            } as ExplorerRow
+          })
+          .filter(Boolean) as ExplorerRow[]
 
-    // Simulate async delay
-    const timeout = setTimeout(() => {
-      setRows(mockPayments);
-      setLoading(false);
-    }, 600);
-
-    return () => clearTimeout(timeout);
-  }, []);
+        if (!alive) return
+        setRows(mapped)
+      } catch (e) {
+        if (!alive) return
+        setError(e instanceof Error ? e.message : "Failed to load data")
+        setRows([])
+      } finally {
+        if (alive) setLoading(false)
+      }
+    }
+    run()
+    return () => {
+      alive = false
+    }
+  }, [])
 
   /* Header/cell padding matching original explorer */
   const th = "px-2 sm:px-3 py-3 text-[12px] uppercase tracking-widest text-muted-foreground text-left whitespace-nowrap"
@@ -275,7 +251,7 @@ export default function MinimalExplorer() {
     <div className="max-w-6xl px-4 md:px-6 mx-auto">
       <h2 className="text-3xl font-semibold font-host mb-10">Stats & Latest Transactions</h2>
       
-      <motion.div
+      {/* <motion.div
         className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-10"
         variants={container}
         initial="hidden"
@@ -284,7 +260,7 @@ export default function MinimalExplorer() {
         <Stat label="Live Servers" value={stats.activeServers ?? 0} loading={isStatsLoading} />
         <Stat label="Tools" value={stats.totalTools ?? 0} loading={isStatsLoading} />
         <Stat label="Transactions" value={stats.totalRequests ?? 0} loading={isStatsLoading} />
-      </motion.div>
+      </motion.div> */}
 
       {/* Responsive table container with tighter spacing */}
       <div className="overflow-x-auto">
@@ -294,7 +270,7 @@ export default function MinimalExplorer() {
                   <TableRow className="border-b border-border">
                     <TableHead className="w-[40px] pr-1 sr-only">Status</TableHead>
                 <TableHead className={`${th} font-mono`}>Server</TableHead>
-                <TableHead className={`${th} font-mono`}>Tool</TableHead>
+                <TableHead className={`${th} font-mono`}>Method</TableHead>
                 <TableHead className={`${th} font-mono`}>Amount</TableHead>
                 <TableHead className={`${th} font-mono`}>Network</TableHead>
                 <TableHead className={`${th} font-mono`}>Date</TableHead>
@@ -367,7 +343,7 @@ export default function MinimalExplorer() {
                       {/* Amount + currency with token icon */}
                       <TableCell className={`${td} font-mono`}>
                         <div className="flex items-center gap-2 text-xs sm:text-sm">
-                          <TokenIcon currencyOrAddress={r.currency} network={r.network} size={16} />
+                          {r.currency && <TokenIcon currencyOrAddress={r.currency} network={r.network} size={16} />}
                           <span className="text-foreground">{r.amountFormatted}</span>
                         </div>
                       </TableCell>

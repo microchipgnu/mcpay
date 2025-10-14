@@ -7,16 +7,14 @@ import { Dialog, DialogContent, DialogHeader } from "@/components/ui/dialog"
 import { Drawer, DrawerContent, DrawerHeader } from "@/components/ui/drawer"
 import { AlertCircle, Github, Loader2 } from "lucide-react"
 import { signIn, useSession } from "@/lib/client/auth"
-import env from "@/env"
+import { UserAccountPanel } from "@/components/custom-ui/user-modal"
 
 // Keep the same external API
 type AccountModalProps = {
   isOpen: boolean
   onClose: (open: boolean) => void
-  defaultTab?: "funds" | "wallets" | "settings" | "developer"
+  defaultTab?: "funds" | "wallets" | "developer"
 }
-
-type IframeMessage = { type?: string; payload?: unknown }
 
 export function AccountModal({ isOpen, onClose }: AccountModalProps) {
   const { isDark } = useTheme()
@@ -27,13 +25,7 @@ export function AccountModal({ isOpen, onClose }: AccountModalProps) {
   const [error, setError] = useState<string>("")
   const [isMobile, setIsMobile] = useState(false)
 
-  const iframeOrigin = process.env.NEXT_PUBLIC_AUTH_URL
-
-  console.log("iframeOrigin", iframeOrigin)
-  const iframeUrl = useMemo(() => {
-    const theme = isDark ? "dark" : "light"
-    return `${iframeOrigin}?theme=${theme}`
-  }, [isDark])
+  // Deprecated iframe approach removed in favor of in-app panel
 
   useEffect(() => {
     const checkMobile = () => setIsMobile(window.innerWidth < 768)
@@ -42,17 +34,7 @@ export function AccountModal({ isOpen, onClose }: AccountModalProps) {
     return () => window.removeEventListener("resize", checkMobile)
   }, [])
 
-  useEffect(() => {
-    const handler = (event: MessageEvent) => {
-      if (event.origin !== iframeOrigin) return
-      const data = event.data as IframeMessage
-      if (data && typeof data === "object" && (data as IframeMessage).type === "mcpay:close") {
-        onClose(false)
-      }
-    }
-    window.addEventListener("message", handler)
-    return () => window.removeEventListener("message", handler)
-  }, [onClose])
+  // Legacy iframe message listener no longer needed
 
   const handleGitHubSignIn = async () => {
     setIsAuthenticating(true)
@@ -135,50 +117,7 @@ export function AccountModal({ isOpen, onClose }: AccountModalProps) {
     </div>
   )
 
-  const Frame = () => {
-    const [ready, setReady] = useState(false)
-    const [slow, setSlow] = useState(false)
-    const [failed, setFailed] = useState(false)
-
-    useEffect(() => {
-      setReady(false)
-      setFailed(false)
-      setSlow(false)
-      const t = setTimeout(() => setSlow(true), 6000)
-      return () => clearTimeout(t)
-    }, [iframeUrl])
-
-    return (
-      <div className="relative w-full h-full">
-        {!ready && !failed && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
-            <Loader2 className="h-5 w-5 animate-spin" />
-            {slow && (
-              <p className={`text-xs ${isDark ? "text-gray-400" : "text-gray-600"}`}>Still loading…</p>
-            )}
-          </div>
-        )}
-        {failed && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
-            <p className={`text-sm ${isDark ? "text-gray-300" : "text-gray-700"}`}>Failed to load content</p>
-            <Button size="sm" variant="outline" onClick={() => { setFailed(false); setReady(false); }}>
-              Retry
-            </Button>
-          </div>
-        )}
-        <iframe
-          key={iframeUrl}
-          src={iframeUrl}
-          className={`w-full h-full ${ready ? "opacity-100" : "opacity-0"} transition-opacity duration-200`}
-          style={{ border: 0 }}
-          loading="eager"
-          allow="clipboard-write; clipboard-read; autoplay; payment"
-          onLoad={() => setReady(true)}
-          onError={() => setFailed(true)}
-        />
-      </div>
-    )
-  }
+  const Frame = () => <UserAccountPanel isActive={true} />
 
   // Show loading during session loading or authentication flow
   if (sessionLoading || isAuthenticating) {
