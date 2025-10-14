@@ -247,285 +247,290 @@ export default function ServerPage() {
 
   return (
     <div className={`min-h-screen transition-colors duration-200 ${isDark ? "bg-gradient-to-br from-black to-gray-900 text-white" : "bg-gradient-to-br from-gray-50 to-gray-100 text-gray-900"}`}>
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-        <div className="mb-2">
-            <ServerHeader
-            name={data.info?.name || data.origin}
-            description={data.info?.description}
-            totalTools={data.summary.totalTools}
-            isRemote={!/localhost|127\.0\.0\.1/.test(data.origin)}
-            hasRepo={Boolean((data as unknown as { info?: { repo?: unknown } })?.info?.repo)}
-            onExplore={() => {
-              // Scroll to tools
-              const el = document.getElementById('tools-section')
-              if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
-            }}
-          />
-        </div>
+      <main>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8">
+          <div className="max-w-6xl px-4 md:px-6 mx-auto">
 
-        <div className="flex items-center gap-2 mb-6">
-          <StatusBadge status={data.status} />
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button variant="outline" size="sm" onClick={handleRefresh} disabled={reindexing}>
-                  {reindexing ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCcw className="h-4 w-4" />}
-                  Refresh
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent className="text-xs">Trigger a fresh re-index in the background</TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
-          <Card className={isDark ? "bg-gray-800 border-gray-700" : ""}>
-            <CardContent className="p-3">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className={`text-xs ${isDark ? "text-gray-400" : "text-gray-600"}`}>Requests</p>
-                  <div className="text-base font-bold mt-0.5">{data.summary.totalRequests.toLocaleString()}</div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Sparkline values={(data.dailyAnalytics || []).slice(0, 14).reverse().map(d => d.totalRequests)} />
-                  <div className={`p-1.5 rounded-full ${isDark ? "bg-gray-700" : "bg-gray-100"}`}>
-                    <Activity className="h-3.5 w-3.5 text-blue-500" />
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card className={isDark ? "bg-gray-800 border-gray-700" : ""}>
-            <CardContent className="p-3">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className={`text-xs ${isDark ? "text-gray-400" : "text-gray-600"}`}>Total Tools</p>
-                  <div className="text-base font-bold mt-0.5">{data.summary.totalTools}</div>
-                </div>
-                <div className={`p-1.5 rounded-full ${isDark ? "bg-gray-700" : "bg-gray-100"}`}>
-                  <Hammer className="h-3.5 w-3.5 text-orange-500" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card className={isDark ? "bg-gray-800 border-gray-700" : ""}>
-            <CardContent className="p-3">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className={`text-xs ${isDark ? "text-gray-400" : "text-gray-600"}`}>Payments</p>
-                  <div className="text-base font-bold mt-0.5">{data.summary.totalPayments}</div>
-                </div>
-                <div className={`p-1.5 rounded-full ${isDark ? "bg-gray-700" : "bg-gray-100"}`}>
-                  <CheckCircle className="h-3.5 w-3.5 text-green-500" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card className={isDark ? "bg-gray-800 border-gray-700" : ""}>
-            <CardContent className="p-3">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className={`text-xs ${isDark ? "text-gray-400" : "text-gray-600"}`}>Last Activity</p>
-                  <div className="text-base font-bold mt-0.5">
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <span>{formatRelative(data.summary.lastActivity)}</span>
-                        </TooltipTrigger>
-                        <TooltipContent className="text-xs">{formatDate(data.summary.lastActivity)}</TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  </div>
-                </div>
-                <div className={`p-1.5 rounded-full ${isDark ? "bg-gray-700" : "bg-gray-100"}`}>
-                  <Clock className="h-3.5 w-3.5 text-purple-500" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        <div className="mb-6">
-          <AboutSection text={data.info?.description || ''} />
-        </div>
-
-        <div className="mt-6 grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
-          <Card id="tools-section" className={`lg:col-span-2 ${isDark ? "bg-gray-800 border-gray-700" : ""}`}>
-            <CardHeader>
-              <CardTitle className="text-base">Tools ({data.summary.totalTools})</CardTitle>
-              <CardDescription>From last inspection</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ToolsAccordion
-                tools={(data.tools || []).map((t, idx) => ({
-                  id: (t?.id as string) || (t?.name as string) || `tool-${idx}`,
-                  name: (t?.name as string) || `tool-${idx}`,
-                  description: (t?.description as string) || '',
-                  inputSchema: ((t as { inputSchema?: unknown; parameters?: { jsonSchema?: unknown } })?.inputSchema || (t as { parameters?: { jsonSchema?: unknown } })?.parameters?.jsonSchema || {}) as Record<string, unknown>,
-                  pricing: Array.isArray((t as { pricing?: unknown[] })?.pricing) ? (t as { pricing?: unknown[] }).pricing as Array<{ label?: string; amount?: number; currency?: string; active?: boolean }> : [],
-                  isMonetized: Array.isArray((t as { pricing?: Array<{ active?: boolean }> })?.pricing) && ((t as { pricing?: Array<{ active?: boolean }> }).pricing || []).some((p) => p?.active === true),
-                }))}
-                onTry={(tool) => openToolModal(tool as unknown as Record<string, unknown>)}
+            <div className="mb-2">
+              <ServerHeader
+                name={data.info?.name || data.origin}
+                description={data.info?.description}
+                totalTools={data.summary.totalTools}
+                isRemote={!/localhost|127\.0\.0\.1/.test(data.origin)}
+                hasRepo={Boolean((data as unknown as { info?: { repo?: unknown } })?.info?.repo)}
+                onExplore={() => {
+                  // Scroll to tools
+                  const el = document.getElementById('tools-section')
+                  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                }}
               />
-            </CardContent>
-          </Card>
+            </div>
 
-          <div className="lg:col-span-1 space-y-4">
-            <InstallationSidebar />
-            <ServerDetailsCard
-              details={{
-                deploymentRef: data.indexedAt ? `indexed ${formatRelative(data.indexedAt)}` : undefined,
-                license: (data as unknown as { info?: { license?: string } })?.info?.license,
-                isLocal: /localhost|127\.0\.0\.1/.test(data.origin),
-                publishedAt: (data as unknown as { info?: { publishedAt?: string } })?.info?.publishedAt,
-                repo: (data as unknown as { info?: { repo?: string } })?.info?.repo,
-                homepage: (data as unknown as { info?: { homepage?: string } })?.info?.homepage,
-              }}
-            />
-          </div>
-        </div>
+            <div className="flex items-center gap-2 mb-6">
+              <StatusBadge status={data.status} />
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button variant="outline" size="sm" onClick={handleRefresh} disabled={reindexing}>
+                      {reindexing ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCcw className="h-4 w-4" />}
+                      Refresh
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent className="text-xs">Trigger a fresh re-index in the background</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </div>
 
-        <Card className={`${isDark ? "bg-gray-800 border-gray-700" : ""} mt-6`}>
-          <CardHeader>
-            <CardTitle className="text-base">Recent Payments</CardTitle>
-            <CardDescription>Latest payment transactions from tool usage with verified token information</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {(() => {
-              // Match explorer compact spacing
-              const th = "px-2 sm:px-3 py-3 text-[12px] uppercase tracking-widest text-muted-foreground text-left whitespace-nowrap"
-              const td = "px-2 sm:px-3 py-3.5 border-t border-border align-middle"
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+              <Card className={isDark ? "bg-gray-800 border-gray-700" : ""}>
+                <CardContent className="p-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className={`text-xs ${isDark ? "text-gray-400" : "text-gray-600"}`}>Requests</p>
+                      <div className="text-base font-bold mt-0.5">{data.summary.totalRequests.toLocaleString()}</div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Sparkline values={(data.dailyAnalytics || []).slice(0, 14).reverse().map(d => d.totalRequests)} />
+                      <div className={`p-1.5 rounded-full ${isDark ? "bg-gray-700" : "bg-gray-100"}`}>
+                        <Activity className="h-3.5 w-3.5 text-blue-500" />
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card className={isDark ? "bg-gray-800 border-gray-700" : ""}>
+                <CardContent className="p-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className={`text-xs ${isDark ? "text-gray-400" : "text-gray-600"}`}>Total Tools</p>
+                      <div className="text-base font-bold mt-0.5">{data.summary.totalTools}</div>
+                    </div>
+                    <div className={`p-1.5 rounded-full ${isDark ? "bg-gray-700" : "bg-gray-100"}`}>
+                      <Hammer className="h-3.5 w-3.5 text-orange-500" />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card className={isDark ? "bg-gray-800 border-gray-700" : ""}>
+                <CardContent className="p-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className={`text-xs ${isDark ? "text-gray-400" : "text-gray-600"}`}>Payments</p>
+                      <div className="text-base font-bold mt-0.5">{data.summary.totalPayments}</div>
+                    </div>
+                    <div className={`p-1.5 rounded-full ${isDark ? "bg-gray-700" : "bg-gray-100"}`}>
+                      <CheckCircle className="h-3.5 w-3.5 text-green-500" />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card className={isDark ? "bg-gray-800 border-gray-700" : ""}>
+                <CardContent className="p-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className={`text-xs ${isDark ? "text-gray-400" : "text-gray-600"}`}>Last Activity</p>
+                      <div className="text-base font-bold mt-0.5">
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span>{formatRelative(data.summary.lastActivity)}</span>
+                            </TooltipTrigger>
+                            <TooltipContent className="text-xs">{formatDate(data.summary.lastActivity)}</TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      </div>
+                    </div>
+                    <div className={`p-1.5 rounded-full ${isDark ? "bg-gray-700" : "bg-gray-100"}`}>
+                      <Clock className="h-3.5 w-3.5 text-purple-500" />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
 
-              const onCopy = async (text?: string, message = "Copied") => {
-                if (!text) return
-                try {
-                  await navigator.clipboard.writeText(text)
-                  toast.success(message)
-                } catch {
-                  toast.error("Could not copy")
-                }
-              }
+            <div className="mb-6">
+              <AboutSection text={data.info?.description || ''} />
+            </div>
 
-              return (
-                <div className="rounded-md border overflow-x-auto">
-                  <div className="min-w-[800px]">
-                    <Table>
-                      <TableHeader>
-                        <TableRow className="border-b border-border">
-                          <TableHead className="w-[40px] pr-1 sr-only">Status</TableHead>
-                          <TableHead className={`${th} font-mono`}>Date</TableHead>
-                          <TableHead className={`${th} font-mono`}>Network</TableHead>
-                          <TableHead className={`${th} font-mono text-right pr-2`}>Transaction</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {(data.recentPayments || []).map((p) => {
-                          const txUrl = safeTxUrl(p.network, p.transactionHash)
-                          const fullDate = formatDate(p.createdAt)
-                          const rel = formatRelativeShort(p.createdAt)
+            <div className="mt-6 grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+              <Card id="tools-section" className={`lg:col-span-2 ${isDark ? "bg-gray-800 border-gray-700" : ""}`}>
+                <CardHeader>
+                  <CardTitle className="text-base">Tools ({data.summary.totalTools})</CardTitle>
+                  <CardDescription>From last inspection</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <ToolsAccordion
+                    tools={(data.tools || []).map((t, idx) => ({
+                      id: (t?.id as string) || (t?.name as string) || `tool-${idx}`,
+                      name: (t?.name as string) || `tool-${idx}`,
+                      description: (t?.description as string) || '',
+                      inputSchema: ((t as { inputSchema?: unknown; parameters?: { jsonSchema?: unknown } })?.inputSchema || (t as { parameters?: { jsonSchema?: unknown } })?.parameters?.jsonSchema || {}) as Record<string, unknown>,
+                      pricing: Array.isArray((t as { pricing?: unknown[] })?.pricing) ? (t as { pricing?: unknown[] }).pricing as Array<{ label?: string; amount?: number; currency?: string; active?: boolean }> : [],
+                      isMonetized: Array.isArray((t as { pricing?: Array<{ active?: boolean }> })?.pricing) && ((t as { pricing?: Array<{ active?: boolean }> }).pricing || []).some((p) => p?.active === true),
+                    }))}
+                    onTry={(tool) => openToolModal(tool as unknown as Record<string, unknown>)}
+                  />
+                </CardContent>
+              </Card>
 
-                          return (
-                            <TableRow key={p.id} className="hover:bg-muted/40">
-                              {/* Status icon */}
-                              <TableCell className={`${td} w-[40px] pr-1`}>
-                                <TooltipProvider>
-                                  <Tooltip>
-                                    <TooltipTrigger asChild>
-                                      <div
-                                        className={`inline-flex h-6 w-6 items-center justify-center rounded-sm transition-all duration-300 ${p.status === 'completed'
-                                          ? 'text-teal-700 bg-teal-500/10 hover:bg-teal-500/20 dark:text-teal-200 dark:bg-teal-800/50 dark:hover:bg-teal-800/70'
-                                          : p.status === 'failed'
-                                            ? 'text-red-700 bg-red-500/10 hover:bg-red-500/20 dark:text-red-200 dark:bg-red-800/50 dark:hover:bg-red-800/70'
-                                            : 'text-yellow-700 bg-yellow-500/10 hover:bg-yellow-500/20 dark:text-yellow-200 dark:bg-yellow-800/50 dark:hover:bg-yellow-800/70'}`}
-                                        aria-label={p.status}
-                                      >
-                                        {p.status === 'completed' ? <CheckCircle2 className="h-4 w-4" /> : p.status === 'failed' ? <XCircle className="h-4 w-4" /> : <Clock className="h-4 w-4" />}
-                                      </div>
-                                    </TooltipTrigger>
-                                    <TooltipContent className="text-xs capitalize">{p.status}</TooltipContent>
-                                  </Tooltip>
-                                </TooltipProvider>
-                              </TableCell>
+              <div className="lg:col-span-1 space-y-4">
+                <InstallationSidebar />
+                <ServerDetailsCard
+                  details={{
+                    deploymentRef: data.indexedAt ? `indexed ${formatRelative(data.indexedAt)}` : undefined,
+                    license: (data as unknown as { info?: { license?: string } })?.info?.license,
+                    isLocal: /localhost|127\.0\.0\.1/.test(data.origin),
+                    publishedAt: (data as unknown as { info?: { publishedAt?: string } })?.info?.publishedAt,
+                    repo: (data as unknown as { info?: { repo?: string } })?.info?.repo,
+                    homepage: (data as unknown as { info?: { homepage?: string } })?.info?.homepage,
+                  }}
+                />
+              </div>
+            </div>
 
-                              {/* Date relative with tooltip */}
-                              <TableCell className={`${td} text-[0.95rem] sm:text-sm text-muted-foreground pr-1`}>
-                                <TooltipProvider>
-                                  <Tooltip>
-                                    <TooltipTrigger className="cursor-default">
-                                      {rel}
-                                    </TooltipTrigger>
-                                    <TooltipContent className="text-xs">{fullDate}</TooltipContent>
-                                  </Tooltip>
-                                </TooltipProvider>
-                              </TableCell>
+            <Card className={`${isDark ? "bg-gray-800 border-gray-700" : ""} mt-6`}>
+              <CardHeader>
+                <CardTitle className="text-base">Recent Payments</CardTitle>
+                <CardDescription>Latest payment transactions from tool usage with verified token information</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {(() => {
+                  // Match explorer compact spacing
+                  const th = "px-2 sm:px-3 py-3 text-[12px] uppercase tracking-widest text-muted-foreground text-left whitespace-nowrap"
+                  const td = "px-2 sm:px-3 py-3.5 border-t border-border align-middle"
 
-                              {/* Network pill */}
-                              <TableCell className={`${td} font-mono text-xs sm:text-sm text-muted-foreground`}>
-                                <span className="font-mono text-sm border border-foreground-muted px-2 py-0.5 rounded text-foreground-muted">
-                                  {p.network || '-'}
-                                </span>
-                              </TableCell>
+                  const onCopy = async (text?: string, message = "Copied") => {
+                    if (!text) return
+                    try {
+                      await navigator.clipboard.writeText(text)
+                      toast.success(message)
+                    } catch {
+                      toast.error("Could not copy")
+                    }
+                  }
 
-                              {/* Transaction actions: hash + copy + open */}
-                              <TableCell className={`${td} font-mono text-right pr-0 pl-1`}>
-                                {p.transactionHash ? (
-                                  <div className="flex items-center justify-end gap-1">
-                                    <span className="text-xs sm:text-sm mr-2">{truncateHash(p.transactionHash)}</span>
+                  return (
+                    <div className="rounded-md border overflow-x-auto">
+                      <div className="min-w-[800px]">
+                        <Table>
+                          <TableHeader>
+                            <TableRow className="border-b border-border">
+                              <TableHead className="w-[40px] pr-1 sr-only">Status</TableHead>
+                              <TableHead className={`${th} font-mono`}>Date</TableHead>
+                              <TableHead className={`${th} font-mono`}>Network</TableHead>
+                              <TableHead className={`${th} font-mono text-right pr-2`}>Transaction</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {(data.recentPayments || []).map((p) => {
+                              const txUrl = safeTxUrl(p.network, p.transactionHash)
+                              const fullDate = formatDate(p.createdAt)
+                              const rel = formatRelativeShort(p.createdAt)
 
+                              return (
+                                <TableRow key={p.id} className="hover:bg-muted/40">
+                                  {/* Status icon */}
+                                  <TableCell className={`${td} w-[40px] pr-1`}>
                                     <TooltipProvider>
                                       <Tooltip>
                                         <TooltipTrigger asChild>
-                                          <Button
-                                            size="icon"
-                                            variant="ghost"
-                                            className="group h-7 w-7 rounded-sm"
-                                            onClick={(e) => { e.stopPropagation(); onCopy(p.transactionHash, "Copied transaction hash") }}
+                                          <div
+                                            className={`inline-flex h-6 w-6 items-center justify-center rounded-sm transition-all duration-300 ${p.status === 'completed'
+                                              ? 'text-teal-700 bg-teal-500/10 hover:bg-teal-500/20 dark:text-teal-200 dark:bg-teal-800/50 dark:hover:bg-teal-800/70'
+                                              : p.status === 'failed'
+                                                ? 'text-red-700 bg-red-500/10 hover:bg-red-500/20 dark:text-red-200 dark:bg-red-800/50 dark:hover:bg-red-800/70'
+                                                : 'text-yellow-700 bg-yellow-500/10 hover:bg-yellow-500/20 dark:text-yellow-200 dark:bg-yellow-800/50 dark:hover:bg-yellow-800/70'}`}
+                                            aria-label={p.status}
                                           >
-                                            <Copy className="size-4 stroke-[2] text-muted-foreground group-hover:text-foreground transition-all duration-300" />
-                                          </Button>
+                                            {p.status === 'completed' ? <CheckCircle2 className="h-4 w-4" /> : p.status === 'failed' ? <XCircle className="h-4 w-4" /> : <Clock className="h-4 w-4" />}
+                                          </div>
                                         </TooltipTrigger>
-                                        <TooltipContent className="text-xs">Copy</TooltipContent>
+                                        <TooltipContent className="text-xs capitalize">{p.status}</TooltipContent>
                                       </Tooltip>
-
-                                      {txUrl && (
-                                        <Tooltip>
-                                          <TooltipTrigger asChild>
-                                            <Button asChild size="icon" variant="ghost" className="group h-7 w-7 rounded-sm">
-                                              <a href={txUrl} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}>
-                                                <ArrowUpRight className="size-5 stroke-[2] text-muted-foreground/80 group-hover:text-foreground transition-all duration-300" />
-                                              </a>
-                                            </Button>
-                                          </TooltipTrigger>
-                                          <TooltipContent className="text-xs">Transaction Details</TooltipContent>
-                                        </Tooltip>
-                                      )}
                                     </TooltipProvider>
-                                  </div>
-                                ) : (
-                                  <span className="text-xs text-muted-foreground">—</span>
-                                )}
-                              </TableCell>
-                            </TableRow>
-                          )
-                        })}
+                                  </TableCell>
 
-                        {(!data.recentPayments || data.recentPayments.length === 0) && (
-                          <TableRow>
-                            <TableCell colSpan={4} className="px-3 py-6 text-center text-sm">
-                              <span className={isDark ? "text-gray-400" : "text-gray-600"}>No recent payments</span>
-                            </TableCell>
-                          </TableRow>
-                        )}
-                      </TableBody>
-                    </Table>
-                  </div>
-                </div>
-              )
-            })()}
-          </CardContent>
-        </Card>
-      </div>
+                                  {/* Date relative with tooltip */}
+                                  <TableCell className={`${td} text-[0.95rem] sm:text-sm text-muted-foreground pr-1`}>
+                                    <TooltipProvider>
+                                      <Tooltip>
+                                        <TooltipTrigger className="cursor-default">
+                                          {rel}
+                                        </TooltipTrigger>
+                                        <TooltipContent className="text-xs">{fullDate}</TooltipContent>
+                                      </Tooltip>
+                                    </TooltipProvider>
+                                  </TableCell>
 
+                                  {/* Network pill */}
+                                  <TableCell className={`${td} font-mono text-xs sm:text-sm text-muted-foreground`}>
+                                    <span className="font-mono text-sm border border-foreground-muted px-2 py-0.5 rounded text-foreground-muted">
+                                      {p.network || '-'}
+                                    </span>
+                                  </TableCell>
+
+                                  {/* Transaction actions: hash + copy + open */}
+                                  <TableCell className={`${td} font-mono text-right pr-0 pl-1`}>
+                                    {p.transactionHash ? (
+                                      <div className="flex items-center justify-end gap-1">
+                                        <span className="text-xs sm:text-sm mr-2">{truncateHash(p.transactionHash)}</span>
+
+                                        <TooltipProvider>
+                                          <Tooltip>
+                                            <TooltipTrigger asChild>
+                                              <Button
+                                                size="icon"
+                                                variant="ghost"
+                                                className="group h-7 w-7 rounded-sm"
+                                                onClick={(e) => { e.stopPropagation(); onCopy(p.transactionHash, "Copied transaction hash") }}
+                                              >
+                                                <Copy className="size-4 stroke-[2] text-muted-foreground group-hover:text-foreground transition-all duration-300" />
+                                              </Button>
+                                            </TooltipTrigger>
+                                            <TooltipContent className="text-xs">Copy</TooltipContent>
+                                          </Tooltip>
+
+                                          {txUrl && (
+                                            <Tooltip>
+                                              <TooltipTrigger asChild>
+                                                <Button asChild size="icon" variant="ghost" className="group h-7 w-7 rounded-sm">
+                                                  <a href={txUrl} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}>
+                                                    <ArrowUpRight className="size-5 stroke-[2] text-muted-foreground/80 group-hover:text-foreground transition-all duration-300" />
+                                                  </a>
+                                                </Button>
+                                              </TooltipTrigger>
+                                              <TooltipContent className="text-xs">Transaction Details</TooltipContent>
+                                            </Tooltip>
+                                          )}
+                                        </TooltipProvider>
+                                      </div>
+                                    ) : (
+                                      <span className="text-xs text-muted-foreground">—</span>
+                                    )}
+                                  </TableCell>
+                                </TableRow>
+                              )
+                            })}
+
+                            {(!data.recentPayments || data.recentPayments.length === 0) && (
+                              <TableRow>
+                                <TableCell colSpan={4} className="px-3 py-6 text-center text-sm">
+                                  <span className={isDark ? "text-gray-400" : "text-gray-600"}>No recent payments</span>
+                                </TableCell>
+                              </TableRow>
+                            )}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    </div>
+                  )
+                })()}
+              </CardContent>
+            </Card>
+
+          </div>
+        </div>
+      </main>
       {showToolModal && selectedTool && (
         <ToolExecutionModal
           isOpen={showToolModal}

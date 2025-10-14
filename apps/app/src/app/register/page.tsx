@@ -465,300 +465,298 @@ function RegisterOptionsPage() {
     <div className="bg-background">
       <main>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8">
-          <div className="text-center mb-10">
-            <h1 className={`text-3xl font-semibold font-host mb-3 ${isDark ? "text-white" : "text-gray-900"}`}>Choose your path</h1>
+          <div className="max-w-6xl px-4 md:px-6 mx-auto mb-10">
+            <h2 className="text-3xl font-semibold font-host">Register</h2>
             <p className={`text-base ${isDark ? "text-gray-300" : "text-gray-600"}`}>
               Connect your MCP server and start accepting payments instantly.
             </p>
-
           </div>
 
-          {/* URL Input Section */}
-          <Card className={`border border-border bg-background mb-10`}>
-            <CardHeader>
-              <div className="flex gap-2">
-                <CardTitle className={`text-xl font-host ${isDark ? "text-white" : "text-gray-900"}`}>Server URL</CardTitle>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button type="button" aria-label="What is an MCP endpoint?" className="inline-flex items-center text-muted-foreground hover:text-foreground">
-                      <Info className="h-4 w-4" />
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent>Provide the HTTP(S) endpoint your MCP server exposes.</TooltipContent>
-                </Tooltip>
-              </div>
-              <CardDescription className={isDark ? "text-gray-400" : "text-gray-600"}>
-                Enter your MCP server URL to get started
-                <div id="server-url-help" className={`mt-2 text-xs ${urlTouched && !urlValid && serverUrl ? 'text-red-500' : isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-                  {urlTouched && !urlValid && serverUrl
-                    ? (urlError || 'Enter a valid URL')
-                    : 'URL must be https and point to your MCP endpoint.'}
-                </div>
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="flex gap-2 items-center">
-                <div className="relative flex-1">
-                  <Input
-                    id="server-url"
-                    type="url"
-                    aria-label="Server URL"
-                    aria-describedby="server-url-help"
-                    placeholder="https://your-mcp-server.com/mcp"
-                    value={serverUrl}
-                    onChange={(e) => setServerUrl(e.target.value)}
-                    onBlur={() => setUrlTouched(true)}
-                    onKeyDown={onKeyDown}
-                    className={`flex-1 pr-9 transition-shadow ${isDark ? "bg-gray-700/50 border-gray-600 text-white placeholder:text-gray-400 focus:bg-gray-700 focus:shadow-[0_0_0_2px_rgba(0,82,255,0.25)]" : "bg-gray-50 border-gray-300 text-gray-900 placeholder:text-gray-500 focus:bg-white focus:shadow-[0_0_0_2px_rgba(0,82,255,0.25)]"}`}
-                  />
-                  {(serverUrl || urlTouched) && (
-                    <div className="absolute inset-y-0 right-2 flex items-center">
-                      {isPreviewLoading ? (
-                        <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                      ) : urlValid ? (
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <span className="text-green-500" aria-label="Valid URL">
-                              <CheckCircle className="h-4 w-4" />
-                            </span>
-                          </TooltipTrigger>
-                          <TooltipContent>Valid URL</TooltipContent>
-                        </Tooltip>
-                      ) : serverUrl ? (
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <span className="text-red-500" aria-label="Invalid URL">
-                              <AlertCircle className="h-4 w-4" />
-                            </span>
-                          </TooltipTrigger>
-                          <TooltipContent>{urlError || 'Enter a valid URL'}</TooltipContent>
-                        </Tooltip>
-                      ) : null}
-                    </div>
-                  )}
-                </div>
 
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button type="button" variant="outline" size="icon" onClick={onPaste} className={`shrink-0 ${isDark ? 'border-gray-600' : ''}`} aria-label="Paste from clipboard">
-                      <Clipboard className="h-4 w-4" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>Paste from clipboard</TooltipContent>
-                </Tooltip>
-
-                <Button type="button" variant="ghost" size="icon" onClick={onClear} className="shrink-0" aria-label="Clear">
-                  Clear
-                </Button>
-              </div>
-              {/* Clipboard suggestion */}
-              {clipboardUrlSuggestion && !serverUrl && (
-                <div className={`mt-2 text-xs flex items-center gap-2 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
-                  <span>We detected a URL in your clipboard.</span>
-                  <Button type="button" variant="link" size="sm" className="h-6 px-0" onClick={() => { setServerUrl(clipboardUrlSuggestion); setClipboardPrompted(true); }}>
-                    Paste it?
-                  </Button>
-                  <button type="button" className={`underline underline-offset-2 ${isDark ? 'text-gray-400' : 'text-gray-500'}`} onClick={() => setClipboardPrompted(true)}>Dismiss</button>
-                </div>
-              )}
-
-              {/* Preview tools */}
-              {(isPreviewLoading || previewTools || previewError) && (
-                <div className="mt-3 text-sm">
-                  {isPreviewLoading && <span className={isDark ? 'text-gray-400' : 'text-gray-600'}>Inspecting server…</span>}
-                  {!isPreviewLoading && previewError && (
-                    <span className="text-red-500">{previewError}</span>
-                  )}
-                  {!isPreviewLoading && previewTools && previewTools.length > 0 && (
-                    <div className={isDark ? 'text-gray-300' : 'text-gray-700'}>
-                      <span className="font-medium">Detected tools:</span>{' '}
-                      {previewTools.map((t) => t.name).join(', ')}{previewTools.length >= 5 ? '…' : ''}
-                    </div>
-                  )}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Monetize Wizard */}
-          <MonetizeWizard
-            open={monetizeOpen}
-            onOpenChange={(open) => setMonetizeOpen(open)}
-            serverUrl={serverUrl}
-            tools={monetizeTools}
-            onCreate={async ({ prices, evmRecipientAddress: evmAddr, svmRecipientAddress: svmAddr, networks, requireAuth, authHeaders, testnet }) => {
-              setPriceByTool(prices)
-              setEvmRecipientAddress(evmAddr || '')
-              setSvmRecipientAddress(svmAddr || '')
-              setSelectedNetworks(networks)
-              setRequireAuth(requireAuth)
-              setAuthHeaders(Object.entries(authHeaders).map(([key, value]) => ({ key, value })))
-              setRecipientIsTestnet(testnet)
-              await createMonetizedEndpoint()
-            }}
-          />
-
-          {/* Three Options Grid */}
-          <div className="rounded-xl border border-border/60 bg-muted/30 p-4 md:p-6">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {/* Option 1: Monetize */}
-              <Card className={`h-full flex flex-col border border-border bg-background transition-all ${urlValid ? 'shadow-sm' : ''}`}>
-                <CardHeader className="pb-4">
-                  <div className="flex items-center gap-3 mb-2">
-                    <CardTitle className={`text-xl font-host ${isDark ? "text-white" : "text-gray-900"}`}>Monetize</CardTitle>
-                  </div>
-                  <CardDescription className="text-sm">
-                    <span className={isDark ? "text-gray-300" : "text-gray-700"}>Simplify payments with a zero-code wrapper.</span>
-                    <span className={`${isDark ? "text-gray-100" : "text-gray-900"} font-semibold block mt-1`}>
-                      <span className={`pr-1`}>Already have a server live?</span>
-                      <span className="text-primary">Want to monetize it?</span>
-                    </span>
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="pt-0 mt-auto">
-                  <Button
-                    onClick={handleMonetize}
-                    disabled={monetizing || !urlValid}
-                    className={`w-full transition-all duration-200 font-medium ${isDark ? "bg-gray-700 hover:bg-gray-600 text-gray-200" : "bg-gray-600 hover:bg-gray-700 text-white"} ${monetizing || !urlValid ? "opacity-60 cursor-not-allowed" : "hover:shadow-lg"}`}
-                  >
-                    {monetizing ? (
-                      <>
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        Creating...
-                      </>
-                    ) : (
-                      <>
-                        Get Monetized URL
-                      </>
-                    )}
-                  </Button>
-                  {monetizeError && (
-                    <p className="text-sm text-red-400 mt-2">{monetizeError}</p>
-                  )}
-                  {!urlValid && (
-                    <p className="text-xs mt-2 text-muted-foreground">Enter a valid server URL to continue.</p>
-                  )}
-                  {lastMonetizedUrl && (
-                    <div className="mt-3 flex items-center gap-2">
-                      <code className="text-xs font-mono p-2 px-3 rounded-md bg-muted/40 break-all flex-1">{lastMonetizedUrl}</code>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        onClick={async (e) => { e.stopPropagation(); await navigator.clipboard.writeText(lastMonetizedUrl); toast.success('Copied URL') }}
-                      >Copy</Button>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-
-              {/* Option 2: Add Server */}
-              <Card className={`h-full flex flex-col border border-border bg-background transition-all ${urlValid ? 'shadow-sm' : ''}`}>
-                <CardHeader className="pb-4">
-                  <div className="flex items-center gap-3 mb-2">
-                    <CardTitle className={`text-xl font-host ${isDark ? "text-white" : "text-gray-900"}`}>Add Server</CardTitle>
-                  </div>
-                  <CardDescription className="text-sm">
-                    <span className={isDark ? "text-gray-300" : "text-gray-700"}>Index your MCP server with x402 for discovery and analytics.</span>
-                    <span className={`${isDark ? "text-gray-100" : "text-gray-900"} font-semibold block mt-1`}>
-                      <span className={`pr-1`}>Does your server already speak x402?</span>
-                      <span className="text-primary">Want to index it?</span>
-                    </span>
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="pt-0 mt-auto">
-                  <Button
-                    onClick={handleAddServer}
-                    disabled={indexing || !urlValid}
-                    className={`w-full transition-all duration-200 font-medium ${isDark ? "bg-gray-700 hover:bg-gray-600 text-gray-200" : "bg-gray-600 hover:bg-gray-700 text-white"} ${indexing || !urlValid ? "opacity-60 cursor-not-allowed" : "hover:shadow-lg"}`}
-                  >
-                    {indexing ? (
-                      <>
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        Indexing...
-                      </>
-                    ) : (
-                      <>
-                        Index Server
-                      </>
-                    )}
-                  </Button>
-                  {indexError && (
-                    <p className="text-sm text-red-400 mt-2">{indexError}</p>
-                  )}
-                  {!urlValid && (
-                    <p className="text-xs mt-2 text-muted-foreground">Enter a valid server URL to continue.</p>
-                  )}
-                </CardContent>
-              </Card>
-
-              {/* Option 3: Build with SDK */}
-              <Card className={`h-full flex flex-col border border-border bg-background transition-all`}>
-                <CardHeader className="pb-4">
-                  <div className="flex items-center gap-3 mb-2">
-                    <CardTitle className={`text-xl font-host ${isDark ? "text-white" : "text-gray-900"}`}>Build with SDK</CardTitle>
-                  </div>
-                  <CardDescription className="text-sm">
-                    <span className={isDark ? "text-gray-300" : "text-gray-700"}>Integrate payments directly in code.</span>
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="pt-0 mt-auto">
-                  <Button
-                    asChild
-                    className={`w-full transition-all duration-200 ${isDark ? "bg-gray-700 hover:bg-gray-600 text-gray-200 hover:shadow-lg" : "bg-gray-600 hover:bg-gray-700 text-white hover:shadow-lg"} font-medium`}
-                  >
-                    <a href="https://docs.mcpay.tech" target="_blank" rel="noopener noreferrer">
-                      View Documentation
-                      <ArrowUpRight className={`h-4 w-4 ml-2 ${isDark ? "text-gray-300" : "text-gray-100"}`} />
-                    </a>
-                  </Button>
-                  <div className="mt-2">
-                    <Button asChild variant="outline" className="w-full">
-                      <a href="https://docs.mcpay.tech/examples" target="_blank" rel="noopener noreferrer">View SDK Examples</a>
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          </div>
-
-          {/* Help Section */}
-          <Card className={`border border-border bg-background mt-8`}>
-            <CardContent className="pt-6">
-              <div className="text-center">
-                <p className={`text-base inline-flex items-center justify-center gap-2 ${isDark ? "text-gray-300" : "text-gray-700"}`}>
-                  <Info className="h-4 w-4" />
-                  Need help choosing? Check out our{" "}
+          <div className="max-w-6xl px-4 md:px-6 mx-auto">
+            {/* URL Input Section */}
+            <Card className={`border border-border bg-background mb-10`}>
+              <CardHeader>
+                <div className="flex gap-2">
+                  <CardTitle className={`text-xl font-host ${isDark ? "text-white" : "text-gray-900"}`}>Server URL</CardTitle>
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <a
-                        href="https://docs.mcpay.tech/quickstart"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-blue-500 hover:text-blue-600 underline"
-                      >
-                        quickstart guide
+                      <button type="button" aria-label="What is an MCP endpoint?" className="inline-flex items-center text-muted-foreground hover:text-foreground">
+                        <Info className="h-4 w-4" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent>Provide the HTTP(S) endpoint your MCP server exposes.</TooltipContent>
+                  </Tooltip>
+                </div>
+                <CardDescription className={isDark ? "text-gray-400" : "text-gray-600"}>
+                  Enter your MCP server URL to get started
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="flex gap-2 items-center">
+                  <div className="relative flex-1">
+                    <Input
+                      id="server-url"
+                      type="url"
+                      aria-label="Server URL"
+                      aria-describedby="server-url-help"
+                      placeholder="https://your-mcp-server.com/mcp"
+                      value={serverUrl}
+                      onChange={(e) => setServerUrl(e.target.value)}
+                      onBlur={() => setUrlTouched(true)}
+                      onKeyDown={onKeyDown}
+                      className={`flex-1 pr-9 transition-shadow ${isDark ? "bg-gray-700/50 border-gray-600 text-white placeholder:text-gray-400 focus:bg-gray-700 focus:shadow-[0_0_0_2px_rgba(0,82,255,0.25)]" : "bg-gray-50 border-gray-300 text-gray-900 placeholder:text-gray-500 focus:bg-white focus:shadow-[0_0_0_2px_rgba(0,82,255,0.25)]"}`}
+                    />
+                    {(serverUrl || urlTouched) && (
+                      <div className="absolute inset-y-0 right-2 flex items-center">
+                        {isPreviewLoading ? (
+                          <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                        ) : urlValid ? (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span className="text-green-500" aria-label="Valid URL">
+                                <CheckCircle className="h-4 w-4" />
+                              </span>
+                            </TooltipTrigger>
+                            <TooltipContent>Valid URL</TooltipContent>
+                          </Tooltip>
+                        ) : serverUrl ? (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span className="text-red-500" aria-label="Invalid URL">
+                                <AlertCircle className="h-4 w-4" />
+                              </span>
+                            </TooltipTrigger>
+                            <TooltipContent>{urlError || 'Enter a valid URL'}</TooltipContent>
+                          </Tooltip>
+                        ) : null}
+                      </div>
+                    )}
+                  </div>
+
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button type="button" variant="outline" size="icon" onClick={onPaste} className={`shrink-0 ${isDark ? 'border-gray-600' : ''}`} aria-label="Paste from clipboard">
+                        <Clipboard className="h-4 w-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Paste from clipboard</TooltipContent>
+                  </Tooltip>
+
+                  <Button type="button" variant="ghost" size="icon" onClick={onClear} className="shrink-0" aria-label="Clear">
+                    Clear
+                  </Button>
+                </div>
+                {/* Clipboard suggestion */}
+                {clipboardUrlSuggestion && !serverUrl && (
+                  <div className={`mt-2 text-xs flex items-center gap-2 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+                    <span>We detected a URL in your clipboard.</span>
+                    <Button type="button" variant="link" size="sm" className="h-6 px-0" onClick={() => { setServerUrl(clipboardUrlSuggestion); setClipboardPrompted(true); }}>
+                      Paste it?
+                    </Button>
+                    <button type="button" className={`underline underline-offset-2 ${isDark ? 'text-gray-400' : 'text-gray-500'}`} onClick={() => setClipboardPrompted(true)}>Dismiss</button>
+                  </div>
+                )}
+
+                {/* Preview tools */}
+                {(isPreviewLoading || previewTools || previewError) && (
+                  <div className="mt-3 text-sm">
+                    {isPreviewLoading && <span className={isDark ? 'text-gray-400' : 'text-gray-600'}>Inspecting server…</span>}
+                    {!isPreviewLoading && previewError && (
+                      <span className="text-red-500">{previewError}</span>
+                    )}
+                    {!isPreviewLoading && previewTools && previewTools.length > 0 && (
+                      <div className={isDark ? 'text-gray-300' : 'text-gray-700'}>
+                        <span className="font-medium">Detected tools:</span>{' '}
+                        {previewTools.map((t) => t.name).join(', ')}{previewTools.length >= 5 ? '…' : ''}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Monetize Wizard */}
+            <MonetizeWizard
+              open={monetizeOpen}
+              onOpenChange={(open) => setMonetizeOpen(open)}
+              serverUrl={serverUrl}
+              tools={monetizeTools}
+              onCreate={async ({ prices, evmRecipientAddress: evmAddr, svmRecipientAddress: svmAddr, networks, requireAuth, authHeaders, testnet }) => {
+                setPriceByTool(prices)
+                setEvmRecipientAddress(evmAddr || '')
+                setSvmRecipientAddress(svmAddr || '')
+                setSelectedNetworks(networks)
+                setRequireAuth(requireAuth)
+                setAuthHeaders(Object.entries(authHeaders).map(([key, value]) => ({ key, value })))
+                setRecipientIsTestnet(testnet)
+                await createMonetizedEndpoint()
+              }}
+            />
+
+            {/* Three Options Grid */}
+            <div className="rounded-xl border border-border/60 bg-muted/30 p-4 md:p-6">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {/* Option 1: Monetize */}
+                <Card className={`h-full flex flex-col border border-border bg-background transition-all ${urlValid ? 'shadow-sm' : ''}`}>
+                  <CardHeader className="pb-4">
+                    <div className="flex items-center gap-3 mb-2">
+                      <CardTitle className={`text-xl font-host ${isDark ? "text-white" : "text-gray-900"}`}>Monetize</CardTitle>
+                    </div>
+                    <CardDescription className="text-sm">
+                      <span className={isDark ? "text-gray-300" : "text-gray-700"}>Simplify payments with a zero-code wrapper.</span>
+                      <span className={`${isDark ? "text-gray-100" : "text-gray-900"} font-semibold block mt-1`}>
+                        <span className={`pr-1`}>Already have a server live?</span>
+                        <span className="text-primary">Want to monetize it?</span>
+                      </span>
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="pt-0 mt-auto">
+                    <Button
+                      onClick={handleMonetize}
+                      disabled={monetizing || !urlValid}
+                      className={`w-full transition-all duration-200 font-medium ${isDark ? "bg-gray-700 hover:bg-gray-600 text-gray-200" : "bg-gray-600 hover:bg-gray-700 text-white"} ${monetizing || !urlValid ? "opacity-60 cursor-not-allowed" : "hover:shadow-lg"}`}
+                    >
+                      {monetizing ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Creating...
+                        </>
+                      ) : (
+                        <>
+                          Get Monetized URL
+                        </>
+                      )}
+                    </Button>
+                    {monetizeError && (
+                      <p className="text-sm text-red-400 mt-2">{monetizeError}</p>
+                    )}
+                    {!urlValid && (
+                      <p className="text-xs mt-2 text-muted-foreground">Enter a valid server URL to continue.</p>
+                    )}
+                    {lastMonetizedUrl && (
+                      <div className="mt-3 flex items-center gap-2">
+                        <code className="text-xs font-mono p-2 px-3 rounded-md bg-muted/40 break-all flex-1">{lastMonetizedUrl}</code>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          onClick={async (e) => { e.stopPropagation(); await navigator.clipboard.writeText(lastMonetizedUrl); toast.success('Copied URL') }}
+                        >Copy</Button>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* Option 2: Add Server */}
+                <Card className={`h-full flex flex-col border border-border bg-background transition-all ${urlValid ? 'shadow-sm' : ''}`}>
+                  <CardHeader className="pb-4">
+                    <div className="flex items-center gap-3 mb-2">
+                      <CardTitle className={`text-xl font-host ${isDark ? "text-white" : "text-gray-900"}`}>Add Server</CardTitle>
+                    </div>
+                    <CardDescription className="text-sm">
+                      <span className={isDark ? "text-gray-300" : "text-gray-700"}>Index your MCP server with x402 for discovery and analytics.</span>
+                      <span className={`${isDark ? "text-gray-100" : "text-gray-900"} font-semibold block mt-1`}>
+                        <span className={`pr-1`}>Does your server already speak x402?</span>
+                        <span className="text-primary">Want to index it?</span>
+                      </span>
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="pt-0 mt-auto">
+                    <Button
+                      onClick={handleAddServer}
+                      disabled={indexing || !urlValid}
+                      className={`w-full transition-all duration-200 font-medium ${isDark ? "bg-gray-700 hover:bg-gray-600 text-gray-200" : "bg-gray-600 hover:bg-gray-700 text-white"} ${indexing || !urlValid ? "opacity-60 cursor-not-allowed" : "hover:shadow-lg"}`}
+                    >
+                      {indexing ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Indexing...
+                        </>
+                      ) : (
+                        <>
+                          Index Server
+                        </>
+                      )}
+                    </Button>
+                    {indexError && (
+                      <p className="text-sm text-red-400 mt-2">{indexError}</p>
+                    )}
+                    {!urlValid && (
+                      <p className="text-xs mt-2 text-muted-foreground">Enter a valid server URL to continue.</p>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* Option 3: Build with SDK */}
+                <Card className={`h-full flex flex-col border border-border bg-background transition-all`}>
+                  <CardHeader className="pb-4">
+                    <div className="flex items-center gap-3 mb-2">
+                      <CardTitle className={`text-xl font-host ${isDark ? "text-white" : "text-gray-900"}`}>Build with SDK</CardTitle>
+                    </div>
+                    <CardDescription className="text-sm">
+                      <span className={isDark ? "text-gray-300" : "text-gray-700"}>Integrate payments directly in code.</span>
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="pt-0 mt-auto">
+                    <Button
+                      asChild
+                      className={`w-full transition-all duration-200 ${isDark ? "bg-gray-700 hover:bg-gray-600 text-gray-200 hover:shadow-lg" : "bg-gray-600 hover:bg-gray-700 text-white hover:shadow-lg"} font-medium`}
+                    >
+                      <a href="https://docs.mcpay.tech" target="_blank" rel="noopener noreferrer">
+                        View Documentation
+                        <ArrowUpRight className={`h-4 w-4 ml-2 ${isDark ? "text-gray-300" : "text-gray-100"}`} />
                       </a>
-                    </TooltipTrigger>
-                    <TooltipContent>Read the step-by-step setup guide</TooltipContent>
-                  </Tooltip>
-                  {" "}or{" "}
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Link
-                        href="/servers"
-                        className="text-blue-500 hover:text-blue-600 underline"
-                      >
-                        browse existing servers
-                      </Link>
-                    </TooltipTrigger>
-                    <TooltipContent>See indexed MCP servers for inspiration</TooltipContent>
-                  </Tooltip>
-                  .
-                </p>
+                    </Button>
+                    <div className="mt-2">
+                      <Button asChild variant="outline" className="w-full">
+                        <a href="https://docs.mcpay.tech/examples" target="_blank" rel="noopener noreferrer">View SDK Examples</a>
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
               </div>
-            </CardContent>
-          </Card>
+            </div>
+
+            {/* Help Section */}
+            <Card className={`border border-border bg-background mt-8`}>
+              <CardContent className="pt-6">
+                <div className="text-center">
+                  <p className={`text-base inline-flex items-center justify-center gap-2 ${isDark ? "text-gray-300" : "text-gray-700"}`}>
+                    <Info className="h-4 w-4" />
+                    Need help choosing? Check out our{" "}
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <a
+                          href="https://docs.mcpay.tech/quickstart"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-blue-500 hover:text-blue-600 underline"
+                        >
+                          quickstart guide
+                        </a>
+                      </TooltipTrigger>
+                      <TooltipContent>Read the step-by-step setup guide</TooltipContent>
+                    </Tooltip>
+                    {" "}or{" "}
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Link
+                          href="/servers"
+                          className="text-blue-500 hover:text-blue-600 underline"
+                        >
+                          browse existing servers
+                        </Link>
+                      </TooltipTrigger>
+                      <TooltipContent>See indexed MCP servers for inspiration</TooltipContent>
+                    </Tooltip>
+                    .
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+
+          </div>
         </div>
       </main>
 
