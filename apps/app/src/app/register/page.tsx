@@ -9,18 +9,18 @@ import { useTheme } from "@/components/providers/theme-context"
 import { usePrimaryWallet, useUser, useUserWallets } from "@/components/providers/user"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Separator } from "@/components/ui/separator"
 import { Textarea } from "@/components/ui/textarea"
 import { useSession } from "@/lib/client/auth"
-import { api as realApi } from "@/lib/client/utils"
+import { api as realApi, mcpDataApi, urlUtils } from "@/lib/client/utils"
 import { getTokenInfo, toBaseUnits } from "@/lib/commons"
 import { getNetworkConfig, type UnifiedNetwork } from "@/lib/commons/networks"
 import { type Network } from "@/types/blockchain"
-import { AlertCircle, ArrowRight, BookOpen, CheckCircle, ChevronDown, Copy, Globe, Info, Loader2, Lock, RefreshCw, Server, User, Wallet, Zap } from "lucide-react"
+import { AlertCircle, ArrowRight, ArrowUpRight, BookOpen, CheckCircle, ChevronDown, Copy, Globe, Info, Loader2, Lock, RefreshCw, Server, User, Wallet, Zap } from "lucide-react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useCallback, useEffect, useState } from "react"
 import { toast } from "sonner"
@@ -1106,11 +1106,246 @@ function RegisterPageLoading() {
   )
 }
 
+// New Register Options Page Component
+function RegisterOptionsPage() {
+  const { isDark } = useTheme()
+  const [indexing, setIndexing] = useState(false)
+  const [indexError, setIndexError] = useState<string | null>(null)
+  const [monetizing, setMonetizing] = useState(false)
+  const [monetizeError, setMonetizeError] = useState<string | null>(null)
+  const [serverUrl, setServerUrl] = useState('')
+
+  const handleAddServer = async () => {
+    if (!serverUrl.trim()) {
+      toast.error('Please enter a server URL')
+      return
+    }
+
+    try {
+      setIndexing(true)
+      setIndexError(null)
+      const result = await mcpDataApi.runIndex(serverUrl.trim())
+      if ('ok' in result && result.ok) {
+        toast.success('Server indexed successfully!')
+        // Redirect to server page or explorer
+        window.location.href = '/servers'
+      } else if ('error' in result && result.error) {
+        toast.error(`Failed to index server: ${result.error}`)
+      } else {
+        toast.error('Failed to index server')
+      }
+    } catch (e) {
+      const errorMessage = e instanceof Error ? e.message : 'Unknown error'
+      setIndexError(errorMessage)
+      toast.error(`Failed to index server: ${errorMessage}`)
+    } finally {
+      setIndexing(false)
+    }
+  }
+
+  const handleMonetize = async () => {
+    if (!serverUrl.trim()) {
+      toast.error('Please enter a server URL')
+      return
+    }
+
+    try {
+      setMonetizing(true)
+      setMonetizeError(null)
+      // Create monetized URL using mcp2 service
+      const monetizedUrl = urlUtils.getMcpUrl(serverUrl.trim())
+      // Copy to clipboard
+      await navigator.clipboard.writeText(monetizedUrl)
+      toast.success('Monetized URL copied to clipboard!')
+      // Redirect to success page or show the URL
+      window.location.href = `/register/success?monetizedUrl=${encodeURIComponent(monetizedUrl)}`
+    } catch (e) {
+      const errorMessage = e instanceof Error ? e.message : 'Unknown error'
+      setMonetizeError(errorMessage)
+      toast.error(`Failed to create monetization: ${errorMessage}`)
+    } finally {
+      setMonetizing(false)
+    }
+  }
+
+  return (
+    <div className={`min-h-screen transition-colors duration-200 ${isDark ? "bg-gradient-to-br from-black to-gray-900 text-white" : "bg-gradient-to-br from-gray-50 to-gray-100 text-gray-900"}`}>
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+        <div className="text-center mb-12">
+          <h1 className={`text-4xl font-bold mb-4 ${isDark ? "text-white" : "text-gray-900"}`}>Choose your path</h1>
+          <p className={`text-lg ${isDark ? "text-gray-300" : "text-gray-600"}`}>
+            Get started with MCPay in minutes. Choose how you want to integrate payments into your MCP server.
+          </p>
+        </div>
+
+        {/* URL Input Section */}
+        <Card className={`${isDark ? "bg-gray-800/50 border-gray-700" : "bg-white border-gray-200"} backdrop-blur-sm mb-8`}>
+          <CardHeader>
+            <CardTitle className={`text-xl ${isDark ? "text-white" : "text-gray-900"}`}>Server URL</CardTitle>
+            <CardDescription className={isDark ? "text-gray-400" : "text-gray-600"}>Enter your MCP server URL to get started</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex gap-4">
+              <Input
+                type="url"
+                placeholder="https://your-mcp-server.com/mcp"
+                value={serverUrl}
+                onChange={(e) => setServerUrl(e.target.value)}
+                className={`flex-1 transition-colors ${isDark ? "bg-gray-700/50 border-gray-600 text-white placeholder:text-gray-400 focus:bg-gray-700" : "bg-gray-50 border-gray-300 text-gray-900 placeholder:text-gray-500 focus:bg-white"}`}
+              />
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Three Options Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {/* Option 1: Monetize */}
+          <Card className={`${isDark ? "bg-gray-800/50 border-gray-700" : "bg-white border-gray-200"} hover:shadow-xl hover:scale-[1.02] transition-all duration-300`}>
+            <CardHeader className="pb-4">
+              <div className="flex items-center gap-3 mb-2">
+                <div className="p-2 bg-[#0052FF]/10 rounded-lg ring-1 ring-[#0052FF]/20">
+                  <Zap className="h-6 w-6 text-[#0052FF]" />
+                </div>
+                <CardTitle className={`text-xl ${isDark ? "text-white" : "text-gray-900"}`}>Monetize</CardTitle>
+              </div>
+              <CardDescription className="text-sm leading-relaxed">
+                <span className={`font-semibold ${isDark ? "text-gray-200" : "text-gray-700"}`}>Add a wrapper without writing code.</span>{" "}
+                <span className={isDark ? "text-gray-400" : "text-gray-600"}>
+                  MCPay will handle payments and routing for your existing MCP server.
+                </span>
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="pt-0">
+              <Button
+                onClick={handleMonetize}
+                disabled={monetizing || !serverUrl.trim()}
+                className={`w-full transition-all duration-200 ${monetizing || !serverUrl.trim() ? "bg-gray-400 cursor-not-allowed" : "bg-[#0052FF] hover:bg-[#0052FF]/90 hover:shadow-lg"} text-white font-medium`}
+              >
+                {monetizing ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Creating...
+                  </>
+                ) : (
+                  <>
+                    <Zap className="h-4 w-4 mr-2" />
+                    Get Monetized URL
+                  </>
+                )}
+              </Button>
+              {monetizeError && (
+                <p className="text-sm text-red-400 mt-2">{monetizeError}</p>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Option 2: Add Server */}
+          <Card className={`${isDark ? "bg-gray-800/50 border-gray-700" : "bg-white border-gray-200"} hover:shadow-xl hover:scale-[1.02] transition-all duration-300`}>
+            <CardHeader className="pb-4">
+              <div className="flex items-center gap-3 mb-2">
+                <div className="p-2 bg-blue-500/10 rounded-lg ring-1 ring-blue-500/20">
+                  <Server className="h-6 w-6 text-blue-500" />
+                </div>
+                <CardTitle className={`text-xl ${isDark ? "text-white" : "text-gray-900"}`}>Add Server</CardTitle>
+              </div>
+              <CardDescription className="text-sm leading-relaxed">
+                <span className={`font-semibold ${isDark ? "text-gray-200" : "text-gray-700"}`}>Just add your server to our index.</span>{" "}
+                <span className={isDark ? "text-gray-400" : "text-gray-600"}>
+                  We'll inspect and catalog your MCP server for discovery and analytics.
+                </span>
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="pt-0">
+              <Button
+                onClick={handleAddServer}
+                disabled={indexing || !serverUrl.trim()}
+                className={`w-full transition-all duration-200 ${indexing || !serverUrl.trim() ? "bg-gray-400 cursor-not-allowed" : "bg-blue-600 hover:bg-blue-700 hover:shadow-lg"} text-white font-medium`}
+              >
+                {indexing ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Indexing...
+                  </>
+                ) : (
+                  <>
+                    <Server className="h-4 w-4 mr-2" />
+                    Index Server
+                  </>
+                )}
+              </Button>
+              {indexError && (
+                <p className="text-sm text-red-400 mt-2">{indexError}</p>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Option 3: Build with SDK */}
+          <Card className={`${isDark ? "bg-gray-800/50 border-gray-700" : "bg-white border-gray-200"} hover:shadow-xl hover:scale-[1.02] transition-all duration-300`}>
+            <CardHeader className="pb-4">
+              <div className="flex items-center gap-3 mb-2">
+                <div className={`p-2 ${isDark ? "bg-gray-700" : "bg-gray-200"} rounded-lg ring-1 ${isDark ? "ring-gray-600" : "ring-gray-300"}`}>
+                  <BookOpen className={`h-6 w-6 ${isDark ? "text-gray-300" : "text-gray-600"}`} />
+                </div>
+                <CardTitle className={`text-xl ${isDark ? "text-white" : "text-gray-900"}`}>Build with SDK</CardTitle>
+              </div>
+              <CardDescription className="text-sm leading-relaxed">
+                <span className={`font-semibold ${isDark ? "text-gray-200" : "text-gray-700"}`}>Full control and customization.</span>{" "}
+                <span className={isDark ? "text-gray-400" : "text-gray-600"}>
+                  Use our SDK to integrate payments directly into your MCP server code.
+                </span>
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="pt-0">
+              <Button
+                asChild
+                className={`w-full transition-all duration-200 ${isDark ? "bg-gray-700 hover:bg-gray-600 text-gray-200 hover:shadow-lg" : "bg-gray-600 hover:bg-gray-700 text-white hover:shadow-lg"} font-medium`}
+              >
+                <a href="https://docs.mcpay.tech" target="_blank" rel="noopener noreferrer">
+                  <BookOpen className={`h-4 w-4 mr-2 ${isDark ? "text-gray-300" : "text-gray-100"}`} />
+                  View Documentation
+                  <ArrowUpRight className={`h-4 w-4 ml-2 ${isDark ? "text-gray-300" : "text-gray-100"}`} />
+                </a>
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Help Section */}
+        <Card className={`${isDark ? "bg-gray-800 border-gray-700" : ""} mt-8`}>
+          <CardContent className="pt-6">
+            <div className="text-center">
+              <p className={`text-sm ${isDark ? "text-gray-400" : "text-gray-600"}`}>
+                Need help choosing? Check out our{" "}
+                <a
+                  href="https://docs.mcpay.tech/quickstart"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-500 hover:text-blue-600 underline"
+                >
+                  quickstart guide
+                </a>{" "}
+                or{" "}
+                <a
+                  href="/servers"
+                  className="text-blue-500 hover:text-blue-600 underline"
+                >
+                  browse existing servers
+                </a>{" "}
+                for inspiration.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  )
+}
+
 // Main export with Suspense boundary
 export default function RegisterPage() {
   return (
     <Suspense fallback={<RegisterPageLoading />}>
-      <RegisterPageContent />
+      <RegisterOptionsPage />
     </Suspense>
   )
 }
