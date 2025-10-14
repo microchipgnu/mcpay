@@ -174,13 +174,15 @@ app.post('/index/run', async (c: Context) => {
 
     // Upsert by origin_raw
     const existing = await db.select().from(mcpServers).where(eq(mcpServers.originRaw, originRaw));
+    let id = existing[0]?.id;
     if (existing.length > 0) {
       await db.update(mcpServers).set(doc).where(eq(mcpServers.originRaw, originRaw));
     } else {
-      await db.insert(mcpServers).values(doc);
+      const result = await db.insert(mcpServers).values(doc).returning({ id: mcpServers.id });
+      id = result[0].id;
     }
 
-    return c.json({ ok: true });
+    return c.json({ ok: true, serverId: id });
   } catch (e) {
     return c.json({ error: (e as Error).message }, 500);
   }

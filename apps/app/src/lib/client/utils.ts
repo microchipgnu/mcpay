@@ -329,7 +329,7 @@ export const mcpDataApi = {
   },
 
   // Trigger a fresh index by origin URL
-  runIndex: async (origin: string): Promise<{ ok: boolean } | { error: string }> => {
+  runIndex: async (origin: string): Promise<{ ok: boolean; serverId?: string } | { error: string }> => {
     return serviceApiCall(urlUtils.getMcpDataUrl(), `/index/run`, {
       method: 'POST',
       body: JSON.stringify({ origin }),
