@@ -1,4 +1,4 @@
-import { STABLECOIN_CONFIGS, getNetworkTokens, type UnifiedNetwork } from "@/lib/commons/networks"
+import { getNetworkTokens, type UnifiedNetwork } from "@/lib/commons/networks"
 import { Client } from "@modelcontextprotocol/sdk/client/index.js"
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js"
 import { experimental_createMCPClient as createMCPClient } from "ai"
@@ -135,45 +135,12 @@ export async function getMcpPrompts(url: string) {
 }
 
 // Type guard functions
-function isSimplePaymentOption(option: unknown): option is SimplePaymentOption {
-  return typeof option === 'object' && option !== null && 'price' in option && typeof (option as Record<string, unknown>).price === 'number'
-}
-
-function isAdvancedPaymentOption(option: unknown): option is AdvancedPaymentOption {
-  return typeof option === 'object' && option !== null && 'rawAmount' in option && (option as Record<string, unknown>).rawAmount !== undefined
-}
+// (unused guards removed)
 
 /**
  * Helper function to resolve token information for a currency symbol on a specific network
  */
-function resolveTokenForCurrency(currencySymbol: string, network: UnifiedNetwork) {
-  // First, check stablecoin configs for known decimals
-  const upperSymbol = currencySymbol.toUpperCase()
-  if (upperSymbol in STABLECOIN_CONFIGS) {
-    const stablecoinConfig = STABLECOIN_CONFIGS[upperSymbol as keyof typeof STABLECOIN_CONFIGS]
-
-    // Get the actual token from the network
-    const tokens = getNetworkTokens(network)
-    const token = tokens.find(t => t.symbol === upperSymbol && t.isStablecoin)
-
-    if (token) {
-      return token
-    }
-
-    // Fallback to stablecoin config if not found in network
-    return {
-      symbol: stablecoinConfig.symbol,
-      name: stablecoinConfig.name,
-      decimals: stablecoinConfig.decimals,
-      isStablecoin: true,
-      verified: true
-    }
-  }
-
-  // For non-stablecoins, look in network token registry
-  const tokens = getNetworkTokens(network)
-  return tokens.find(t => t.symbol === upperSymbol)
-}
+// (unused token resolver removed)
 
 /**
  * Helper function to get default token addresses when token lookup fails
@@ -201,6 +168,4 @@ function getDefaultTokenAddress(tokenSymbol: string, network: UnifiedNetwork): s
 /**
  * Helper function to get default USDC address for a network
  */
-function getDefaultUSDCAddress(network: UnifiedNetwork): string {
-  return getDefaultTokenAddress('USDC', network)
-}
+// (unused default USDC address helper removed)

@@ -255,7 +255,7 @@ export { Amounts, BalanceTracker, Networks, Tokens, Types };
 /**
  * Default export with organized namespaces
  */
-export default {
+const commons = {
   version: COMMONS_VERSION,
   name: COMMONS_NAME,
   
@@ -304,3 +304,5 @@ export default {
     NETWORKS,
   },
 };
+
+export default commons;

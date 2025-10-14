@@ -93,7 +93,6 @@ function convertToTokenInfo(tokenConfig: TokenConfig, network: Network): TokenIn
  */
 export const TOKEN_REGISTRY: Record<Network, Record<string, TokenInfo>> = Object.fromEntries(
   getSupportedNetworks().map(network => {
-    const tokens = getNetworkTokens(network);
     const tokenEntries = Object.entries(UNIFIED_NETWORKS[network].tokens).map(([tokenId, tokenConfig]) => {
       try {
         const tokenInfo = convertToTokenInfo(tokenConfig, network);
