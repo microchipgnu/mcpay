@@ -1,0 +1,191 @@
+/* Custom Prism.js theme aligned with design system */
+
+/* Light theme */
+.light .code-block {
+  --prism-bg: hsl(var(--background));
+  --prism-text: hsl(var(--foreground));
+  --prism-comment: hsl(var(--muted-foreground));
+  --prism-keyword: hsl(180 100% 25%); /* teal-700 */
+  --prism-string: hsl(142 76% 36%); /* green-600 */
+  --prism-number: hsl(25 95% 53%); /* orange-500 */
+  --prism-boolean: hsl(262 83% 58%); /* purple-500 */
+  --prism-function: hsl(180 100% 25%); /* teal-700 */
+  --prism-variable: hsl(var(--foreground));
+  --prism-property: hsl(217 91% 60%); /* blue-500 */
+  --prism-punctuation: hsl(var(--muted-foreground));
+  --prism-class: hsl(262 83% 58%); /* purple-500 */
+  --prism-operator: hsl(var(--foreground));
+}
+
+/* Dark theme */
+.dark .code-block {
+  --prism-bg: hsl(var(--background));
+  --prism-text: hsl(var(--foreground));
+  --prism-comment: hsl(var(--muted-foreground));
+  --prism-keyword: hsl(180 100% 75%); /* teal-200 */
+  --prism-string: hsl(142 76% 65%); /* green-400 */
+  --prism-number: hsl(25 95% 70%); /* orange-300 */
+  --prism-boolean: hsl(262 83% 70%); /* purple-400 */
+  --prism-function: hsl(180 100% 75%); /* teal-200 */
+  --prism-variable: hsl(var(--foreground));
+  --prism-property: hsl(217 91% 70%); /* blue-400 */
+  --prism-punctuation: hsl(var(--muted-foreground));
+  --prism-class: hsl(262 83% 70%); /* purple-400 */
+  --prism-operator: hsl(var(--foreground));
+}
+
+/* Prism.js token styles */
+.code-block .token.comment,
+.code-block .token.prolog,
+.code-block .token.doctype,
+.code-block .token.cdata {
+  color: var(--prism-comment);
+  font-style: italic;
+}
+
+.code-block .token.punctuation {
+  color: var(--prism-punctuation);
+}
+
+.code-block .token.property,
+.code-block .token.tag,
+.code-block .token.boolean,
+.code-block .token.number,
+.code-block .token.constant,
+.code-block .token.symbol,
+.code-block .token.deleted {
+  color: var(--prism-property);
+}
+
+.code-block .token.selector,
+.code-block .token.attr-name,
+.code-block .token.string,
+.code-block .token.char,
+.code-block .token.builtin,
+.code-block .token.inserted {
+  color: var(--prism-string);
+}
+
+.code-block .token.operator,
+.code-block .token.entity,
+.code-block .token.url,
+.code-block .language-css .token.string,
+.code-block .style .token.string {
+  color: var(--prism-operator);
+}
+
+.code-block .token.atrule,
+.code-block .token.attr-value,
+.code-block .token.keyword {
+  color: var(--prism-keyword);
+}
+
+.code-block .token.function,
+.code-block .token.class-name {
+  color: var(--prism-function);
+}
+
+.code-block .token.regex,
+.code-block .token.important,
+.code-block .token.variable {
+  color: var(--prism-variable);
+}
+
+.code-block .token.important,
+.code-block .token.bold {
+  font-weight: bold;
+}
+
+.code-block .token.italic {
+  font-style: italic;
+}
+
+/* JSON specific styling */
+.code-block .token.property.json {
+  color: var(--prism-property);
+}
+
+.code-block .token.string.json {
+  color: var(--prism-string);
+}
+
+.code-block .token.number.json {
+  color: var(--prism-number);
+}
+
+.code-block .token.boolean.json {
+  color: var(--prism-boolean);
+}
+
+.code-block .token.null.json {
+  color: var(--prism-comment);
+}
+
+/* TypeScript specific styling */
+.code-block .token.keyword.ts,
+.code-block .token.keyword.tsx {
+  color: var(--prism-keyword);
+}
+
+.code-block .token.function.ts,
+.code-block .token.function.tsx {
+  color: var(--prism-function);
+}
+
+.code-block .token.class-name.ts,
+.code-block .token.class-name.tsx {
+  color: var(--prism-class);
+}
+
+/* Python specific styling */
+.code-block .token.keyword.py {
+  color: var(--prism-keyword);
+}
+
+.code-block .token.function.py {
+  color: var(--prism-function);
+}
+
+.code-block .token.class-name.py {
+  color: var(--prism-class);
+}
+
+.code-block .token.builtin.py {
+  color: var(--prism-keyword);
+}
+
+/* Code block container styling */
+.code-block {
+  background-color: var(--prism-bg);
+  color: var(--prism-text);
+  border-radius: calc(var(--radius) - 2px);
+  border: 1px solid hsl(var(--border));
+  font-family: var(--font-geist-mono);
+  font-size: 0.625rem;
+  line-height: 1.3;
+}
+
+.code-block pre {
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  overflow-x: auto;
+}
+
+.code-block code {
+  background: transparent;
+  color: inherit;
+  font-family: inherit;
+  font-size: inherit;
+}
+
+/* Selection styling */
+.code-block ::selection {
+  background-color: hsl(180 100% 25% / 0.1);
+  color: hsl(180 100% 25%);
+}
+
+.dark .code-block ::selection {
+  background-color: hsl(180 100% 75% / 0.1);
+  color: hsl(180 100% 75%);
+}

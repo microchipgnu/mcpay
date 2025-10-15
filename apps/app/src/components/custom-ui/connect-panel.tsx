@@ -5,12 +5,17 @@ import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Copy, CheckCircle2, Code2, AlertTriangle, ChevronDown } from "lucide-react"
 import { toast } from "sonner"
-import { useState, useCallback } from "react"
+import { useState, useCallback, useEffect } from "react"
 import { useTheme } from "@/components/providers/theme-context"
 import { ApiKeyModal } from "./api-key-modal"
+import Prism from 'prismjs'
+import 'prismjs/components/prism-json'
+import 'prismjs/components/prism-typescript'
+import 'prismjs/components/prism-python'
+import '@/styles/prism-theme.css'
 
 // Types
-type AuthMode = 'oauth' | 'api_key'
+type AuthMode = 'oauth' | 'api_key' | 'private_key'
 
 type ServerInfo = {
   id: string
@@ -33,9 +38,9 @@ type ClientDescriptor = {
 }
 
 type Templates = {
-  json: (ctx: { baseUrl: string; apiKey?: string; serverId: string }) => string
-  ts: (ctx: { baseUrl: string; apiKey?: string }) => string
-  py: (ctx: { baseUrl: string; apiKey?: string }) => string
+  json: (ctx: { baseUrl: string; apiKey?: string; serverId: string }, authMode?: AuthMode) => string
+  ts: (ctx: { baseUrl: string; apiKey?: string }, authMode?: AuthMode) => string
+  py: (ctx: { baseUrl: string; apiKey?: string }, authMode?: AuthMode) => string
 }
 
 type KeyInfo = {
@@ -46,11 +51,14 @@ type KeyInfo = {
 type ConnectState = {
   authMode: AuthMode
   key: KeyInfo | null
-  selectedTab: 'auto' | 'json' | 'ts' | 'py'
+  selectedTab: 'auto' | 'json' | 'code'
   selectedClientId?: string
   platform: 'mac' | 'win' | 'wsl'
   copied: { target?: string; at?: number }
   showApiKeyModal: boolean
+  jsonAuthMode: AuthMode
+  codeLanguage: 'ts' | 'py'
+  codeAuthMode: AuthMode
 }
 
 type ConnectPanelProps = {
@@ -81,16 +89,67 @@ const copy = async (text: string) => {
 
 // Default templates
 const defaultTemplates: Templates = {
-  json: ({ baseUrl, apiKey, serverId }) => `{
+  json: ({ baseUrl, apiKey, serverId }, authMode = 'api_key') => {
+    if (authMode === 'oauth') {
+      return `{
+  "mcpServers": {
+    "${serverId}": {
+      "command": "npx",
+      "args": ["-y","@smithery/cli@latest","run","@upstash/${serverId}"]
+    }
+  }
+}`
+    } else if (authMode === 'private_key') {
+      return `{
+  "mcpServers": {
+    "${serverId}": {
+      "command": "npx",
+      "args": ["-y","@smithery/cli@latest","run","@upstash/${serverId}","--private-key","<PRIVATE_KEY_PATH>"]
+    }
+  }
+}`
+    } else {
+      return `{
   "mcpServers": {
     "${serverId}": {
       "command": "npx",
       "args": ["-y","@smithery/cli@latest","run","@upstash/${serverId}","--key","${apiKey ?? "<API_KEY>"}"]
     }
   }
-}`,
+}`
+    }
+  },
 
-  ts: ({ baseUrl, apiKey }) => `import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/transport/streamable-http";
+  ts: ({ baseUrl, apiKey }, authMode = 'api_key') => {
+    if (authMode === 'oauth') {
+      return `import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/transport/streamable-http";
+import { Client } from "@modelcontextprotocol/sdk/client/index";
+
+const url = new URL("${baseUrl}");
+const transport = new StreamableHTTPClientTransport(url.toString());
+
+const client = new Client({ name: "My App", version: "1.0.0" });
+await client.connect(transport);
+
+const tools = await client.listTools();
+console.log("Available tools:", tools.map(t => t.name).join(", "));`
+    } else if (authMode === 'private_key') {
+      return `import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/transport/streamable-http";
+import { Client } from "@modelcontextprotocol/sdk/client/index";
+import { readFileSync } from "fs";
+
+const url = new URL("${baseUrl}");
+const privateKey = readFileSync("<PRIVATE_KEY_PATH>", "utf8");
+url.searchParams.set("private_key", privateKey);
+const transport = new StreamableHTTPClientTransport(url.toString());
+
+const client = new Client({ name: "My App", version: "1.0.0" });
+await client.connect(transport);
+
+const tools = await client.listTools();
+console.log("Available tools:", tools.map(t => t.name).join(", "));`
+    } else {
+      return `import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/transport/streamable-http";
 import { Client } from "@modelcontextprotocol/sdk/client/index";
 
 const url = new URL("${baseUrl}");
@@ -101,9 +160,42 @@ const client = new Client({ name: "My App", version: "1.0.0" });
 await client.connect(transport);
 
 const tools = await client.listTools();
-console.log("Available tools:", tools.map(t => t.name).join(", "));`,
+console.log("Available tools:", tools.map(t => t.name).join(", "));`
+    }
+  },
 
-  py: ({ baseUrl, apiKey }) => `from mcp import ClientSession
+  py: ({ baseUrl, apiKey }, authMode = 'api_key') => {
+    if (authMode === 'oauth') {
+      return `from mcp import ClientSession
+from mcp.client.streamable_http import streamablehttp_client
+
+base_url = "${baseUrl}"
+
+async def main():
+    async with streamablehttp_client(base_url) as (read, write, _):
+        async with ClientSession(read, write) as session:
+            await session.initialize()
+            tools = await session.list_tools()
+            print("Available tools:", ", ".join([t.name for t in tools.tools]))`
+    } else if (authMode === 'private_key') {
+      return `from mcp import ClientSession
+from mcp.client.streamable_http import streamablehttp_client
+from urllib.parse import urlencode
+
+base_url = "${baseUrl}"
+with open("<PRIVATE_KEY_PATH>", "r") as f:
+    private_key = f.read().strip()
+params = { "private_key": private_key }
+url = f"{base_url}?{urlencode(params)}"
+
+async def main():
+    async with streamablehttp_client(url) as (read, write, _):
+        async with ClientSession(read, write) as session:
+            await session.initialize()
+            tools = await session.list_tools()
+            print("Available tools:", ", ".join([t.name for t in tools.tools]))`
+    } else {
+      return `from mcp import ClientSession
 from mcp.client.streamable_http import streamablehttp_client
 from urllib.parse import urlencode
 
@@ -117,6 +209,8 @@ async def main():
             await session.initialize()
             tools = await session.list_tools()
             print("Available tools:", ", ".join([t.name for t in tools.tools]))`
+    }
+  }
 }
 
 // Default clients
@@ -177,15 +271,37 @@ function CodeBlock({
   language,
   children,
   copyText,
-  className = ""
+  className = "",
+  showAuthDropdown = false,
+  authMode,
+  onAuthModeChange
 }: {
   language: string
   children: string
   copyText?: string
   className?: string
+  showAuthDropdown?: boolean
+  authMode?: AuthMode
+  onAuthModeChange?: (mode: AuthMode) => void
 }) {
   const [copied, setCopied] = useState(false)
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false)
+  const [highlightedCode, setHighlightedCode] = useState(children)
   const { isDark } = useTheme()
+
+  useEffect(() => {
+    const highlightCode = () => {
+      try {
+        const highlighted = Prism.highlight(children, Prism.languages[language] || Prism.languages.text, language)
+        setHighlightedCode(highlighted)
+      } catch (error) {
+        console.warn('Prism highlighting failed:', error)
+        setHighlightedCode(children)
+      }
+    }
+
+    highlightCode()
+  }, [children, language])
 
   const handleCopy = async () => {
     try {
@@ -198,11 +314,58 @@ function CodeBlock({
     }
   }
 
+  const authOptions = [
+    { key: 'oauth', label: 'OAuth' },
+    { key: 'api_key', label: 'API Key' },
+    { key: 'private_key', label: 'Private Key' }
+  ]
+
   return (
-    <div className={`relative rounded-md border ${isDark ? "bg-gray-800 border-gray-700" : "bg-background"} p-3 font-mono text-sm ${className}`}>
-      <div className="overflow-x-auto">
-        <pre className={`language-${language} whitespace-pre`}><code>{children}</code></pre>
+    <div className={`relative code-block p-3 ${className}`}>
+      <div className="overflow-x-auto" style={{ paddingTop: showAuthDropdown ? '28px' : '0' }}>
+        <pre className={`language-${language} whitespace-pre`}>
+          <code dangerouslySetInnerHTML={{ __html: highlightedCode }} />
+        </pre>
       </div>
+      
+      {/* Auth Dropdown */}
+      {showAuthDropdown && authMode && onAuthModeChange && (
+        <div className="absolute top-2 left-2">
+          <div className="relative">
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+              className="h-7 px-2 text-xs bg-muted/50 hover:bg-muted border"
+              aria-label="Select authentication method"
+            >
+              {authOptions.find(opt => opt.key === authMode)?.label}
+              <ChevronDown className="h-3 w-3 ml-1" />
+            </Button>
+            
+            {isDropdownOpen && (
+              <div className="absolute top-full left-0 mt-1 min-w-32 rounded-md border bg-background shadow-lg z-20">
+                {authOptions.map((option) => (
+                  <button
+                    key={option.key}
+                    onClick={() => {
+                      onAuthModeChange(option.key as AuthMode)
+                      setIsDropdownOpen(false)
+                    }}
+                    className={`w-full text-left px-3 py-2 text-xs hover:bg-muted transition-colors ${
+                      authMode === option.key ? 'bg-muted font-medium' : ''
+                    }`}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+      
+      {/* Copy Button */}
       <Button
         size="sm"
         variant="ghost"
@@ -401,7 +564,10 @@ export function ConnectPanel({
     selectedTab: 'auto',
     platform: 'mac',
     copied: {},
-    showApiKeyModal: false
+    showApiKeyModal: false,
+    jsonAuthMode: 'api_key',
+    codeLanguage: 'ts',
+    codeAuthMode: 'api_key'
   })
   
   const [searchQuery, setSearchQuery] = useState("")
@@ -475,14 +641,13 @@ export function ConnectPanel({
         <div className="px-4 py-4">
           <Tabs 
             value={state.selectedTab} 
-            onValueChange={(value) => setState(prev => ({ ...prev, selectedTab: value as 'auto' | 'json' | 'ts' | 'py' }))}
+            onValueChange={(value) => setState(prev => ({ ...prev, selectedTab: value as 'auto' | 'json' | 'code' }))}
             className="w-full"
           >
-            <TabsList className="grid w-full grid-cols-4">
+            <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="auto" className="text-xs">Auto</TabsTrigger>
               <TabsTrigger value="json" className="text-xs">JSON</TabsTrigger>
-              <TabsTrigger value="ts" className="text-xs">TypeScript</TabsTrigger>
-              <TabsTrigger value="py" className="text-xs">Python</TabsTrigger>
+              <TabsTrigger value="code" className="text-xs">Code</TabsTrigger>
             </TabsList>
 
             {/* Auto Tab */}
@@ -616,68 +781,100 @@ export function ConnectPanel({
                     </button>
                   </div>
                 </div>
+                
                 <CodeBlock 
                   language="json" 
                   copyText={templates.json({ 
                     baseUrl: server.baseUrl, 
                     apiKey: state.key?.full, 
                     serverId: server.id 
-                  })}
+                  }, state.jsonAuthMode)}
+                  showAuthDropdown={true}
+                  authMode={state.jsonAuthMode}
+                  onAuthModeChange={(mode) => setState(prev => ({ ...prev, jsonAuthMode: mode }))}
                 >
                   {templates.json({ 
                     baseUrl: server.baseUrl, 
                     apiKey: state.key?.full, 
                     serverId: server.id 
-                  })}
+                  }, state.jsonAuthMode)}
                 </CodeBlock>
               </div>
             </TabsContent>
 
-            {/* TypeScript Tab */}
-            <TabsContent value="ts" className="mt-4">
+            {/* Code Tab */}
+            <TabsContent value="code" className="mt-4">
               <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <p className="text-sm font-medium text-muted-foreground">TypeScript SDK</p>
-                  <div className="text-xs text-muted-foreground">
-                    npm install @modelcontextprotocol/sdk
+                {/* Language Selection */}
+                <div className="space-y-3">
+                  <p className="text-sm font-medium text-muted-foreground">Language</p>
+                  <div className="flex gap-1 p-1 rounded-lg bg-muted">
+                    <button 
+                      onClick={() => setState(prev => ({ ...prev, codeLanguage: 'ts' }))}
+                      className={`text-xs px-3 py-1.5 rounded-md transition-colors ${
+                        state.codeLanguage === 'ts' 
+                          ? 'bg-background text-foreground shadow-sm' 
+                          : 'text-muted-foreground hover:text-foreground'
+                      }`}
+                    >
+                      TypeScript
+                    </button>
+                    <button 
+                      onClick={() => setState(prev => ({ ...prev, codeLanguage: 'py' }))}
+                      className={`text-xs px-3 py-1.5 rounded-md transition-colors ${
+                        state.codeLanguage === 'py' 
+                          ? 'bg-background text-foreground shadow-sm' 
+                          : 'text-muted-foreground hover:text-foreground'
+                      }`}
+                    >
+                      Python
+                    </button>
                   </div>
                 </div>
-                <CodeBlock 
-                  language="typescript" 
-                  copyText={templates.ts({ 
-                    baseUrl: server.baseUrl, 
-                    apiKey: state.key?.full 
-                  })}
-                >
-                  {templates.ts({ 
-                    baseUrl: server.baseUrl, 
-                    apiKey: state.key?.full 
-                  })}
-                </CodeBlock>
-              </div>
-            </TabsContent>
 
-            {/* Python Tab */}
-            <TabsContent value="py" className="mt-4">
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <p className="text-sm font-medium text-muted-foreground">Python Client</p>
+                {/* Code Block */}
+                <div className="space-y-3">
                   <div className="text-xs text-muted-foreground">
-                    pip install mcp
+                    {state.codeLanguage === 'ts' 
+                      ? 'npm install @modelcontextprotocol/sdk'
+                      : 'pip install mcp'
+                    }
                   </div>
+                  
+                  {state.codeLanguage === 'ts' ? (
+                    <CodeBlock 
+                      language="typescript" 
+                      copyText={templates.ts({ 
+                        baseUrl: server.baseUrl, 
+                        apiKey: state.key?.full 
+                      }, state.codeAuthMode)}
+                      showAuthDropdown={true}
+                      authMode={state.codeAuthMode}
+                      onAuthModeChange={(mode) => setState(prev => ({ ...prev, codeAuthMode: mode }))}
+                    >
+                      {templates.ts({ 
+                        baseUrl: server.baseUrl, 
+                        apiKey: state.key?.full 
+                      }, state.codeAuthMode)}
+                    </CodeBlock>
+                  ) : (
+                    <CodeBlock 
+                      language="python" 
+                      copyText={templates.py({ 
+                        baseUrl: server.baseUrl, 
+                        apiKey: state.key?.full 
+                      }, state.codeAuthMode)}
+                      showAuthDropdown={true}
+                      authMode={state.codeAuthMode}
+                      onAuthModeChange={(mode) => setState(prev => ({ ...prev, codeAuthMode: mode }))}
+                    >
+                      {templates.py({ 
+                        baseUrl: server.baseUrl, 
+                        apiKey: state.key?.full 
+                      }, state.codeAuthMode)}
+                    </CodeBlock>
+                  )}
                 </div>
-                <CodeBlock 
-                  language="python" 
-                  copyText={templates.py({ 
-                    baseUrl: server.baseUrl, 
-                    apiKey: state.key?.full 
-                  })}
-                >
-                  {templates.py({ 
-                    baseUrl: server.baseUrl, 
-                    apiKey: state.key?.full 
-                  })}
-                </CodeBlock>
               </div>
             </TabsContent>
           </Tabs>
