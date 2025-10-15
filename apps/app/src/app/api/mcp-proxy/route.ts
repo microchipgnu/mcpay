@@ -15,6 +15,7 @@ function getValidOrigin(request: Request): string | null {
   // In production, only allow specific domains
   if (env.NODE_ENV === 'production') {
     const allowedOrigins = [
+      'https://v2.mcpay.tech',
       'https://mcpay.tech',
       'https://www.mcpay.tech',
     ]
