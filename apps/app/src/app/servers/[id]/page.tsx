@@ -1,31 +1,30 @@
 "use client"
 
+import { AboutSection } from "@/components/custom-ui/about-section"
 import { ConnectPanel } from "@/components/custom-ui/connect-panel"
+import { ServerDetailsCard } from "@/components/custom-ui/server-details-card"
+import { ServerHeader } from "@/components/custom-ui/server-header"
 import { ToolExecutionModal, type ToolFromMcpServerWithStats } from "@/components/custom-ui/tool-execution-modal"
+import { ToolsAccordion } from "@/components/custom-ui/tools-accordion"
 import { useTheme } from "@/components/providers/theme-context"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { ServerHeader } from "@/components/custom-ui/server-header"
-import { AboutSection } from "@/components/custom-ui/about-section"
-import { ToolsAccordion, type ToolListItem } from "@/components/custom-ui/tools-accordion"
-import { ServerDetailsCard } from "@/components/custom-ui/server-details-card"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
-import { mcpDataApi, urlUtils } from "@/lib/client/utils"
 import { getExplorerUrl } from "@/lib/client/blockscout"
+import { mcpDataApi, urlUtils } from "@/lib/client/utils"
 import { isNetworkSupported, type UnifiedNetwork } from "@/lib/commons"
 import {
-  Activity,
   AlertCircle,
+  ArrowUpRight,
   CheckCircle2,
+  ChevronDown,
+  ChevronRight,
   Clock,
   Copy,
-  Hammer,
   Loader2,
-  ArrowUpRight,
   RefreshCcw,
-  XCircle,
-  CheckCircle
+  XCircle
 } from "lucide-react"
 import { useParams } from "next/navigation"
 import { useEffect, useMemo, useState } from "react"
@@ -97,37 +96,6 @@ function safeTxUrl(network?: string, hash?: string) {
   return `https://etherscan.io/tx/${hash}`
 }
 
-function StatusBadge({ status }: { status?: string }) {
-  if (!status) return null
-  const color = status === 'ok' ? 'bg-green-500' : status === 'error' ? 'bg-red-500' : 'bg-gray-400'
-  const text = status.charAt(0).toUpperCase() + status.slice(1)
-  return (
-    <span className="inline-flex items-center gap-2 text-xs px-2 py-1 rounded border border-gray-200 dark:border-gray-700">
-      <span className={`w-2 h-2 rounded-full ${color}`} />
-      {text}
-    </span>
-  )
-}
-
-function Sparkline({ values, width = 96, height = 28, stroke = '#60a5fa' }: { values: number[]; width?: number; height?: number; stroke?: string }) {
-  const pts = values.length ? values : [0]
-  const max = Math.max(...pts)
-  const min = Math.min(...pts)
-  const range = Math.max(1, max - min)
-  const step = pts.length > 1 ? width / (pts.length - 1) : width
-  const d = pts
-    .map((v, i) => {
-      const x = i * step
-      const y = height - ((v - min) / range) * height
-      return `${i === 0 ? 'M' : 'L'}${x.toFixed(2)},${y.toFixed(2)}`
-    })
-    .join(' ')
-  return (
-    <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} className="opacity-80">
-      <path d={d} fill="none" stroke={stroke} strokeWidth={2} strokeLinecap="round" />
-    </svg>
-  )
-}
 
 export default function ServerPage() {
   const params = useParams()
@@ -140,6 +108,8 @@ export default function ServerPage() {
   const [reindexing, setReindexing] = useState(false)
   const [showToolModal, setShowToolModal] = useState(false)
   const [selectedTool, setSelectedTool] = useState<ToolFromMcpServerWithStats | null>(null)
+  const [isToolsCardExpanded, setIsToolsCardExpanded] = useState(true)
+  const [showAllTools, setShowAllTools] = useState(false)
 
   useEffect(() => {
     let mounted = true
@@ -255,9 +225,6 @@ export default function ServerPage() {
               <ServerHeader
                 name={data.info?.name || data.origin}
                 description={data.info?.description}
-                totalTools={data.summary.totalTools}
-                isRemote={!/localhost|127\.0\.0\.1/.test(data.origin)}
-                hasRepo={Boolean((data as unknown as { info?: { repo?: unknown } })?.info?.repo)}
                 onExplore={() => {
                   // Scroll to tools
                   const el = document.getElementById('tools-section')
@@ -266,86 +233,35 @@ export default function ServerPage() {
               />
             </div>
 
-            <div className="flex items-center gap-2 mb-6">
-              <StatusBadge status={data.status} />
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button variant="outline" size="sm" onClick={handleRefresh} disabled={reindexing}>
-                      {reindexing ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCcw className="h-4 w-4" />}
-                      Refresh
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent className="text-xs">Trigger a fresh re-index in the background</TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
-              <Card className={isDark ? "bg-gray-800 border-gray-700" : ""}>
-                <CardContent className="p-3">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className={`text-xs ${isDark ? "text-gray-400" : "text-gray-600"}`}>Requests</p>
-                      <div className="text-base font-bold mt-0.5">{data.summary.totalRequests.toLocaleString()}</div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Sparkline values={(data.dailyAnalytics || []).slice(0, 14).reverse().map(d => d.totalRequests)} />
-                      <div className={`p-1.5 rounded-full ${isDark ? "bg-gray-700" : "bg-gray-100"}`}>
-                        <Activity className="h-3.5 w-3.5 text-blue-500" />
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-              <Card className={isDark ? "bg-gray-800 border-gray-700" : ""}>
-                <CardContent className="p-3">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className={`text-xs ${isDark ? "text-gray-400" : "text-gray-600"}`}>Total Tools</p>
-                      <div className="text-base font-bold mt-0.5">{data.summary.totalTools}</div>
-                    </div>
-                    <div className={`p-1.5 rounded-full ${isDark ? "bg-gray-700" : "bg-gray-100"}`}>
-                      <Hammer className="h-3.5 w-3.5 text-orange-500" />
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-              <Card className={isDark ? "bg-gray-800 border-gray-700" : ""}>
-                <CardContent className="p-3">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className={`text-xs ${isDark ? "text-gray-400" : "text-gray-600"}`}>Payments</p>
-                      <div className="text-base font-bold mt-0.5">{data.summary.totalPayments}</div>
-                    </div>
-                    <div className={`p-1.5 rounded-full ${isDark ? "bg-gray-700" : "bg-gray-100"}`}>
-                      <CheckCircle className="h-3.5 w-3.5 text-green-500" />
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-              <Card className={isDark ? "bg-gray-800 border-gray-700" : ""}>
-                <CardContent className="p-3">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className={`text-xs ${isDark ? "text-gray-400" : "text-gray-600"}`}>Last Activity</p>
-                      <div className="text-base font-bold mt-0.5">
-                        <TooltipProvider>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <span>{formatRelative(data.summary.lastActivity)}</span>
-                            </TooltipTrigger>
-                            <TooltipContent className="text-xs">{formatDate(data.summary.lastActivity)}</TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
-                      </div>
-                    </div>
-                    <div className={`p-1.5 rounded-full ${isDark ? "bg-gray-700" : "bg-gray-100"}`}>
-                      <Clock className="h-3.5 w-3.5 text-purple-500" />
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+            <div className={`flex items-center justify-between px-3 py-2 rounded-lg border ${isDark ? "bg-gray-800 border-gray-700" : "bg-gray-50 border-gray-200"} mb-6`}>
+              <div className="flex items-center gap-6">
+                <div className="text-center">
+                  <div className="text-sm font-semibold">{data.summary.totalRequests.toLocaleString()}</div>
+                  <div className={`text-[10px] ${isDark ? "text-gray-400" : "text-gray-600"}`}>Requests</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-sm font-semibold">{data.summary.totalTools}</div>
+                  <div className={`text-[10px] ${isDark ? "text-gray-400" : "text-gray-600"}`}>Tools</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-sm font-semibold">{data.summary.totalPayments}</div>
+                  <div className={`text-[10px] ${isDark ? "text-gray-400" : "text-gray-600"}`}>Payments</div>
+                </div>
+              </div>
+              <div className="text-center">
+                <div className="text-sm font-semibold">
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span>{formatRelative(data.summary.lastActivity)}</span>
+                      </TooltipTrigger>
+                      <TooltipContent className="text-xs">{formatDate(data.summary.lastActivity)}</TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </div>
+                <div className={`text-[10px] ${isDark ? "text-gray-400" : "text-gray-600"}`}>Last Activity</div>
+              </div>
             </div>
 
             <div className="mb-6">
@@ -355,22 +271,75 @@ export default function ServerPage() {
             <div className="mt-6 grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
               <Card id="tools-section" className={`lg:col-span-2 ${isDark ? "bg-gray-800 border-gray-700" : ""}`}>
                 <CardHeader>
-                  <CardTitle className="text-base">Tools ({data.summary.totalTools})</CardTitle>
-                  <CardDescription>From last inspection</CardDescription>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle className="text-base">Tools ({data.summary.totalTools})</CardTitle>
+                      <CardDescription>From last inspection</CardDescription>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setIsToolsCardExpanded(!isToolsCardExpanded)}
+                      className="h-8 w-8 p-0"
+                    >
+                      {isToolsCardExpanded ? (
+                        <ChevronDown className="h-4 w-4" />
+                      ) : (
+                        <ChevronRight className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </div>
                 </CardHeader>
-                <CardContent>
-                  <ToolsAccordion
-                    tools={(data.tools || []).map((t, idx) => ({
-                      id: (t?.id as string) || (t?.name as string) || `tool-${idx}`,
-                      name: (t?.name as string) || `tool-${idx}`,
-                      description: (t?.description as string) || '',
-                      inputSchema: ((t as { inputSchema?: unknown; parameters?: { jsonSchema?: unknown } })?.inputSchema || (t as { parameters?: { jsonSchema?: unknown } })?.parameters?.jsonSchema || {}) as Record<string, unknown>,
-                      pricing: Array.isArray((t as { pricing?: unknown[] })?.pricing) ? (t as { pricing?: unknown[] }).pricing as Array<{ label?: string; amount?: number; currency?: string; active?: boolean }> : [],
-                      isMonetized: Array.isArray((t as { pricing?: Array<{ active?: boolean }> })?.pricing) && ((t as { pricing?: Array<{ active?: boolean }> }).pricing || []).some((p) => p?.active === true),
-                    }))}
-                    onTry={(tool) => openToolModal(tool as unknown as Record<string, unknown>)}
-                  />
-                </CardContent>
+                {isToolsCardExpanded && (
+                  <CardContent>
+                    {(() => {
+                      const allTools = (data.tools || []).map((t, idx) => ({
+                        id: (t?.id as string) || (t?.name as string) || `tool-${idx}`,
+                        name: (t?.name as string) || `tool-${idx}`,
+                        description: (t?.description as string) || '',
+                        inputSchema: ((t as { inputSchema?: unknown; parameters?: { jsonSchema?: unknown } })?.inputSchema || (t as { parameters?: { jsonSchema?: unknown } })?.parameters?.jsonSchema || {}) as Record<string, unknown>,
+                        pricing: Array.isArray((t as { pricing?: unknown[] })?.pricing) ? (t as { pricing?: unknown[] }).pricing as Array<{ label?: string; amount?: number; currency?: string; active?: boolean }> : [],
+                        isMonetized: Array.isArray((t as { pricing?: Array<{ active?: boolean }> })?.pricing) && ((t as { pricing?: Array<{ active?: boolean }> }).pricing || []).some((p) => p?.active === true),
+                      }))
+                      
+                      const toolsToShow = showAllTools ? allTools : allTools.slice(0, 5)
+                      const hasMoreTools = allTools.length > 5
+                      
+                      return (
+                        <div>
+                          <ToolsAccordion
+                            tools={toolsToShow}
+                            onTry={(tool) => openToolModal(tool as unknown as Record<string, unknown>)}
+                          />
+                          {hasMoreTools && !showAllTools && (
+                            <div className="mt-4 text-center">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setShowAllTools(true)}
+                                className="text-xs"
+                              >
+                                Show {allTools.length - 5} more tools
+                              </Button>
+                            </div>
+                          )}
+                          {hasMoreTools && showAllTools && (
+                            <div className="mt-4 text-center">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setShowAllTools(false)}
+                                className="text-xs"
+                              >
+                                Show less
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })()}
+                  </CardContent>
+                )}
               </Card>
 
               <div className="lg:col-span-1 space-y-4">
@@ -384,6 +353,8 @@ export default function ServerPage() {
                     repo: (data as unknown as { info?: { repo?: string } })?.info?.repo,
                     homepage: (data as unknown as { info?: { homepage?: string } })?.info?.homepage,
                   }}
+                  onRefresh={handleRefresh}
+                  isRefreshing={reindexing}
                 />
               </div>
             </div>

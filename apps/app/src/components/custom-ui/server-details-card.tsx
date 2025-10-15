@@ -1,6 +1,8 @@
 "use client"
 
+import { Button } from "@/components/ui/button"
 import { useTheme } from "@/components/providers/theme-context"
+import { RefreshCcw, Loader2 } from "lucide-react"
 
 type ServerDetails = {
   deploymentRef?: string
@@ -27,12 +29,37 @@ function DetailRow({ label, value, href }: { label: string; value?: string | boo
   )
 }
 
-export function ServerDetailsCard({ details }: { details: ServerDetails }) {
+export function ServerDetailsCard({ 
+  details, 
+  onRefresh, 
+  isRefreshing = false 
+}: { 
+  details: ServerDetails
+  onRefresh?: () => void
+  isRefreshing?: boolean
+}) {
   const { isDark } = useTheme()
 
   return (
     <div className={`rounded-md border ${isDark ? "bg-gray-800 border-gray-700" : "bg-background"}`}>
-      <div className="px-4 py-3 border-b text-sm font-medium">Details</div>
+      <div className="px-4 py-3 border-b text-sm font-medium flex items-center justify-between">
+        <span>Details</span>
+        {onRefresh && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onRefresh}
+            disabled={isRefreshing}
+            className="h-6 w-6 p-0"
+          >
+            {isRefreshing ? (
+              <Loader2 className="h-3 w-3 animate-spin" />
+            ) : (
+              <RefreshCcw className="h-3 w-3" />
+            )}
+          </Button>
+        )}
+      </div>
       <div className="px-4">
         <DetailRow label="Deployed from" value={details.deploymentRef} />
         <DetailRow label="License" value={details.license} />
