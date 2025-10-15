@@ -65,12 +65,47 @@ async function buildMonetizationForTarget(targetUrl: string): Promise<{
         // Build recipients from the new recipient structure
         const recipient: Partial<Record<Network, string>> = {};
 
+        // Get selected networks from metadata
+        const selectedNetworks = server.metadata?.networks as string[] | undefined;
+        
         // Handle the new recipient format: { evm: { address: string, isTestnet?: boolean } }
         if (server.recipient?.evm?.address) {
-            // For now, we'll use a generic network key since we're simplifying to EVM
-            // In a real implementation, you might want to map testnet vs mainnet to specific networks
-            const networkKey = server.recipient.evm.isTestnet ? 'base-sepolia' : 'base';
-            recipient[networkKey as Network] = server.recipient.evm.address;
+            if (selectedNetworks && selectedNetworks.length > 0) {
+                // Use only the networks selected by the user
+                for (const network of selectedNetworks) {
+                    recipient[network as Network] = server.recipient.evm.address;
+                }
+            } else {
+                // Fallback: Map EVM address to all supported EVM networks based on testnet flag
+                const isTestnet = server.recipient.evm.isTestnet;
+                const evmNetworks = ['base-sepolia', 'avalanche-fuji', 'sei-testnet', 'polygon-amoy'];
+                const evmMainnets = ['base', 'avalanche', 'iotex', 'sei', 'polygon'];
+                
+                const targetNetworks = isTestnet ? evmNetworks : evmMainnets;
+                for (const network of targetNetworks) {
+                    recipient[network as Network] = server.recipient.evm.address;
+                }
+            }
+        }
+
+        // Handle SVM recipient format: { svm: { address: string, isTestnet?: boolean } }
+        if (server.recipient?.svm?.address) {
+            if (selectedNetworks && selectedNetworks.length > 0) {
+                // Use only the networks selected by the user
+                for (const network of selectedNetworks) {
+                    recipient[network as Network] = server.recipient.svm.address;
+                }
+            } else {
+                // Fallback: Map SVM address based on testnet flag
+                const isTestnet = server.recipient.svm.isTestnet;
+                if (isTestnet) {
+                    recipient['solana-devnet' as Network] = server.recipient.svm.address;
+                } else {
+                    // Default to supporting both networks for SVM
+                    recipient['solana-devnet' as Network] = server.recipient.svm.address;
+                    recipient['solana' as Network] = server.recipient.svm.address;
+                }
+            }
         }
 
         // Fallback to old receiverAddressByNetwork if it exists (for backwards compatibility)
@@ -84,14 +119,17 @@ async function buildMonetizationForTarget(targetUrl: string): Promise<{
         // If there are no recipients configured, monetization cannot be applied
         if (!Object.keys(recipient).length) return null;
 
-        // Build prices per tool - now pricing is a simple string like "$0.01"
+        // Build prices per tool - convert string prices like "$0.01" to proper Price objects
         const prices: Record<string, Price> = {};
         for (const t of tools) {
             const pricing = t.pricing;
             if (typeof pricing === 'string' && pricing.startsWith('$')) {
-                // Convert string price like "$0.01" to a Price object
-                // For now, we'll create a simple price structure
-                prices[t.name as string] = pricing as any; // The x402 system should handle string prices
+                // Extract numeric value from string like "$0.01"
+                const numericValue = parseFloat(pricing.substring(1));
+                if (!isNaN(numericValue) && numericValue > 0) {
+                    // Use the numeric value as Money type (which is string | number)
+                    prices[t.name as string] = numericValue;
+                }
             }
         }
 
