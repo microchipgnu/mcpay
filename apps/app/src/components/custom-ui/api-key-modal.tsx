@@ -31,7 +31,7 @@ export function ApiKeyModal({
   
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string>("")
-  const [apiKeyName, setApiKeyName] = useState("")
+  const [apiKeyName, setApiKeyName] = useState(`${serverName} API Key`)
   const [createdApiKey, setCreatedApiKey] = useState<string>("")
   const [copied, setCopied] = useState(false)
   const [finalUrl, setFinalUrl] = useState<string>("")
@@ -46,7 +46,21 @@ export function ApiKeyModal({
     setError("")
     
     try {
-      const response = await authApi.createApiKey()
+      // Generate a descriptive name for the API key
+      const prefixes = ['Manual', 'Custom', 'Personal', 'User', 'Dev', 'Test', 'App', 'Client', 'Service', 'Tool']
+      const suffixes = ['Key', 'Token', 'Access', 'Auth', 'API', 'Credential', 'Secret', 'Pass', 'Login', 'Auth']
+      const randomPrefix = prefixes[Math.floor(Math.random() * prefixes.length)]
+      const randomSuffix = suffixes[Math.floor(Math.random() * suffixes.length)]
+      const randomNumber = Math.floor(Math.random() * 9999) + 1
+      const generatedName = `${randomPrefix} ${randomSuffix} ${randomNumber}`
+      
+      // Use user-provided name or generated name
+      const finalName = apiKeyName.trim() || generatedName
+      
+      const response = await authApi.createApiKey({ 
+        name: finalName,
+        prefix: 'mcpay_'
+      })
       
       if (response && typeof response === 'object' && 'key' in response) {
         const apiKey = response.key as string
@@ -70,7 +84,7 @@ export function ApiKeyModal({
     } finally {
       setLoading(false)
     }
-  }, [session?.user, onApiKeyCreated])
+  }, [session?.user, apiKeyName, baseUrl])
 
   const handleCopyUrl = useCallback(async () => {
     if (!finalUrl) return
@@ -140,7 +154,7 @@ export function ApiKeyModal({
                 </Label>
                 <Input
                   id="api-key-name"
-                  placeholder={`${serverName} API Key`}
+                  placeholder="Enter a name for your API key"
                   value={apiKeyName}
                   onChange={(e) => setApiKeyName(e.target.value)}
                   className="text-sm"
@@ -155,7 +169,7 @@ export function ApiKeyModal({
                   <div className="space-y-1">
                     <h4 className={`text-sm font-medium ${isDark ? "text-white" : "text-gray-900"}`}>Important</h4>
                     <p className={`text-xs ${isDark ? "text-gray-400" : "text-gray-600"}`}>
-                      This API key will be used to authenticate with the MCP server. Keep it secure and don't share it with others.
+                      This API key will be used to authenticate with the MCP server. Keep it secure and don&apos;t share it with others.
                     </p>
                   </div>
                 </div>
@@ -229,7 +243,7 @@ export function ApiKeyModal({
                   <div className="space-y-1">
                     <h4 className={`text-sm font-medium ${isDark ? "text-white" : "text-gray-900"}`}>Security Notice</h4>
                     <p className={`text-xs ${isDark ? "text-gray-400" : "text-gray-600"}`}>
-                      This connection URL contains your API key. Keep it secure and don't share it with others.
+                      This connection URL contains your API key. Keep it secure and don&apos;t share it with others.
                     </p>
                   </div>
                 </div>

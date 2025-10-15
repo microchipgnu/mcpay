@@ -1,10 +1,9 @@
 "use client"
 
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Copy, ExternalLink, CheckCircle2, Code2, Settings, AlertTriangle, ChevronDown } from "lucide-react"
+import { Copy, CheckCircle2, Code2, AlertTriangle, ChevronDown } from "lucide-react"
 import { toast } from "sonner"
 import { useState, useCallback } from "react"
 import { useTheme } from "@/components/providers/theme-context"
@@ -364,7 +363,7 @@ function ConnectionUrlCard({
       </div>
 
       <div className="text-xs text-muted-foreground">
-        Client doesn't support OAuth yet or link isn't working?{" "}
+        Client doesn&apos;t support OAuth yet or link isn&apos;t working?{" "}
         <button 
           className="text-foreground hover:text-teal-600 hover:underline hover:decoration-dotted underline-offset-2 transition-all duration-300"
           onClick={onToggleAuth}
@@ -376,25 +375,13 @@ function ConnectionUrlCard({
       {authMode === 'api_key' && (
         <div className="flex items-center gap-2 text-xs text-amber-300/90">
           <AlertTriangle className="h-3 w-3" />
-          Your key is sensitive. Please don't share it with anyone.
+          Your key is sensitive. Please don&apos;t share it with anyone.
         </div>
       )}
     </div>
   )
 }
 
-// Component: SectionDivider
-function SectionDivider({ label }: { label: string }) {
-  const { isDark } = useTheme()
-  return (
-    <div className="relative my-6">
-      <div className={`h-px ${isDark ? "bg-gray-700" : "bg-border"}`} />
-      <div className={`absolute -top-2 left-1/2 -translate-x-1/2 ${isDark ? "bg-gray-900" : "bg-background"} px-2 text-xs text-muted-foreground`}>
-        {label}
-      </div>
-    </div>
-  )
-}
 
 // Main Component
 export function ConnectPanel({ 
@@ -403,7 +390,6 @@ export function ConnectPanel({
   clients = defaultClients, 
   templates = defaultTemplates,
   className, 
-  stickyTop = "top-4" 
 }: ConnectPanelProps) {
   const { isDark } = useTheme()
   const [state, setState] = useState<ConnectState>({
@@ -489,7 +475,7 @@ export function ConnectPanel({
         <div className="px-4 py-4">
           <Tabs 
             value={state.selectedTab} 
-            onValueChange={(value) => setState(prev => ({ ...prev, selectedTab: value as any }))}
+            onValueChange={(value) => setState(prev => ({ ...prev, selectedTab: value as 'auto' | 'json' | 'ts' | 'py' }))}
             className="w-full"
           >
             <TabsList className="grid w-full grid-cols-4">
@@ -572,7 +558,7 @@ export function ConnectPanel({
                       ))}
                       {filteredClients.length === 0 && (
                         <div className="p-4 text-center text-sm text-muted-foreground">
-                          No clients found matching "{searchQuery}"
+                          No clients found matching &quot;{searchQuery}&quot;
                         </div>
                       )}
                     </div>

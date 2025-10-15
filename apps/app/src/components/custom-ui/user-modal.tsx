@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
+import { Checkbox } from "@/components/ui/checkbox"
 import { Github, Copy as CopyIcon, Check as CheckIcon, ExternalLink, Loader2 } from "lucide-react"
 import { useSession, signIn, signOut } from "@/lib/client/auth"
 import { authApi } from "@/lib/client/utils"
@@ -72,6 +73,8 @@ export function UserAccountPanel({ isActive = true }: { isActive?: boolean }) {
   const [apiKeys, setApiKeys] = useState<ApiKey[]>([])
   const [apiKeysLoading, setApiKeysLoading] = useState(false)
   const [apiKeyCreated, setApiKeyCreated] = useState<string>("")
+  const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set())
+  const [bulkDeleting, setBulkDeleting] = useState(false)
 
 
   const loadWallets = useCallback(async () => {
@@ -173,6 +176,42 @@ export function UserAccountPanel({ isActive = true }: { isActive?: boolean }) {
       await loadApiKeys()
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to delete API key")
+    }
+  }
+
+  async function handleBulkDelete() {
+    if (selectedKeys.size === 0) return
+    setBulkDeleting(true)
+    try {
+      const deletePromises = Array.from(selectedKeys).map(id => authApi.deleteApiKey(id))
+      await Promise.all(deletePromises)
+      setSelectedKeys(new Set())
+      await loadApiKeys()
+      toast.success(`Deleted ${selectedKeys.size} API key${selectedKeys.size > 1 ? 's' : ''}`)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to delete API keys")
+    } finally {
+      setBulkDeleting(false)
+    }
+  }
+
+  function handleSelectKey(id: string, checked: boolean) {
+    setSelectedKeys(prev => {
+      const newSet = new Set(prev)
+      if (checked) {
+        newSet.add(id)
+      } else {
+        newSet.delete(id)
+      }
+      return newSet
+    })
+  }
+
+  function handleSelectAll(checked: boolean) {
+    if (checked) {
+      setSelectedKeys(new Set(apiKeys.map(k => k.id)))
+    } else {
+      setSelectedKeys(new Set())
     }
   }
 
@@ -421,7 +460,33 @@ export function UserAccountPanel({ isActive = true }: { isActive?: boolean }) {
 
                     <div className={`rounded-md border ${isDark ? "border-gray-700" : "border-gray-200"}`}>
                       <div className={`p-3 border-b flex items-center justify-between flex-shrink-0 ${isDark ? "border-gray-700" : "border-gray-200"}`}>
-                        <div className={`text-sm font-medium ${isDark ? "text-white" : "text-gray-900"}`}>Your API Keys</div>
+                        <div className="flex items-center gap-3">
+                          <div className={`text-sm font-medium ${isDark ? "text-white" : "text-gray-900"}`}>Your API Keys</div>
+                          {apiKeys.length > 0 && (
+                            <div className="flex items-center gap-2">
+                              <div className="flex items-center gap-2">
+                                <Checkbox
+                                  checked={selectedKeys.size === apiKeys.length && apiKeys.length > 0}
+                                  onCheckedChange={handleSelectAll}
+                                />
+                                <span className={`text-xs ${isDark ? "text-gray-400" : "text-gray-600"}`}>
+                                  Select all
+                                </span>
+                              </div>
+                              {selectedKeys.size > 0 && (
+                                <Button 
+                                  size="sm" 
+                                  variant="destructive" 
+                                  className="text-xs h-7 px-2" 
+                                  onClick={handleBulkDelete}
+                                  disabled={bulkDeleting}
+                                >
+                                  {bulkDeleting ? <Loader2 className="h-3 w-3 animate-spin" /> : `Delete ${selectedKeys.size}`}
+                                </Button>
+                              )}
+                            </div>
+                          )}
+                        </div>
                         <Button size="sm" variant="outline" className="text-xs h-7 px-2" onClick={loadApiKeys} disabled={apiKeysLoading}>
                           {apiKeysLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : "Reload"}
                         </Button>
@@ -434,6 +499,7 @@ export function UserAccountPanel({ isActive = true }: { isActive?: boolean }) {
                             <table className="min-w-full text-sm">
                               <thead className={isDark ? "bg-gray-800/50" : "bg-gray-50"}>
                                 <tr>
+                                  <th className={`text-left font-medium px-3 py-2 text-xs ${isDark ? "text-gray-400" : "text-gray-600"}`}></th>
                                   <th className={`text-left font-medium px-3 py-2 text-xs ${isDark ? "text-gray-400" : "text-gray-600"}`}>Name</th>
                                   <th className={`text-left font-medium px-3 py-2 text-xs ${isDark ? "text-gray-400" : "text-gray-600"}`}>Enabled</th>
                                   <th className={`text-left font-medium px-3 py-2 text-xs ${isDark ? "text-gray-400" : "text-gray-600"}`}>Created</th>
@@ -445,6 +511,12 @@ export function UserAccountPanel({ isActive = true }: { isActive?: boolean }) {
                                   const enabled = k.enabled !== false
                                   return (
                                     <tr key={k.id} className={`transition-all duration-300 ${isDark ? "hover:bg-gray-800/40" : "hover:bg-gray-100"}`}>
+                                      <td className="px-3 py-2">
+                                        <Checkbox
+                                          checked={selectedKeys.has(k.id)}
+                                          onCheckedChange={(checked) => handleSelectKey(k.id, checked as boolean)}
+                                        />
+                                      </td>
                                       <td className={`px-3 py-2 text-xs ${isDark ? "text-white" : "text-gray-900"}`}>{k.name || "—"}</td>
                                       <td className={`px-3 py-2 text-xs ${isDark ? "text-white" : "text-gray-900"}`}>{enabled ? "Yes" : "No"}</td>
                                       <td className={`px-3 py-2 text-xs ${isDark ? "text-gray-400" : "text-gray-600"}`}>{fmtDate(k.createdAt)}</td>
