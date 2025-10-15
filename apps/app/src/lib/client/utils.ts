@@ -251,9 +251,10 @@ export const authApi = {
   },
 
   // Create API key
-  createApiKey: async (): Promise<{ key: string }> => {
+  createApiKey: async (data?: { name?: string; prefix?: string }): Promise<{ key: string }> => {
     return serviceApiCall(urlUtils.getAuthUrl(), '/api/keys', {
       method: 'POST',
+      body: data ? JSON.stringify(data) : undefined,
     })
   },
 

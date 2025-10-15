@@ -139,7 +139,18 @@ export function UserAccountPanel({ isActive = true }: { isActive?: boolean }) {
   async function handleCreateApiKey() {
     if (!session?.user) return
     try {
-      const created = await authApi.createApiKey()
+      // Generate a descriptive name for the API key
+      const prefixes = ['Manual', 'Custom', 'Personal', 'User', 'Dev', 'Test', 'App', 'Client', 'Service', 'Tool']
+      const suffixes = ['Key', 'Token', 'Access', 'Auth', 'API', 'Credential', 'Secret', 'Pass', 'Login', 'Auth']
+      const randomPrefix = prefixes[Math.floor(Math.random() * prefixes.length)]
+      const randomSuffix = suffixes[Math.floor(Math.random() * suffixes.length)]
+      const randomNumber = Math.floor(Math.random() * 9999) + 1
+      const randomName = `${randomPrefix} ${randomSuffix} ${randomNumber}`
+      
+      const created = await authApi.createApiKey({ 
+        name: randomName,
+        prefix: 'mcpay_'
+      })
       if (created && created.key) setApiKeyCreated(created.key as string)
       await loadApiKeys()
     } catch (e) {
@@ -390,7 +401,10 @@ export function UserAccountPanel({ isActive = true }: { isActive?: boolean }) {
                               <code className={`text-xs font-mono break-all ${isDark ? "text-white" : "text-gray-900"}`}>{apiKeyCreated}</code>
                             </div>
                             <div className="flex gap-2">
-                              <Button size="sm" className="text-xs h-7 px-2" onClick={() => navigator.clipboard.writeText(apiKeyCreated)}>Copy</Button>
+                              <Button size="sm" className="text-xs h-7 px-2" onClick={() => {
+                                navigator.clipboard.writeText(apiKeyCreated)
+                                toast.success("API key copied")
+                              }}>Copy</Button>
                               <Button size="sm" variant="ghost" className="text-xs h-7 px-2" onClick={() => setApiKeyCreated("")}>Dismiss</Button>
                             </div>
                           </div>
@@ -420,6 +434,7 @@ export function UserAccountPanel({ isActive = true }: { isActive?: boolean }) {
                             <table className="min-w-full text-sm">
                               <thead className={isDark ? "bg-gray-800/50" : "bg-gray-50"}>
                                 <tr>
+                                  <th className={`text-left font-medium px-3 py-2 text-xs ${isDark ? "text-gray-400" : "text-gray-600"}`}>Name</th>
                                   <th className={`text-left font-medium px-3 py-2 text-xs ${isDark ? "text-gray-400" : "text-gray-600"}`}>Enabled</th>
                                   <th className={`text-left font-medium px-3 py-2 text-xs ${isDark ? "text-gray-400" : "text-gray-600"}`}>Created</th>
                                   <th className={`text-right font-medium px-3 py-2 text-xs ${isDark ? "text-gray-400" : "text-gray-600"}`}>Actions</th>
@@ -430,6 +445,7 @@ export function UserAccountPanel({ isActive = true }: { isActive?: boolean }) {
                                   const enabled = k.enabled !== false
                                   return (
                                     <tr key={k.id} className={`transition-all duration-300 ${isDark ? "hover:bg-gray-800/40" : "hover:bg-gray-100"}`}>
+                                      <td className={`px-3 py-2 text-xs ${isDark ? "text-white" : "text-gray-900"}`}>{k.name || "—"}</td>
                                       <td className={`px-3 py-2 text-xs ${isDark ? "text-white" : "text-gray-900"}`}>{enabled ? "Yes" : "No"}</td>
                                       <td className={`px-3 py-2 text-xs ${isDark ? "text-gray-400" : "text-gray-600"}`}>{fmtDate(k.createdAt)}</td>
                                       <td className="px-3 py-2 text-right">
