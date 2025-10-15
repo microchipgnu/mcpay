@@ -29,7 +29,7 @@ export async function POST(request: Request) {
   console.log('targetUrl', targetUrl)
 
   // Use the local MCP server instead of external proxy
-  const mcpUrl = `${env.NEXT_PUBLIC_AUTH_URL}/mcp?target-url=${targetUrl}`
+  const mcpUrl = `${process.env.NEXT_PUBLIC_AUTH_URL}/mcp?target-url=${targetUrl}`
 
   console.log('mcpUrl', mcpUrl)
   
