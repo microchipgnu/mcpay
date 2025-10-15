@@ -68,20 +68,25 @@ async function buildMonetizationForTarget(targetUrl: string): Promise<{
         // Get selected networks from metadata
         const selectedNetworks = server.metadata?.networks as string[] | undefined;
         
+        // Define network types for proper filtering
+        const evmNetworks = ['base', 'base-sepolia', 'avalanche', 'avalanche-fuji', 'iotex', 'sei', 'sei-testnet', 'polygon', 'polygon-amoy'];
+        const svmNetworks = ['solana', 'solana-devnet'];
+
         // Handle the new recipient format: { evm: { address: string, isTestnet?: boolean } }
         if (server.recipient?.evm?.address) {
             if (selectedNetworks && selectedNetworks.length > 0) {
-                // Use only the networks selected by the user
-                for (const network of selectedNetworks) {
+                // Use only EVM networks selected by the user
+                const selectedEvmNetworks = selectedNetworks.filter(n => evmNetworks.includes(n));
+                for (const network of selectedEvmNetworks) {
                     recipient[network as Network] = server.recipient.evm.address;
                 }
             } else {
                 // Fallback: Map EVM address to all supported EVM networks based on testnet flag
                 const isTestnet = server.recipient.evm.isTestnet;
-                const evmNetworks = ['base-sepolia', 'avalanche-fuji', 'sei-testnet', 'polygon-amoy'];
+                const evmTestnets = ['base-sepolia', 'avalanche-fuji', 'sei-testnet', 'polygon-amoy'];
                 const evmMainnets = ['base', 'avalanche', 'iotex', 'sei', 'polygon'];
                 
-                const targetNetworks = isTestnet ? evmNetworks : evmMainnets;
+                const targetNetworks = isTestnet ? evmTestnets : evmMainnets;
                 for (const network of targetNetworks) {
                     recipient[network as Network] = server.recipient.evm.address;
                 }
@@ -91,8 +96,9 @@ async function buildMonetizationForTarget(targetUrl: string): Promise<{
         // Handle SVM recipient format: { svm: { address: string, isTestnet?: boolean } }
         if (server.recipient?.svm?.address) {
             if (selectedNetworks && selectedNetworks.length > 0) {
-                // Use only the networks selected by the user
-                for (const network of selectedNetworks) {
+                // Use only SVM networks selected by the user
+                const selectedSvmNetworks = selectedNetworks.filter(n => svmNetworks.includes(n));
+                for (const network of selectedSvmNetworks) {
                     recipient[network as Network] = server.recipient.svm.address;
                 }
             } else {

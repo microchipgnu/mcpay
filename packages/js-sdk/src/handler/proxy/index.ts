@@ -44,6 +44,7 @@ export function withProxy(targetUrl: string, hooks: Hook[]) {
     return async (req: Request): Promise<Response> => {
         console.log(`[${new Date().toISOString()}] Target URL: ${targetUrl}`);
 
+        // Preserve original body for non-JSON requests
         if (!req.headers.get("content-type")?.includes("json")) {
             const upstream = await fetch(targetUrl, {
                 method: req.method,
@@ -54,10 +55,19 @@ export function withProxy(targetUrl: string, hooks: Hook[]) {
             return wrapUpstreamResponse(upstream);
         }
 
-        const body = await req.clone().json().catch((err) => {
-            return null;
-        });
-        if (!body || Array.isArray(body)) {
+        // Parse JSON while preserving original body stream
+        let originalRpc: Record<string, unknown> | null = null;
+        let originalBodyText: string | null = null;
+        
+        try {
+            // Clone request to preserve original body for forwarding
+            const clonedReq = req.clone();
+            originalBodyText = await clonedReq.text();
+            
+            // Parse JSON for hook processing
+            originalRpc = JSON.parse(originalBodyText) as Record<string, unknown>;
+        } catch (err) {
+            // If JSON parsing fails, forward original body
             const upstream = await fetch(targetUrl, {
                 method: req.method,
                 headers: req.headers,
@@ -67,8 +77,18 @@ export function withProxy(targetUrl: string, hooks: Hook[]) {
             return wrapUpstreamResponse(upstream);
         }
 
+        if (!originalRpc || Array.isArray(originalRpc)) {
+            // Forward original body for non-object JSON
+            const upstream = await fetch(targetUrl, {
+                method: req.method,
+                headers: req.headers,
+                body: originalBodyText,
+                duplex: 'half'
+            } as RequestInit);
+            return wrapUpstreamResponse(upstream);
+        }
+
         // Generalized MCP routing
-        const originalRpc = body as Record<string, unknown>;
         const method = String(originalRpc["method"] || "");
         const isNotification = !("id" in originalRpc);
 
@@ -101,7 +121,8 @@ export function withProxy(targetUrl: string, hooks: Hook[]) {
             forwardHeaders.delete("transfer-encoding");
             forwardHeaders.delete("content-encoding");
             forwardHeaders.set("content-type", "application/json");
-            const upstream = await fetch(targetUrl, { method: req.method, headers: forwardHeaders, body: JSON.stringify(originalRpc) });
+            // Forward original body text instead of reconstructing JSON
+            const upstream = await fetch(targetUrl, { method: req.method, headers: forwardHeaders, body: originalBodyText });
             return wrapUpstreamResponse(upstream);
         }
 
@@ -145,15 +166,27 @@ export function withProxy(targetUrl: string, hooks: Hook[]) {
 
             let upstream: Response;
             try {
-                upstream = await fetch(targetUrl, {
-                    method: req.method,
-                    headers: forwardHeaders,
-                    body: JSON.stringify({
-                        ...originalRpcLocal,
-                        method: methodName,
-                        params: (currentReq as unknown as { params?: unknown })?.params ?? (originalRpcLocal["params"] as Record<string, unknown> | undefined)
-                    }),
-                });
+                // Check if hooks modified the request - if so, reconstruct body
+                const hasModifications = currentReq !== (originalRpcLocal as TReq);
+                if (hasModifications) {
+                    // Hooks modified the request, reconstruct body
+                    upstream = await fetch(targetUrl, {
+                        method: req.method,
+                        headers: forwardHeaders,
+                        body: JSON.stringify({
+                            ...originalRpcLocal,
+                            method: methodName,
+                            params: (currentReq as unknown as { params?: unknown })?.params ?? (originalRpcLocal["params"] as Record<string, unknown> | undefined)
+                        }),
+                    });
+                } else {
+                    // No modifications, forward original body
+                    upstream = await fetch(targetUrl, {
+                        method: req.method,
+                        headers: forwardHeaders,
+                        body: originalBodyText,
+                    });
+                }
             } catch (e) {
                 for (const h of hooks.slice().reverse()) {
                     const rr = await (runError(h, { code: 0, message: (e as Error)?.message || "upstream_error" }, currentReq) || Promise.resolve(null));
@@ -252,15 +285,28 @@ export function withProxy(targetUrl: string, hooks: Hook[]) {
                     forwardHeaders.delete("content-encoding");
                     forwardHeaders.set("content-type", "application/json");
 
-                    const upstream = await fetch(targetUrl, {
-                        method: req.method,
-                        headers: forwardHeaders,
-                        body: JSON.stringify({
-                            ...originalRpc,
-                            method: "tools/call",
-                            params: currentReq.params ?? (originalRpc["params"] as Record<string, unknown> | undefined)
-                        }),
-                    });
+                    // Check if hooks modified the request - if so, reconstruct body
+                    const hasModifications = currentReq !== (originalRpc as CallToolRequest);
+                    let upstream: Response;
+                    if (hasModifications) {
+                        // Hooks modified the request, reconstruct body
+                        upstream = await fetch(targetUrl, {
+                            method: req.method,
+                            headers: forwardHeaders,
+                            body: JSON.stringify({
+                                ...originalRpc,
+                                method: "tools/call",
+                                params: currentReq.params ?? (originalRpc["params"] as Record<string, unknown> | undefined)
+                            }),
+                        });
+                    } else {
+                        // No modifications, forward original body
+                        upstream = await fetch(targetUrl, {
+                            method: req.method,
+                            headers: forwardHeaders,
+                            body: originalBodyText,
+                        });
+                    }
 
                     const contentType = upstream.headers.get("content-type") || "";
                     const isJson = contentType.includes("application/json");
