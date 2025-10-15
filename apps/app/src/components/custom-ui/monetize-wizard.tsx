@@ -45,7 +45,7 @@ export function MonetizeWizard({ open, onOpenChange, serverUrl, tools, onCreate 
   const [selectedNetworks, setSelectedNetworks] = useState<string[]>([])
   const [requireAuth, setRequireAuth] = useState(false)
   const [authHeaders, setAuthHeaders] = useState<Array<{ key: string; value: string }>>([{ key: "", value: "" }])
-  const [showValues, setShowValues] = useState(false)
+  const [showValues, setShowValues] = useState(true)
   const [bulkHeadersText, setBulkHeadersText] = useState("")
   const [toolsSearch, setToolsSearch] = useState("")
   const [bulkPriceInput, setBulkPriceInput] = useState<string>("")
@@ -113,16 +113,16 @@ export function MonetizeWizard({ open, onOpenChange, serverUrl, tools, onCreate 
   }, [step, needsEvm, needsSvm])
 
   const Content = (
-    <div className={`flex ${isMobile ? 'h-full' : 'h-[560px]'} flex-col`}> 
+    <div className={`flex ${isMobile ? 'h-full' : 'h-[560px]'} flex-col`}>
       <div className="flex-1 min-h-0 flex flex-col space-y-4 overflow-hidden">
         {step === 1 && (
           <div className="space-y-3 flex flex-col min-h-0">
             <div className="flex items-center gap-3">
               <div className="ml-auto relative">
-                <Input value={toolsSearch} onChange={(e) => setToolsSearch(e.target.value)} placeholder="Search tools" className="w-56 pl-3" />
+                <Input value={toolsSearch} onChange={(e) => setToolsSearch(e.target.value)} placeholder="Search tools" className="w-56 pl-3 bg-background border-border" />
               </div>
             </div>
-            <div className="flex-1 min-h-0 overflow-auto border rounded-md p-3">
+            <div className="flex-1 min-h-0 overflow-auto border border-border rounded-md bg-background p-3">
               {tools.length === 0 ? (
                 <div className="text-sm text-muted-foreground">No tools detected.</div>
               ) : (
@@ -130,12 +130,12 @@ export function MonetizeWizard({ open, onOpenChange, serverUrl, tools, onCreate 
                   <div className="text-xs text-muted-foreground mb-2">Showing {filteredTools.length} of {tools.length}</div>
                   <ul className="space-y-2">
                     {filteredTools.map((t) => (
-                      <li key={t.name} className="flex items-start justify-between gap-4">
+                      <li key={t.name} className="flex items-start justify-between gap-4 p-2 rounded-md hover:bg-muted/40 transition-all duration-300">
                         <div className="min-w-0">
-                          <div className="font-medium truncate">{t.name}</div>
+                          <div className="font-medium text-foreground truncate">{t.name}</div>
                           {t.description && (<div className="text-xs text-muted-foreground truncate">{t.description}</div>)}
                         </div>
-                        <Badge variant="outline">tool</Badge>
+                        <span className="text-xs px-2 py-0.5 rounded font-mono border text-teal-700 bg-teal-500/10 border-teal-500/20 dark:text-teal-200 dark:bg-teal-800/50 dark:border-teal-800/50">tool</span>
                       </li>
                     ))}
                   </ul>
@@ -157,7 +157,7 @@ export function MonetizeWizard({ open, onOpenChange, serverUrl, tools, onCreate 
                 value={bulkPriceInput}
                 onChange={(e) => setBulkPriceInput(e.target.value)}
                 placeholder="Set all to…"
-                className="w-40"
+                className="w-40 bg-background border-border"
               />
               <Button type="button" variant="secondary" size="sm" onClick={() => {
                 const v = Number(bulkPriceInput)
@@ -171,12 +171,12 @@ export function MonetizeWizard({ open, onOpenChange, serverUrl, tools, onCreate 
                 <Button type="button" variant="ghost" size="sm" onClick={() => setBulkPriceInput("")}>Clear</Button>
               </div>
             </div>
-            <div className="flex-1 min-h-0 overflow-auto border rounded-md p-3">
+            <div className="flex-1 min-h-0 overflow-auto border border-border rounded-md bg-background p-3">
               <div className="space-y-2 pr-1">
                 {tools.map((t) => (
-                  <div key={t.name} className="flex items-center gap-3">
+                  <div key={t.name} className="flex items-center gap-3 p-2 rounded-md hover:bg-muted/40 transition-all duration-300">
                     <div className="min-w-0 flex-1">
-                      <div className="text-sm font-medium truncate">{t.name}</div>
+                      <div className="text-sm font-medium text-foreground truncate">{t.name}</div>
                     </div>
                     <div className="relative">
                       <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">$</span>
@@ -186,7 +186,7 @@ export function MonetizeWizard({ open, onOpenChange, serverUrl, tools, onCreate 
                         min="0"
                         value={priceByTool[t.name] ?? 0}
                         onChange={(e) => setPriceByTool((prev) => ({ ...prev, [t.name]: Number(e.target.value) }))}
-                        className="w-28 pl-4"
+                        className="w-28 pl-4 bg-background border-border"
                         placeholder="0.01"
                       />
                     </div>
@@ -198,7 +198,7 @@ export function MonetizeWizard({ open, onOpenChange, serverUrl, tools, onCreate 
         )}
 
         {step === 3 && (
-          <div className="space-y-3">
+          <div className="space-y-4">
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-2 flex-wrap">
                 <Checkbox id="require-auth2" checked={requireAuth} onCheckedChange={(v) => setRequireAuth(Boolean(v))} />
@@ -217,74 +217,136 @@ export function MonetizeWizard({ open, onOpenChange, serverUrl, tools, onCreate 
                 </Button>
               )}
             </div>
-            {requireAuth && (
-              <div className="space-y-3 overflow-x-hidden">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-xs text-muted-foreground">Presets:</span>
-                  <Button type="button" variant="secondary" size="sm" onClick={() => setAuthHeaders((prev) => [...prev, { key: 'Authorization', value: 'Bearer ' }])}>Authorization: Bearer …</Button>
-                  <Button type="button" variant="secondary" size="sm" onClick={() => setAuthHeaders((prev) => [...prev, { key: 'x-api-key', value: '' }])}>x-api-key</Button>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button type="button" variant="outline" size="sm">Paste headers</Button>
-                    </PopoverTrigger>
-                    <PopoverContent align="start" className="w-[360px] max-w-[calc(100vw-6rem)]">
-                      <div className="space-y-2">
-                        <div className="text-xs text-muted-foreground">Paste lines like &quot;Key: Value&quot; or &quot;Key=Value&quot;.</div>
-                        <Textarea value={bulkHeadersText} onChange={(e) => setBulkHeadersText(e.target.value)} placeholder={`Authorization: Bearer sk-xxxx\nx-api-key: abc123`} />
-                        <div className="flex justify-end gap-2">
-                          <Button type="button" variant="outline" size="sm" onClick={() => setBulkHeadersText("")}>Clear</Button>
-                          <Button type="button" size="sm" onClick={() => {
-                            const lines = (bulkHeadersText || '').split(/\r?\n/).map((l) => l.trim()).filter(Boolean)
-                            const parsed: Array<{ key: string; value: string }> = []
-                            for (const line of lines) {
-                              const colon = line.indexOf(':')
-                              const eq = line.indexOf('=')
-                              const idx = colon >= 0 ? colon : eq
-                              if (idx < 0) continue
-                              const k = line.slice(0, idx).trim()
-                              const v = line.slice(idx + 1).trim()
-                              if (k) parsed.push({ key: k, value: v })
-                            }
-                            if (parsed.length > 0) {
-                              setAuthHeaders(parsed)
-                              setBulkHeadersText("")
-                              toast.success('Parsed headers')
-                            } else {
-                              toast.error('No headers detected')
-                            }
-                          }}>Parse</Button>
-                        </div>
-                      </div>
-                    </PopoverContent>
-                  </Popover>
-                </div>
-                <div className="space-y-2">
-                  {authHeaders.map((row, idx) => (
-                    <div key={idx} className="flex items-center gap-2 min-w-0">
-                      <Input
-                        placeholder="Header name (e.g., Authorization)"
-                        value={row.key}
-                        onChange={(e) => setAuthHeaders((prev) => prev.map((r, i) => i === idx ? { ...r, key: e.target.value } : r))}
-                        className="w-56"
-                      />
-                      <Input
-                        placeholder="Header value"
-                        type={showValues ? 'text' : 'password'}
-                        value={row.value}
-                        onChange={(e) => setAuthHeaders((prev) => prev.map((r, i) => i === idx ? { ...r, value: e.target.value } : r))}
-                        className="flex-1 min-w-0 max-w-full"
-                      />
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => setAuthHeaders((prev) => prev.filter((_, i) => i !== idx))}
-                        aria-label="Remove header"
-                      ><Trash2 className="h-4 w-4" /></Button>
+            
+            {!requireAuth && (
+              <div className="border border-border rounded-md bg-muted/30 p-4">
+                <div className="flex items-start gap-3">
+                  <div className="p-2 rounded-md bg-blue-500/10 text-blue-600 dark:text-blue-400 dark:bg-blue-800/50">
+                    <AlertCircle className="h-4 w-4" />
+                  </div>
+                  <div className="space-y-2">
+                    <h4 className="text-sm font-medium text-foreground">No authentication required</h4>
+                    <p className="text-xs text-muted-foreground">
+                      Your MCP server doesn't require authentication headers. Our proxy server will forward requests directly to your upstream MCP server without any authentication.
+                    </p>
+                    <div className="text-xs text-muted-foreground">
+                      <p className="font-medium mb-1">You can enable authentication later if your upstream server requires:</p>
+                      <ul className="list-disc list-inside space-y-1 ml-2">
+                        <li>API key validation</li>
+                        <li>Bearer token authentication</li>
+                        <li>Custom header forwarding</li>
+                      </ul>
                     </div>
-                  ))}
-                  <div>
-                    <Button type="button" variant="outline" size="sm" onClick={() => setAuthHeaders((prev) => [...prev, { key: '', value: '' }])}>Add header</Button>
+                  </div>
+                </div>
+              </div>
+            )}
+            {requireAuth && (
+              <div className="space-y-4">
+                <div className="border border-border rounded-md bg-muted/30 p-4">
+                  <div className="flex items-start gap-3">
+                    <div className="p-2 rounded-md bg-teal-500/10 text-teal-600 dark:text-teal-400 dark:bg-teal-800/50">
+                      <AlertCircle className="h-4 w-4" />
+                    </div>
+                    <div className="space-y-2">
+                      <h4 className="text-sm font-medium text-foreground">Authentication headers required</h4>
+                      <p className="text-xs text-muted-foreground">
+                        Configure headers that our proxy server will forward to your upstream MCP server for authentication.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-xs font-medium text-muted-foreground">Quick presets:</span>
+                    <Button type="button" variant="secondary" size="sm" onClick={() => setAuthHeaders((prev) => [...prev, { key: 'Authorization', value: 'Bearer ' }])} className="text-xs">
+                      Authorization: Bearer
+                    </Button>
+                    <Button type="button" variant="secondary" size="sm" onClick={() => setAuthHeaders((prev) => [...prev, { key: 'x-api-key', value: '' }])} className="text-xs">
+                      x-api-key
+                    </Button>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button type="button" variant="outline" size="sm" className="text-xs">Paste headers</Button>
+                      </PopoverTrigger>
+                      <PopoverContent align="start" className="w-[360px] max-w-[calc(100vw-6rem)]">
+                        <div className="space-y-3">
+                          <div className="text-xs text-muted-foreground">Paste lines like "Key: Value" or "Key=Value".</div>
+                          <Textarea 
+                            value={bulkHeadersText} 
+                            onChange={(e) => setBulkHeadersText(e.target.value)} 
+                            placeholder={`Authorization: Bearer sk-xxxx\nx-api-key: abc123`} 
+                            className="bg-background border-border text-xs" 
+                          />
+                          <div className="flex justify-end gap-2">
+                            <Button type="button" variant="outline" size="sm" onClick={() => setBulkHeadersText("")} className="text-xs">Clear</Button>
+                            <Button type="button" size="sm" onClick={() => {
+                              const lines = (bulkHeadersText || '').split(/\r?\n/).map((l) => l.trim()).filter(Boolean)
+                              const parsed: Array<{ key: string; value: string }> = []
+                              for (const line of lines) {
+                                const colon = line.indexOf(':')
+                                const eq = line.indexOf('=')
+                                const idx = colon >= 0 ? colon : eq
+                                if (idx < 0) continue
+                                const k = line.slice(0, idx).trim()
+                                const v = line.slice(idx + 1).trim()
+                                if (k) parsed.push({ key: k, value: v })
+                              }
+                              if (parsed.length > 0) {
+                                setAuthHeaders(parsed)
+                                setBulkHeadersText("")
+                                toast.success('Parsed headers')
+                              } else {
+                                toast.error('No headers detected')
+                              }
+                            }} className="text-xs">Parse</Button>
+                          </div>
+                        </div>
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+
+                  <div className="space-y-3">
+                    <div className="text-xs font-medium text-muted-foreground">Configure headers:</div>
+                    <div className="space-y-2">
+                      {authHeaders.map((row, idx) => (
+                        <div key={idx} className="flex items-center gap-2 min-w-0 p-2 rounded-md border border-border bg-background">
+                          <Input
+                            placeholder="Header name (e.g., Authorization)"
+                            value={row.key}
+                            onChange={(e) => setAuthHeaders((prev) => prev.map((r, i) => i === idx ? { ...r, key: e.target.value } : r))}
+                            className="w-48 bg-background border-border text-xs"
+                          />
+                          <Input
+                            placeholder="Header value"
+                            type={showValues ? 'text' : 'password'}
+                            value={row.value}
+                            onChange={(e) => setAuthHeaders((prev) => prev.map((r, i) => i === idx ? { ...r, value: e.target.value } : r))}
+                            className="flex-1 min-w-0 max-w-full bg-background border-border text-xs"
+                          />
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => setAuthHeaders((prev) => prev.filter((_, i) => i !== idx))}
+                            aria-label="Remove header"
+                            className="h-8 w-8"
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      ))}
+                      <Button 
+                        type="button" 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={() => setAuthHeaders((prev) => [...prev, { key: '', value: '' }])}
+                        className="text-xs"
+                      >
+                        Add header
+                      </Button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -305,37 +367,47 @@ export function MonetizeWizard({ open, onOpenChange, serverUrl, tools, onCreate 
               </div>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <div className="border rounded-md p-3">
-                <div className="text-xs font-medium mb-2">EVM</div>
+              <div className="border border-border rounded-md bg-background p-3">
+                <div className="text-xs font-medium text-muted-foreground mb-2">EVM</div>
                 {visibleEvmNetworks.length === 0 ? (
                   <div className="text-xs text-muted-foreground">No EVM networks for this selection.</div>
                 ) : (
                   <ul className="space-y-2">
                     {visibleEvmNetworks.map((n) => (
-                      <li key={n} className="flex items-center justify-between gap-2">
-                        <label className="flex items-center gap-2 text-sm">
+                      <li key={n} className="flex items-center justify-between gap-2 p-2 rounded-md hover:bg-muted/40 transition-all duration-300">
+                        <label className="flex items-center gap-2 text-sm cursor-pointer">
                           <Checkbox checked={selectedNetworks.includes(n)} onCheckedChange={() => toggleNetwork(n)} />
-                          <span className="truncate">{n}</span>
+                          <span className="truncate text-foreground">{n}</span>
                         </label>
-                        {isTestnetNetworkName(n) ? <Badge variant="secondary">testnet</Badge> : <Badge variant="outline">mainnet</Badge>}
+                        <span className={`text-xs px-2 py-0.5 rounded font-mono border ${isTestnetNetworkName(n)
+                            ? "text-teal-700 bg-teal-500/10 border-teal-500/20 dark:text-teal-200 dark:bg-teal-800/50 dark:border-teal-800/50"
+                            : "text-muted-foreground bg-muted border-border"
+                          }`}>
+                          {isTestnetNetworkName(n) ? "testnet" : "mainnet"}
+                        </span>
                       </li>
                     ))}
                   </ul>
                 )}
               </div>
-              <div className="border rounded-md p-3">
-                <div className="text-xs font-medium mb-2">SVM</div>
+              <div className="border border-border rounded-md bg-background p-3">
+                <div className="text-xs font-medium text-muted-foreground mb-2">SVM</div>
                 {visibleSvmNetworks.length === 0 ? (
                   <div className="text-xs text-muted-foreground">No SVM networks for this selection.</div>
                 ) : (
                   <ul className="space-y-2">
                     {visibleSvmNetworks.map((n) => (
-                      <li key={n} className="flex items-center justify-between gap-2">
-                        <label className="flex items-center gap-2 text-sm">
+                      <li key={n} className="flex items-center justify-between gap-2 p-2 rounded-md hover:bg-muted/40 transition-all duration-300">
+                        <label className="flex items-center gap-2 text-sm cursor-pointer">
                           <Checkbox checked={selectedNetworks.includes(n)} onCheckedChange={() => toggleNetwork(n)} />
-                          <span className="truncate">{n}</span>
+                          <span className="truncate text-foreground">{n}</span>
                         </label>
-                        {isTestnetNetworkName(n) ? <Badge variant="secondary">testnet</Badge> : <Badge variant="outline">mainnet</Badge>}
+                        <span className={`text-xs px-2 py-0.5 rounded font-mono border ${isTestnetNetworkName(n)
+                            ? "text-teal-700 bg-teal-500/10 border-teal-500/20 dark:text-teal-200 dark:bg-teal-800/50 dark:border-teal-800/50"
+                            : "text-muted-foreground bg-muted border-border"
+                          }`}>
+                          {isTestnetNetworkName(n) ? "testnet" : "mainnet"}
+                        </span>
                       </li>
                     ))}
                   </ul>
@@ -352,7 +424,7 @@ export function MonetizeWizard({ open, onOpenChange, serverUrl, tools, onCreate 
                 <Label htmlFor="recipient-evm" className="text-sm">EVM recipient address</Label>
                 <div className="relative">
                   <WalletIcon className="h-4 w-4 absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground" />
-                  <Input id="recipient-evm" value={evmRecipientAddress} onChange={(e) => setEvmRecipientAddress(e.target.value)} placeholder={recipientIsTestnet ? '0x… (testnet)' : '0x… (mainnet)'} className="pl-8" />
+                  <Input id="recipient-evm" value={evmRecipientAddress} onChange={(e) => setEvmRecipientAddress(e.target.value)} placeholder={recipientIsTestnet ? '0x… (testnet)' : '0x… (mainnet)'} className="pl-8 bg-background border-border" />
                 </div>
                 {!evmValid ? (
                   <div className="text-xs text-amber-600 flex items-center gap-1"><AlertCircle className="h-3.5 w-3.5" /> Enter a valid EVM address (0x…)</div>
@@ -366,7 +438,7 @@ export function MonetizeWizard({ open, onOpenChange, serverUrl, tools, onCreate 
                 <Label htmlFor="recipient-svm" className="text-sm">SVM recipient address</Label>
                 <div className="relative">
                   <WalletIcon className="h-4 w-4 absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground" />
-                  <Input id="recipient-svm" value={svmRecipientAddress} onChange={(e) => setSvmRecipientAddress(e.target.value)} placeholder={recipientIsTestnet ? 'Devnet address' : 'Mainnet address'} className="pl-8" />
+                  <Input id="recipient-svm" value={svmRecipientAddress} onChange={(e) => setSvmRecipientAddress(e.target.value)} placeholder={recipientIsTestnet ? 'Devnet address' : 'Mainnet address'} className="pl-8 bg-background border-border" />
                 </div>
                 {!svmValid ? (
                   <div className="text-xs text-amber-600 flex items-center gap-1"><AlertCircle className="h-3.5 w-3.5" /> Enter a valid SVM address</div>
@@ -389,36 +461,57 @@ export function MonetizeWizard({ open, onOpenChange, serverUrl, tools, onCreate 
   if (isMobile) {
     return (
       <Drawer open={open} onOpenChange={onOpenChange}>
-        <DrawerContent className="p-0">
-          <div className="flex h-[80vh] flex-col">
-            <DrawerHeader className="shrink-0">
-              <DrawerTitle>Monetize Server</DrawerTitle>
-              <div className="px-3 pt-2">
-        <div className="flex items-center justify-between gap-3">
-          <div className="text-sm font-medium">{currentLabel}</div>
-          <div className="text-xs text-muted-foreground">Step {step} of {totalSteps}</div>
-        </div>
-        <div className="text-xs text-muted-foreground mt-1">{stepDescription}</div>
-        <div className="mt-2 h-1.5 w-full bg-muted rounded-full overflow-hidden">
-          <div className="h-full bg-primary transition-all" style={{ width: `${progressPercent}%` }} />
-        </div>
-        <div className="hidden md:block text-xs text-muted-foreground truncate mt-1">{serverUrl}</div>
-      </div>
-            </DrawerHeader>
-            <div className="flex-1 min-h-0 overflow-auto px-4 pb-4">{Content}</div>
-            <DrawerFooter className="shrink-0 border-t px-4 py-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)]">
-              <div className="flex items-center justify-between w-full">
-                <Button variant="outline" onClick={() => setStep((s) => (s > 1 ? (s - 1) as typeof step : s))} disabled={step === 1}>Back</Button>
-                {step < 5 ? (
-                  <Button onClick={() => setStep((s) => (s < 5 ? (s + 1) as typeof step : s))} disabled={(step === 1 && tools.length === 0) || (step === 2 && !pricesValid) || (step === 3 && !authHeadersValid) || (step === 4 && selectedNetworks.length === 0)}>Next</Button>
-                ) : (
-                  <Button onClick={async () => { setLoading(true); try { await onCreate({ prices: priceByTool, evmRecipientAddress, svmRecipientAddress, networks: selectedNetworks, requireAuth, authHeaders: Object.fromEntries(authHeaders.filter(h => h.key && h.value).map(h => [h.key, h.value])), testnet: recipientIsTestnet }); onOpenChange(false); } catch (e) { toast.error(e instanceof Error ? e.message : 'Failed to create'); } finally { setLoading(false) } }} disabled={loading || (needsEvm && !evmValid) || (needsSvm && !svmValid)}>
-                    {loading ? (<><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Creating…</>) : 'Create Endpoint'}
-                  </Button>
-                )}
+        <DrawerContent className="max-h-[85vh] flex flex-col">
+          <DrawerHeader>
+            <DrawerTitle>Monetize Server</DrawerTitle>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between gap-3">
+                <div className="text-sm font-medium">{currentLabel}</div>
+                <div className="text-xs text-muted-foreground">Step {step} of {totalSteps}</div>
               </div>
-            </DrawerFooter>
-          </div>
+              <div className="text-xs text-muted-foreground">{stepDescription}</div>
+              <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
+                <div className="h-full bg-primary transition-all" style={{ width: `${progressPercent}%` }} />
+              </div>
+            </div>
+          </DrawerHeader>
+          <div className="flex-1 min-h-0 overflow-auto px-4">{Content}</div>
+          <DrawerFooter>
+            <div className="flex items-center justify-between w-full gap-3">
+              <Button 
+                variant="outline" 
+                onClick={() => setStep((s) => (s > 1 ? (s - 1) as typeof step : s))} 
+                disabled={step === 1}
+                size="sm"
+              >
+                Back
+              </Button>
+              {step < 5 ? (
+                <Button 
+                  onClick={() => setStep((s) => (s < 5 ? (s + 1) as typeof step : s))} 
+                  disabled={(step === 1 && tools.length === 0) || (step === 2 && !pricesValid) || (step === 3 && !authHeadersValid) || (step === 4 && selectedNetworks.length === 0)}
+                  size="sm"
+                >
+                  Next
+                </Button>
+              ) : (
+                <Button 
+                  onClick={async () => { setLoading(true); try { await onCreate({ prices: priceByTool, evmRecipientAddress, svmRecipientAddress, networks: selectedNetworks, requireAuth, authHeaders: Object.fromEntries(authHeaders.filter(h => h.key && h.value).map(h => [h.key, h.value])), testnet: recipientIsTestnet }); onOpenChange(false); } catch (e) { toast.error(e instanceof Error ? e.message : 'Failed to create'); } finally { setLoading(false) } }} 
+                  disabled={loading || (needsEvm && !evmValid) || (needsSvm && !svmValid)}
+                  size="sm"
+                >
+                  {loading ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Creating
+                    </>
+                  ) : (
+                    'Create'
+                  )}
+                </Button>
+              )}
+            </div>
+          </DrawerFooter>
         </DrawerContent>
       </Drawer>
     )
@@ -426,28 +519,53 @@ export function MonetizeWizard({ open, onOpenChange, serverUrl, tools, onCreate 
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-2xl md:max-w-3xl lg:max-w-4xl w-[min(96vw,900px)] p-0 overflow-hidden max-h-[85vh] grid grid-rows-[auto,1fr,auto]">
+      <DialogContent className="sm:max-w-2xl md:max-w-3xl lg:max-w-4xl w-[min(96vw,900px)] max-h-[85vh] flex flex-col">
         <DialogHeader>
-        <div className="px-3 pt-2">
-        <div className="flex items-center justify-between gap-3">
-          <div className="text-sm font-medium">{currentLabel}</div>
-        </div>
-        <div className="text-xs text-muted-foreground mt-1">{stepDescription}</div>
-        <div className="mt-2 h-1.5 w-full bg-muted rounded-full overflow-hidden">
-          <div className="h-full bg-primary transition-all" style={{ width: `${progressPercent}%` }} />
-        </div>
-        <div className="hidden md:block text-xs text-muted-foreground truncate mt-1">{serverUrl}</div>
-      </div>
+          <div className="space-y-2">
+            <div className="flex items-center justify-between gap-3">
+              <div className="text-sm font-medium">{currentLabel}</div>
+              <div className="text-xs text-muted-foreground">Step {step} of {totalSteps}</div>
+            </div>
+            <div className="text-xs text-muted-foreground">{stepDescription}</div>
+            <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
+              <div className="h-full bg-primary transition-all" style={{ width: `${progressPercent}%` }} />
+            </div>
+            <div className="hidden md:block text-xs text-muted-foreground truncate">{serverUrl}</div>
+          </div>
         </DialogHeader>
-        <div className="min-h-0 overflow-auto px-6 pb-6">{Content}</div>
-        <DialogFooter className="border-t px-6 py-4">
-          <div className="flex items-center justify-between w-full">
-            <Button variant="outline" onClick={() => setStep((s) => (s > 1 ? (s - 1) as typeof step : s))} disabled={step === 1}>Back</Button>
+        <div className="flex-1 min-h-0 overflow-auto">{Content}</div>
+        <DialogFooter>
+          <div className="flex items-center justify-between w-full gap-3">
+            <Button 
+              variant="outline" 
+              onClick={() => setStep((s) => (s > 1 ? (s - 1) as typeof step : s))} 
+              disabled={step === 1}
+              size="sm"
+            >
+              Back
+            </Button>
             {step < 5 ? (
-              <Button onClick={() => setStep((s) => (s < 5 ? (s + 1) as typeof step : s))} disabled={(step === 1 && tools.length === 0) || (step === 2 && !pricesValid) || (step === 3 && !authHeadersValid) || (step === 4 && selectedNetworks.length === 0)}>Next</Button>
+              <Button 
+                onClick={() => setStep((s) => (s < 5 ? (s + 1) as typeof step : s))} 
+                disabled={(step === 1 && tools.length === 0) || (step === 2 && !pricesValid) || (step === 3 && !authHeadersValid) || (step === 4 && selectedNetworks.length === 0)}
+                size="sm"
+              >
+                Next
+              </Button>
             ) : (
-              <Button onClick={async () => { setLoading(true); try { await onCreate({ prices: priceByTool, evmRecipientAddress, svmRecipientAddress, networks: selectedNetworks, requireAuth, authHeaders: Object.fromEntries(authHeaders.filter(h => h.key && h.value).map(h => [h.key, h.value])), testnet: recipientIsTestnet }); onOpenChange(false); } catch (e) { toast.error(e instanceof Error ? e.message : 'Failed to create'); } finally { setLoading(false) } }} disabled={loading || (needsEvm && !evmValid) || (needsSvm && !svmValid)}>
-                {loading ? (<><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Creating…</>) : 'Create Endpoint'}
+              <Button 
+                onClick={async () => { setLoading(true); try { await onCreate({ prices: priceByTool, evmRecipientAddress, svmRecipientAddress, networks: selectedNetworks, requireAuth, authHeaders: Object.fromEntries(authHeaders.filter(h => h.key && h.value).map(h => [h.key, h.value])), testnet: recipientIsTestnet }); onOpenChange(false); } catch (e) { toast.error(e instanceof Error ? e.message : 'Failed to create'); } finally { setLoading(false) } }} 
+                disabled={loading || (needsEvm && !evmValid) || (needsSvm && !svmValid)}
+                size="sm"
+              >
+                {loading ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Creating
+                  </>
+                ) : (
+                  'Create'
+                )}
               </Button>
             )}
           </div>
