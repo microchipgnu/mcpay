@@ -46,7 +46,7 @@ export async function POST(request: Request) {
     },
     body: request.body,
     credentials: 'include',
-    // @ts-expect-error 
+    // @ts-expect-error this is valid and needed
     duplex: 'half',
   })
 
@@ -98,7 +98,7 @@ export async function GET(request: Request) {
       'X-Wallet-Provider': h.get('x-wallet-provider') || '',
     },
     credentials: 'include',
-    // @ts-ignore
+    // @ts-expect-error this is valid and needed
     duplex: 'half',
   })
 
