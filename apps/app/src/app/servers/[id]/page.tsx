@@ -175,8 +175,20 @@ export default function ServerPage() {
   }
 
   function InstallationSidebar() {
+    if (!data) return null
+    
+    const server = {
+      id: data.serverId,
+      displayName: data.info?.name || data.origin,
+      baseUrl: proxyUrl || data.origin,
+      oauthSupported: true
+    }
+    
     return (
-      <ConnectPanel url={proxyUrl} originRaw={data?.originRaw} />
+      <ConnectPanel 
+        server={server}
+        initialAuthMode="oauth"
+      />
     )
   }
 

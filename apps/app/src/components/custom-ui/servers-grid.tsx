@@ -102,9 +102,11 @@ function ServerCard({ server }: { server: McpServer }) {
                 {copied ? <Check className="size-3 stroke-[2.5]" /> : <Copy className="size-3 stroke-[2.5]" />}
               </Button>
             </div>
-            <code className="text-xs font-mono block p-2 px-3 rounded-md bg-muted/40 break-all w-full">
-              {url}
-            </code>
+            <div className="p-2 px-3 rounded-md bg-muted/40 overflow-x-auto scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-gray-200 dark:scrollbar-thumb-gray-600 dark:scrollbar-track-gray-800">
+              <code className="text-xs font-mono whitespace-nowrap block">
+                {url}
+              </code>
+            </div>
           </div>
         </CardContent>
       </Card>

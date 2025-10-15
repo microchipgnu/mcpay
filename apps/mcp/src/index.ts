@@ -471,8 +471,22 @@ app.all("/mcp", async (c) => {
             new X402WalletHook(session),
             new SecurityHook(),
         ]);
+        
+        // Extract all possible types of keys from URL search params
+        const apiKey = currentUrl.searchParams.get("apiKey") || currentUrl.searchParams.get("api_key");
 
-        const session = await auth.api.getSession({ headers: original.headers });
+        let session = null;
+        if (apiKey) {
+            session = await auth.api.getSession({
+                headers: new Headers({
+                      'x-api-key': apiKey,
+                }),
+          });
+        }
+
+        if (!session) {
+            session = await auth.api.getSession({ headers: original.headers });
+        }
 
         if (session) {
             console.log("[MCP] Authenticated session found, proxying with session:", session.session?.userId || session.session);
