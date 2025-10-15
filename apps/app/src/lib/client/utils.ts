@@ -287,7 +287,12 @@ export type McpServer = {
   origin: string
   status: string
   last_seen_at: string
-  tools: unknown[]
+  tools: Array<{
+    name: string
+    description?: string
+    inputSchema?: Record<string, unknown>
+    annotations?: Record<string, unknown>
+  }>
   server: {
     info: {
       name: string
@@ -298,9 +303,20 @@ export type McpServer = {
 }
 
 export const mcpDataApi = {
-  // Get MCP servers
-  getServers: async (): Promise<{ servers: McpServer[] }> => {
-    return serviceApiCall(urlUtils.getMcpDataUrl(), '/servers')
+  // Get MCP servers (with pagination)
+  getServers: async (
+    limit: number = 12,
+    offset: number = 0
+  ): Promise<{
+    servers: McpServer[]
+    total: number
+    limit: number
+    offset: number
+    nextOffset: number | null
+    hasMore: boolean
+  }> => {
+    const params = new URLSearchParams({ limit: String(limit), offset: String(offset) })
+    return serviceApiCall(urlUtils.getMcpDataUrl(), `/servers?${params.toString()}`)
   },
 
   // Get a single MCP server details (rich payload)

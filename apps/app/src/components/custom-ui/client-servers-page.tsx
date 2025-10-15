@@ -28,7 +28,6 @@ export default function ClientServersPage() {
     const [page, setPage] = useState<number>(Number.isFinite(pageFromQuery) && pageFromQuery > 0 ? pageFromQuery : 1)
 
     const [servers, setServers] = useState<McpServer[]>([])
-    const [allServers, setAllServers] = useState<McpServer[]>([])
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState<string | null>(null)
     const [hasNext, setHasNext] = useState(false)
@@ -56,37 +55,30 @@ export default function ClientServersPage() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [pageFromQuery])
 
-    // Fetch servers from MCP2 `/servers`
+    // Fetch servers from MCP2 `/servers` with pagination
     useEffect(() => {
         const fetchServers = async () => {
             setLoading(true)
             setError(null)
             try {
-                const data = await mcpDataApi.getServers()
+                const offset = (page - 1) * PAGE_SIZE
+                const data = await mcpDataApi.getServers(PAGE_SIZE, offset)
                 const links = Array.isArray(data.servers) ? data.servers : []
 
-                setAllServers(links)
+                setServers(links)
+                setTotalCount(data.total)
+                setHasNext(data.hasMore)
             } catch (e: unknown) {
                 if (e instanceof Error && e.name !== "AbortError") setError(e.message)
                 else if (!(e instanceof Error)) setError("Failed to fetch servers")
-                setAllServers([])
+                setServers([])
             } finally {
                 setLoading(false)
             }
         }
 
         fetchServers()
-    }, [])
-
-    // Slice current page
-    useEffect(() => {
-        const start = (page - 1) * PAGE_SIZE
-        const end = start + PAGE_SIZE
-        const slice = allServers.slice(start, end)
-        setServers(slice)
-        setTotalCount(allServers.length)
-        setHasNext(end < allServers.length)
-    }, [page, allServers])
+    }, [page])
 
     useEffect(() => {
         let mounted = true

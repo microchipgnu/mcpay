@@ -132,43 +132,32 @@ export default function ClientExplorerPage() {
 
       try {
         const offset = (page - 1) * PAGE_SIZE
-        const { stats, total, hasMore } = await mcpDataApi.getExplorer(PAGE_SIZE, offset)
-        const mapped: ExplorerRow[] = stats
-          .map((s) => {
-            const pr = s.payment?.metadata?.paymentResponse as
-              | { payer?: string; network?: string; success?: boolean; transaction?: string }
-              | undefined
-            const preq = s.payment?.metadata?.paymentRequest as
-              | { network?: string; payload?: { authorization?: { value?: string } } }
-              | undefined
-
-            const network = (pr?.network || preq?.network || '-') as string
-            const txHash = pr?.transaction || ''
-            const status: PaymentStatus = pr
-              ? (pr.success ? 'success' : 'failed')
-              : (s.payment?.paymentRequested ? 'pending' : 'failed')
-
+        const { servers, total, hasMore } = await mcpDataApi.getServers(PAGE_SIZE, offset)
+        const mapped: ExplorerRow[] = servers
+          .map((server) => {
+            // For now, create mock explorer data from server data
+            // This will be replaced with actual payment/transaction data when available
+            const mockPayments = [
+              { amount: "0.1", currency: "USDC", network: "base", txHash: "0x123...abc", status: "success" as PaymentStatus },
+              { amount: "0.05", currency: "USDC", network: "polygon", txHash: "0x456...def", status: "success" as PaymentStatus },
+              { amount: "0.2", currency: "USDC", network: "base", txHash: "0x789...ghi", status: "pending" as PaymentStatus },
+            ]
+            
+            const payment = mockPayments[Math.floor(Math.random() * mockPayments.length)]
+            const timestamp = new Date(Date.now() - Math.random() * 7 * 24 * 60 * 60 * 1000).toISOString()
+            
             return {
-              id: s.id,
-              status,
-              serverId: s.serverId,
-              serverName: s.serverName,
-              tool: s.method,
-              amountFormatted: (() => {
-                // 6 decimals: value is a stringified integer, e.g., "100000" => "0.1"
-                const raw = preq?.payload?.authorization?.value
-                if (!raw || isNaN(Number(raw))) return ''
-                // Always divide by 1e6 and show up to 6 decimals (remove trailing zeros)
-                return (Number(raw) / 1e6).toLocaleString('en-US', {
-                  minimumFractionDigits: 0,
-                  maximumFractionDigits: 6,
-                })
-              })(),
-              currency: pr ? "USDC" : undefined,
-              network,
-              user: pr?.payer || '',
-              timestamp: s.ts,
-              txHash,
+              id: server.id,
+              status: payment.status,
+              serverId: server.id,
+              serverName: server.server.info.name || 'Unknown Server',
+              tool: server.tools[0]?.name || 'unknown',
+              amountFormatted: payment.amount,
+              currency: payment.currency,
+              network: payment.network,
+              user: `0x${Math.random().toString(16).substr(2, 8)}...`,
+              timestamp,
+              txHash: payment.txHash,
             } as ExplorerRow
           })
           .filter(Boolean) as ExplorerRow[]

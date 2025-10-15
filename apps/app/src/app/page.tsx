@@ -137,7 +137,7 @@ export default function MCPBrowser() {
           <div className="max-w-6xl px-4 md:px-6 mx-auto">
             <h2 className="text-3xl font-semibold font-host mb-10">Featured Servers</h2>
           </div>
-          <ServersGrid servers={mcpServers} loading={loading} />
+          <ServersGrid servers={mcpServers.slice(0, 6)} loading={loading} />
           <div className="text-center mt-10">
             <div className="inline-flex gap-4">
               <Link href="/servers">

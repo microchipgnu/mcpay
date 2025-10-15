@@ -190,7 +190,14 @@ app.post('/index/run', async (c: Context) => {
 
 app.get('/servers', async (c: Context) => {
   try {
-    // Always fetch the most recent 200 servers, no query logic.
+    // Parse optional ?limit and ?offset query params for pagination
+    const limit = Math.max(1, Math.min(100, parseInt(c.req.query('limit') ?? '12', 10))) // default 12, max 100
+    const offset = Math.max(0, parseInt(c.req.query('offset') ?? '0', 10))
+
+    // Get total count for pagination metadata
+    const [{ count }] = await db.select({ count: sql`count(*)` }).from(mcpServers);
+
+    // Fetch paginated results
     const rows = await db
       .select({
         id: mcpServers.id,
@@ -201,7 +208,8 @@ app.get('/servers', async (c: Context) => {
       })
       .from(mcpServers)
       .orderBy(desc(mcpServers.lastSeenAt))
-      .limit(200);
+      .limit(limit)
+      .offset(offset);
 
     const servers = rows.map(row => ({
       id: row.id,
@@ -222,7 +230,14 @@ app.get('/servers', async (c: Context) => {
       }
     }));
 
-    return c.json({ servers });
+    return c.json({ 
+      servers,
+      total: Number(count),
+      limit,
+      offset,
+      nextOffset: offset + servers.length < Number(count) ? offset + servers.length : null,
+      hasMore: offset + servers.length < Number(count),
+    });
   } catch (e) {
     return c.json({ error: (e as Error).message }, 500);
   }
