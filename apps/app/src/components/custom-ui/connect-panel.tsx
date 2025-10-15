@@ -5,9 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
-import { Badge } from "@/components/ui/badge"
-import { Copy, ExternalLink, CheckCircle2, Zap, Code2, Settings } from "lucide-react"
+import { Copy, ExternalLink, CheckCircle2, Code2, Settings } from "lucide-react"
 import { toast } from "sonner"
 import { useState } from "react"
 
@@ -29,7 +27,6 @@ const CLIENTS = [
 ]
 
 export function ConnectPanel({ url, originRaw, className, stickyTop = "top-4" }: ConnectPanelProps) {
-  const { isDark } = useTheme()
   const [copied, setCopied] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
 
@@ -148,7 +145,7 @@ export function ConnectPanel({ url, originRaw, className, stickyTop = "top-4" }:
                       ))}
                       {filteredClients.length === 0 && (
                         <div className="p-4 text-center text-sm text-muted-foreground">
-                          No clients found matching "{searchQuery}"
+                          No clients found matching &quot;{searchQuery}&quot;
                         </div>
                       )}
                     </div>
@@ -337,7 +334,7 @@ print('Connect your MCP Python client to:', url)`}</code></pre>
                           ))}
                           {filteredClients.length === 0 && (
                             <div className="p-4 text-center text-sm text-muted-foreground">
-                              No clients found matching "{searchQuery}"
+                              No clients found matching &quot;{searchQuery}&quot;
                             </div>
                           )}
                         </div>

@@ -93,8 +93,8 @@ export function MonetizeWizard({ open, onOpenChange, serverUrl, tools, onCreate 
     setSelectedNetworks(prev => prev.filter(n => recipientIsTestnet ? isTestnetNetworkName(n) : !isTestnetNetworkName(n)))
   }, [recipientIsTestnet])
 
-  const needsEvm = useMemo(() => selectedNetworks.some(n => evmNetworks.includes(n as typeof evmNetworks[number])), [selectedNetworks])
-  const needsSvm = useMemo(() => selectedNetworks.some(n => svmNetworks.includes(n as typeof svmNetworks[number])), [selectedNetworks])
+  const needsEvm = useMemo(() => selectedNetworks.some(n => evmNetworks.includes(n as typeof evmNetworks[number])), [selectedNetworks, evmNetworks])
+  const needsSvm = useMemo(() => selectedNetworks.some(n => svmNetworks.includes(n as typeof svmNetworks[number])), [selectedNetworks, svmNetworks])
   const evmValid = !needsEvm || /^0x[a-fA-F0-9]{40}$/.test((evmRecipientAddress || '').trim())
   const svmValid = !needsSvm || /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test((svmRecipientAddress || '').trim())
 
@@ -227,7 +227,7 @@ export function MonetizeWizard({ open, onOpenChange, serverUrl, tools, onCreate 
                   <div className="space-y-2">
                     <h4 className="text-sm font-medium text-foreground">No authentication required</h4>
                     <p className="text-xs text-muted-foreground">
-                      Your MCP server doesn't require authentication headers. Our proxy server will forward requests directly to your upstream MCP server without any authentication.
+                      Your MCP server doesn&apos;t require authentication headers. Our proxy server will forward requests directly to your upstream MCP server without any authentication.
                     </p>
                     <div className="text-xs text-muted-foreground">
                       <p className="font-medium mb-1">You can enable authentication later if your upstream server requires:</p>
@@ -272,7 +272,7 @@ export function MonetizeWizard({ open, onOpenChange, serverUrl, tools, onCreate 
                       </PopoverTrigger>
                       <PopoverContent align="start" className="w-[360px] max-w-[calc(100vw-6rem)]">
                         <div className="space-y-3">
-                          <div className="text-xs text-muted-foreground">Paste lines like "Key: Value" or "Key=Value".</div>
+                          <div className="text-xs text-muted-foreground">Paste lines like &quot;Key: Value&quot; or &quot;Key=Value&quot;.</div>
                           <Textarea 
                             value={bulkHeadersText} 
                             onChange={(e) => setBulkHeadersText(e.target.value)} 

@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useState } from "react"
 import { useTheme } from "@/components/providers/theme-context"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader } from "@/components/ui/dialog"
@@ -17,8 +17,8 @@ type AccountModalProps = {
 }
 
 export function AccountModal({ isOpen, onClose }: AccountModalProps) {
-  const { isDark } = useTheme()
   const { data: session, isPending: sessionLoading } = useSession()
+  const { isDark } = useTheme()
 
   const [isLoading, setIsLoading] = useState(false)
   const [isAuthenticating, setIsAuthenticating] = useState(false)
@@ -73,13 +73,6 @@ export function AccountModal({ isOpen, onClose }: AccountModalProps) {
     </div>
   )
 
-  const ModalHeader = ({ Component }: { Component: React.ComponentType<{ children: React.ReactNode }> }) => (
-    <Component>
-      <div className="text-lg font-semibold">
-        {session?.user ? "Account" : "Sign In"}
-      </div>
-    </Component>
-  )
 
   const GitHubSignIn = () => (
     <div className="flex flex-col justify-center min-h-[360px] space-y-5 p-3">
@@ -111,7 +104,7 @@ export function AccountModal({ isOpen, onClose }: AccountModalProps) {
         {isLoading || isAuthenticating ? "Signing you in..." : "Continue with GitHub"}
       </Button>
 
-      <div className={`text-center text-xs ${isDark ? "text-gray-500" : "text-gray-500"}`}>
+      <div className={`text-center text-xs ${isDark ? "text-gray-400" : "text-gray-500"}`}>
         By continuing, you agree to our Terms of Service and Privacy Policy
       </div>
     </div>
@@ -126,7 +119,7 @@ export function AccountModal({ isOpen, onClose }: AccountModalProps) {
     if (isMobile) {
       return (
         <Drawer open={isOpen} onOpenChange={onClose}>
-          <DrawerContent className={`h-[72vh] flex flex-col p-0 ${isDark ? "bg-gray-900 border-gray-800" : ""}`}>
+          <DrawerContent className={`h-[72vh] flex flex-col p-0 ${isDark ? "bg-gray-900 border-gray-800" : "bg-white border-gray-200"}`}>
             <LoadingSpinner message={loadingMessage} />
           </DrawerContent>
         </Drawer>
@@ -135,7 +128,7 @@ export function AccountModal({ isOpen, onClose }: AccountModalProps) {
 
     return (
       <Dialog open={isOpen} onOpenChange={onClose}>
-        <DialogContent className={`max-w-xl h-[72vh] flex flex-col p-0 ${isDark ? "bg-gray-900 border-gray-800" : ""}`}>
+        <DialogContent className={`max-w-xl h-[72vh] flex flex-col p-0 ${isDark ? "bg-gray-900 border-gray-800" : "bg-white border-gray-200"}`}>
           <LoadingSpinner message={loadingMessage} />
         </DialogContent>
       </Dialog>
@@ -146,7 +139,7 @@ export function AccountModal({ isOpen, onClose }: AccountModalProps) {
   if (isMobile) {
     return (
       <Drawer open={isOpen} onOpenChange={onClose}>
-        <DrawerContent className={`h-[72vh] flex flex-col p-0 ${isDark ? "bg-gray-900 border-gray-800" : ""}`}>
+        <DrawerContent className={`h-[72vh] flex flex-col p-0 ${isDark ? "bg-gray-900 border-gray-800" : "bg-white border-gray-200"}`}>
           {!session?.user ? <DrawerHeader /> : null}
           <div className="flex-1 overflow-hidden">
             {session?.user ? <Frame /> : <GitHubSignIn />}
@@ -159,7 +152,7 @@ export function AccountModal({ isOpen, onClose }: AccountModalProps) {
   // Desktop dialog
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className={`max-w-xl h-[72vh] flex flex-col p-0 ${isDark ? "bg-gray-900 border-gray-800" : ""}`}>
+      <DialogContent className={`max-w-xl h-[72vh] flex flex-col p-0 ${isDark ? "bg-gray-900 border-gray-800" : "bg-white border-gray-200"}`}>
         {!session?.user ? (
           <DialogHeader />
         ) : null}

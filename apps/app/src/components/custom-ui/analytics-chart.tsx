@@ -227,7 +227,7 @@ export function AnalyticsChart({ dailyAnalytics, isDark = false }: AnalyticsChar
                       labelFormatter={(label) => `${label}`}
                       formatter={(value, name) => [
                         name === 'revenue' ? `$${Number(value).toFixed(2)}` : Number(value).toLocaleString(),
-                        chartConfig[name as keyof typeof chartConfig]?.label || name
+                        chartConfig[name as keyof typeof chartConfig]?.label || String(name)
                       ]}
                     />
                   } 
@@ -273,7 +273,7 @@ export function AnalyticsChart({ dailyAnalytics, isDark = false }: AnalyticsChar
                   content={
                     <ChartTooltipContent 
                       labelFormatter={(label) => `${label}`}
-                      formatter={(value, name) => [
+                      formatter={(value) => [
                         Number(value).toLocaleString(),
                         'Requests'
                       ]}
@@ -312,7 +312,7 @@ export function AnalyticsChart({ dailyAnalytics, isDark = false }: AnalyticsChar
                   content={
                     <ChartTooltipContent 
                       labelFormatter={(label) => `${label}`}
-                      formatter={(value, name) => [
+                      formatter={(value) => [
                         `$${Number(value).toFixed(2)}`,
                         'Revenue'
                       ]}
@@ -347,7 +347,7 @@ export function AnalyticsChart({ dailyAnalytics, isDark = false }: AnalyticsChar
                   content={
                     <ChartTooltipContent 
                       labelFormatter={(label) => `${label}`}
-                      formatter={(value, name) => [
+                      formatter={(value) => [
                         Number(value).toLocaleString(),
                         'Unique Users'
                       ]}

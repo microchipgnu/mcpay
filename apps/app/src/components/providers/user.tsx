@@ -94,7 +94,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
   const [error, setError] = useState<string | null>(null)
 
   // Load user wallets with balance information
-  const loadWallets = useCallback(async (_includeTestnet = true, isRefresh = false) => {
+  const loadWallets = useCallback(async (includeTestnet = true, isRefresh = false) => {
     if (!userId) {
       setWalletData(null)
       return

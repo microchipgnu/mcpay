@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useCallback } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Github, Copy as CopyIcon, Check as CheckIcon, ExternalLink, Loader2 } from "lucide-react"
@@ -9,6 +9,7 @@ import { authApi } from "@/lib/client/utils"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { Skeleton } from "@/components/ui/skeleton"
 import { toast } from "sonner"
+import { useTheme } from "@/components/providers/theme-context"
 
 type UserModalProps = {
   open: boolean
@@ -59,6 +60,7 @@ function shortAddress(addr?: string) {
 
 export function UserAccountPanel({ isActive = true }: { isActive?: boolean }) {
   const { data: session } = useSession()
+  const { isDark } = useTheme()
 
   const [activeTab, setActiveTab] = useState<"wallets" | "developer">("wallets")
   const [loading, setLoading] = useState(false)
@@ -72,7 +74,7 @@ export function UserAccountPanel({ isActive = true }: { isActive?: boolean }) {
   const [apiKeyCreated, setApiKeyCreated] = useState<string>("")
 
 
-  async function loadWallets() {
+  const loadWallets = useCallback(async () => {
     setWalletsLoading(true)
     setError("")
     try {
@@ -86,9 +88,9 @@ export function UserAccountPanel({ isActive = true }: { isActive?: boolean }) {
     } finally {
       setWalletsLoading(false)
     }
-  }
+  }, [])
 
-  async function loadApiKeys() {
+  const loadApiKeys = useCallback(async () => {
     setApiKeysLoading(true)
     try {
       const items = await authApi.getApiKeys() as ApiKey[]
@@ -98,7 +100,7 @@ export function UserAccountPanel({ isActive = true }: { isActive?: boolean }) {
     } finally {
       setApiKeysLoading(false)
     }
-  }
+  }, [])
 
   useEffect(() => {
     if (!isActive) return
@@ -107,13 +109,7 @@ export function UserAccountPanel({ isActive = true }: { isActive?: boolean }) {
       if (activeTab === "wallets") loadWallets()
       if (activeTab === "developer") loadApiKeys()
     }
-  }, [isActive])
-
-  useEffect(() => {
-    if (!isActive || !session?.user) return
-    if (activeTab === "wallets") loadWallets()
-    if (activeTab === "developer") loadApiKeys()
-  }, [activeTab, session?.user, isActive])
+  }, [isActive, session?.user, activeTab, loadWallets, loadApiKeys])
 
   async function handleGitHubSignIn() {
     setLoading(true)
@@ -179,16 +175,6 @@ export function UserAccountPanel({ isActive = true }: { isActive?: boolean }) {
     }
   }
 
-  function stringToHslColor(str?: string, s = 65, l = 45) {
-    if (!str) return `hsl(0 0% 80%)`
-    let hash = 0
-    for (let i = 0; i < str.length; i++) {
-      hash = str.charCodeAt(i) + ((hash << 5) - hash)
-      hash = hash & hash
-    }
-    const h = Math.abs(hash) % 360
-    return `hsl(${h} ${s}% ${l}%)`
-  }
 
   function handleCopy(addr?: string) {
     if (!addr) return
@@ -205,28 +191,28 @@ export function UserAccountPanel({ isActive = true }: { isActive?: boolean }) {
   return (
     <div className="h-full flex flex-col p-4 sm:p-6">
       {error ? (
-        <div className="mb-3 p-3 rounded-md border bg-muted/30 border-border flex-shrink-0">
+        <div className={`mb-3 p-3 rounded-md border flex-shrink-0 ${isDark ? "bg-red-950/50 border-red-800/50" : "bg-red-50 border-red-200"}`}>
           <div className="flex items-start gap-3">
-            <div className="p-2 rounded-md bg-red-500/10 text-red-600 dark:text-red-400 dark:bg-red-800/50">
+            <div className={`p-2 rounded-md ${isDark ? "bg-red-800/50 text-red-400" : "bg-red-500/10 text-red-600"}`}>
               <div className="h-4 w-4" />
             </div>
             <div className="space-y-2">
-              <h4 className="text-sm font-medium text-foreground">Error</h4>
-              <p className="text-xs text-muted-foreground">{error}</p>
+              <h4 className={`text-sm font-medium ${isDark ? "text-white" : "text-gray-900"}`}>Error</h4>
+              <p className={`text-xs ${isDark ? "text-gray-400" : "text-gray-600"}`}>{error}</p>
             </div>
           </div>
         </div>
       ) : null}
 
       {!session?.user ? (
-        <div className="p-3 rounded-md border bg-muted/30 border-border mb-4">
+        <div className={`p-3 rounded-md border mb-4 ${isDark ? "bg-gray-800/50 border-gray-700" : "bg-gray-50 border-gray-200"}`}>
           <div className="flex items-start gap-3">
-            <div className="p-2 rounded-md bg-blue-500/10 text-blue-600 dark:text-blue-400 dark:bg-blue-800/50">
+            <div className={`p-2 rounded-md ${isDark ? "bg-blue-800/50 text-blue-400" : "bg-blue-500/10 text-blue-600"}`}>
               <Github className="h-4 w-4" />
             </div>
             <div className="flex-1 space-y-2">
-              <h4 className="text-sm font-medium text-foreground">Sign in required</h4>
-              <p className="text-xs text-muted-foreground">Please sign in to access your account dashboard.</p>
+              <h4 className={`text-sm font-medium ${isDark ? "text-white" : "text-gray-900"}`}>Sign in required</h4>
+              <p className={`text-xs ${isDark ? "text-gray-400" : "text-gray-600"}`}>Please sign in to access your account dashboard.</p>
               <Button onClick={handleGitHubSignIn} disabled={loading} className="gap-2 text-xs h-7">
                 {loading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Github className="h-3 w-3" />}
                 {loading ? "Signing in..." : "Sign in with GitHub"}
@@ -235,20 +221,20 @@ export function UserAccountPanel({ isActive = true }: { isActive?: boolean }) {
           </div>
         </div>
       ) : (
-        <div className="p-3 rounded-md border bg-muted/30 border-border mb-4">
+        <div className={`p-3 rounded-md border mb-4 ${isDark ? "bg-gray-800/50 border-gray-700" : "bg-gray-50 border-gray-200"}`}>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-muted overflow-hidden flex items-center justify-center">
+              <div className={`w-10 h-10 rounded-full overflow-hidden flex items-center justify-center ${isDark ? "bg-gray-700" : "bg-gray-200"}`}>
                 {session.user.image ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={session.user.image} alt="avatar" className="w-10 h-10 object-cover" />
                 ) : (
-                  <div className="w-5 h-5 rounded-full bg-foreground/20" />
+                  <div className={`w-5 h-5 rounded-full ${isDark ? "bg-gray-500" : "bg-gray-400"}`} />
                 )}
               </div>
               <div>
-                <div className="text-sm font-medium text-foreground">{session.user.name || "User"}</div>
-                <div className="text-xs text-muted-foreground">{session.user.email || ""}</div>
+                <div className={`text-sm font-medium ${isDark ? "text-white" : "text-gray-900"}`}>{session.user.name || "User"}</div>
+                <div className={`text-xs ${isDark ? "text-gray-400" : "text-gray-600"}`}>{session.user.email || ""}</div>
               </div>
             </div>
             <Button variant="outline" onClick={handleSignOut} disabled={loading} className="text-xs h-7">
@@ -258,7 +244,7 @@ export function UserAccountPanel({ isActive = true }: { isActive?: boolean }) {
         </div>
       )}
 
-      <div className="border rounded-md border-border bg-muted/30 flex-shrink-0">
+      <div className={`border rounded-md flex-shrink-0 ${isDark ? "bg-gray-800/50 border-gray-700" : "bg-gray-50 border-gray-200"}`}>
         <div className="flex gap-2 overflow-x-auto p-2">
           {(
             [
@@ -283,7 +269,7 @@ export function UserAccountPanel({ isActive = true }: { isActive?: boolean }) {
         {activeTab === "wallets" && (
           <div className="h-full flex flex-col">
             <div className="flex items-center justify-between mb-4 flex-shrink-0">
-              <div className="text-xs text-muted-foreground">
+              <div className={`text-xs ${isDark ? "text-gray-400" : "text-gray-600"}`}>
                 Linked wallets{typeof wallets?.length === 'number' ? ` · ${wallets.length}` : ''}
               </div>
             </div>
@@ -291,7 +277,7 @@ export function UserAccountPanel({ isActive = true }: { isActive?: boolean }) {
             <div className="flex-1 min-h-0">
               {walletsLoading ? (
                 <div className="h-full overflow-y-auto pr-2">
-                  <div className="rounded-md border border-border divide-y divide-border">
+                  <div className={`rounded-md border divide-y ${isDark ? "border-gray-700 divide-gray-700" : "border-gray-200 divide-gray-200"}`}>
                     {Array.from({ length: 4 }).map((_, i) => (
                       <div key={i} className="flex items-center justify-between gap-3 p-3">
                         <div className="flex items-center gap-2">
@@ -308,24 +294,24 @@ export function UserAccountPanel({ isActive = true }: { isActive?: boolean }) {
                   </div>
                 </div>
               ) : wallets.length === 0 ? (
-                <div className="p-3 rounded-md border bg-muted/30 border-border">
-                  <div className="flex items-center justify-center text-xs text-muted-foreground">
+                <div className={`p-3 rounded-md border ${isDark ? "bg-gray-800/50 border-gray-700" : "bg-gray-50 border-gray-200"}`}>
+                  <div className={`flex items-center justify-center text-xs ${isDark ? "text-gray-400" : "text-gray-600"}`}>
                     No wallets linked yet. Link your on-chain wallet from the app.
                   </div>
                 </div>
               ) : (
                 <div className="h-full overflow-y-auto pr-2">
-                  <div className="rounded-md border border-border divide-y divide-border">
+                  <div className={`rounded-md border divide-y ${isDark ? "border-gray-700 divide-gray-700" : "border-gray-200 divide-gray-200"}`}>
                     {[...wallets]
                       .sort((a, b) => (b?.isPrimary ? 1 : 0) - (a?.isPrimary ? 1 : 0) || (new Date(b?.createdAt || 0).getTime() - new Date(a?.createdAt || 0).getTime()))
                       .map((wallet) => (
-                      <div key={`${wallet.walletAddress}-${wallet.createdAt}`} className="flex items-center justify-between gap-3 p-3 hover:bg-muted/40 transition-all duration-300">
+                      <div key={`${wallet.walletAddress}-${wallet.createdAt}`} className={`flex items-center justify-between gap-3 p-3 transition-all duration-300 ${isDark ? "hover:bg-gray-800/40" : "hover:bg-gray-100"}`}>
                         <div className="flex items-center gap-2">
-                          <div className="font-mono text-sm font-medium text-foreground">
+                          <div className={`font-mono text-sm font-medium ${isDark ? "text-white" : "text-gray-900"}`}>
                             {shortAddress(wallet.walletAddress)}
                           </div>
                           {wallet.isPrimary && (
-                            <span className="ml-1 inline-flex items-center px-1.5 py-0.5 text-[10px] font-medium bg-teal-500/10 text-teal-600 dark:text-teal-400 dark:bg-teal-800/50 rounded-sm border border-teal-500/20 dark:border-teal-800/50">
+                            <span className={`ml-1 inline-flex items-center px-1.5 py-0.5 text-[10px] font-medium rounded-sm border ${isDark ? "bg-teal-800/50 text-teal-400 border-teal-800/50" : "bg-teal-500/10 text-teal-600 border-teal-500/20"}`}>
                               Primary
                             </span>
                           )}
@@ -393,15 +379,15 @@ export function UserAccountPanel({ isActive = true }: { isActive?: boolean }) {
                 <div className="h-full overflow-y-auto pr-2">
                   <div className="space-y-4 pb-4">
                     {apiKeyCreated ? (
-                      <div className="p-3 rounded-md border bg-muted/30 border-border">
+                      <div className={`p-3 rounded-md border ${isDark ? "bg-gray-800/50 border-gray-700" : "bg-gray-50 border-gray-200"}`}>
                         <div className="flex items-start gap-3">
-                          <div className="p-2 rounded-md bg-teal-500/10 text-teal-600 dark:text-teal-400 dark:bg-teal-800/50">
+                          <div className={`p-2 rounded-md ${isDark ? "bg-teal-800/50 text-teal-400" : "bg-teal-500/10 text-teal-600"}`}>
                             <CheckIcon className="h-4 w-4" />
                           </div>
                           <div className="flex-1 space-y-2">
-                            <h4 className="text-sm font-medium text-foreground">API key created</h4>
-                            <div className="p-2 rounded-md border border-border bg-background">
-                              <code className="text-xs font-mono text-foreground break-all">{apiKeyCreated}</code>
+                            <h4 className={`text-sm font-medium ${isDark ? "text-white" : "text-gray-900"}`}>API key created</h4>
+                            <div className={`p-2 rounded-md border ${isDark ? "border-gray-700 bg-gray-900" : "border-gray-200 bg-white"}`}>
+                              <code className={`text-xs font-mono break-all ${isDark ? "text-white" : "text-gray-900"}`}>{apiKeyCreated}</code>
                             </div>
                             <div className="flex gap-2">
                               <Button size="sm" className="text-xs h-7 px-2" onClick={() => navigator.clipboard.writeText(apiKeyCreated)}>Copy</Button>
@@ -412,40 +398,40 @@ export function UserAccountPanel({ isActive = true }: { isActive?: boolean }) {
                       </div>
                     ) : null}
 
-                    <div className="p-3 rounded-md border bg-muted/30 border-border">
+                    <div className={`p-3 rounded-md border ${isDark ? "bg-gray-800/50 border-gray-700" : "bg-gray-50 border-gray-200"}`}>
                       <div className="flex items-center justify-between gap-2">
-                        <div className="text-xs text-muted-foreground">Keys inherit default permissions unless specified by the server.</div>
+                        <div className={`text-xs ${isDark ? "text-gray-400" : "text-gray-600"}`}>Keys inherit default permissions unless specified by the server.</div>
                         <Button size="sm" className="text-xs h-7 px-2 bg-teal-600 hover:bg-teal-700 text-white" onClick={handleCreateApiKey}>Create API Key</Button>
                       </div>
                     </div>
 
-                    <div className="rounded-md border border-border">
-                      <div className="p-3 border-b border-border flex items-center justify-between flex-shrink-0">
-                        <div className="text-sm font-medium text-foreground">Your API Keys</div>
+                    <div className={`rounded-md border ${isDark ? "border-gray-700" : "border-gray-200"}`}>
+                      <div className={`p-3 border-b flex items-center justify-between flex-shrink-0 ${isDark ? "border-gray-700" : "border-gray-200"}`}>
+                        <div className={`text-sm font-medium ${isDark ? "text-white" : "text-gray-900"}`}>Your API Keys</div>
                         <Button size="sm" variant="outline" className="text-xs h-7 px-2" onClick={loadApiKeys} disabled={apiKeysLoading}>
                           {apiKeysLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : "Reload"}
                         </Button>
                       </div>
                       <div className="flex-1 min-h-0">
                         {apiKeys.length === 0 ? (
-                          <div className="p-4 text-xs text-muted-foreground">No API keys yet. Create one above.</div>
+                          <div className={`p-4 text-xs ${isDark ? "text-gray-400" : "text-gray-600"}`}>No API keys yet. Create one above.</div>
                         ) : (
                           <div className="overflow-x-auto">
                             <table className="min-w-full text-sm">
-                              <thead className="bg-muted/50">
+                              <thead className={isDark ? "bg-gray-800/50" : "bg-gray-50"}>
                                 <tr>
-                                  <th className="text-left font-medium px-3 py-2 text-xs text-muted-foreground">Enabled</th>
-                                  <th className="text-left font-medium px-3 py-2 text-xs text-muted-foreground">Created</th>
-                                  <th className="text-right font-medium px-3 py-2 text-xs text-muted-foreground">Actions</th>
+                                  <th className={`text-left font-medium px-3 py-2 text-xs ${isDark ? "text-gray-400" : "text-gray-600"}`}>Enabled</th>
+                                  <th className={`text-left font-medium px-3 py-2 text-xs ${isDark ? "text-gray-400" : "text-gray-600"}`}>Created</th>
+                                  <th className={`text-right font-medium px-3 py-2 text-xs ${isDark ? "text-gray-400" : "text-gray-600"}`}>Actions</th>
                                 </tr>
                               </thead>
-                              <tbody className="divide-y divide-border">
+                              <tbody className={`divide-y ${isDark ? "divide-gray-700" : "divide-gray-200"}`}>
                                 {apiKeys.map((k) => {
                                   const enabled = k.enabled !== false
                                   return (
-                                    <tr key={k.id} className="hover:bg-muted/40 transition-all duration-300">
-                                      <td className="px-3 py-2 text-xs text-foreground">{enabled ? "Yes" : "No"}</td>
-                                      <td className="px-3 py-2 text-xs text-muted-foreground">{fmtDate(k.createdAt)}</td>
+                                    <tr key={k.id} className={`transition-all duration-300 ${isDark ? "hover:bg-gray-800/40" : "hover:bg-gray-100"}`}>
+                                      <td className={`px-3 py-2 text-xs ${isDark ? "text-white" : "text-gray-900"}`}>{enabled ? "Yes" : "No"}</td>
+                                      <td className={`px-3 py-2 text-xs ${isDark ? "text-gray-400" : "text-gray-600"}`}>{fmtDate(k.createdAt)}</td>
                                       <td className="px-3 py-2 text-right">
                                         <div className="inline-flex gap-2">
                                           <Button size="sm" variant="outline" className="text-xs h-7 px-2" onClick={() => handleToggleKey(k.id, enabled)}>
@@ -468,8 +454,8 @@ export function UserAccountPanel({ isActive = true }: { isActive?: boolean }) {
                   </div>
                 </div>
               ) : (
-                <div className="p-3 rounded-md border bg-muted/30 border-border">
-                  <div className="flex items-center justify-center text-xs text-muted-foreground">
+                <div className={`p-3 rounded-md border ${isDark ? "bg-gray-800/50 border-gray-700" : "bg-gray-50 border-gray-200"}`}>
+                  <div className={`flex items-center justify-center text-xs ${isDark ? "text-gray-400" : "text-gray-600"}`}>
                     Sign in to manage API keys.
                   </div>
                 </div>
@@ -483,11 +469,13 @@ export function UserAccountPanel({ isActive = true }: { isActive?: boolean }) {
 }
 
 export function UserModal({ open, onOpenChange }: UserModalProps) {
+  const { isDark } = useTheme()
+  
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col bg-background border-border">
+      <DialogContent className={`max-w-4xl max-h-[90vh] flex flex-col ${isDark ? "bg-gray-900 border-gray-800" : "bg-white border-gray-200"}`}>
         <DialogHeader className="flex-shrink-0">
-          <DialogTitle className="text-foreground">Your Account</DialogTitle>
+          <DialogTitle className={isDark ? "text-white" : "text-gray-900"}>Your Account</DialogTitle>
         </DialogHeader>
         <div className="flex-1 min-h-0 overflow-hidden">
           <UserAccountPanel isActive={open} />

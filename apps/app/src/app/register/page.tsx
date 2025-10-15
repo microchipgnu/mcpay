@@ -3,31 +3,21 @@
 import type React from "react"
 import { Suspense } from "react"
 
-import { useTheme } from "@/components/providers/theme-context"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { Textarea } from "@/components/ui/textarea"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { mcpDataApi, api as realApi, urlUtils } from "@/lib/client/utils"
-import { useUserWallets, usePrimaryWallet } from "@/components/providers/user"
+import { usePrimaryWallet } from "@/components/providers/user"
 import { SupportedEVMNetworks, SupportedSVMNetworks } from "x402/types"
 import { type Network } from "@/types/blockchain"
-import { AlertCircle, ArrowUpRight, BookOpen, CheckCircle, Clipboard, Eye, EyeOff, Info, Loader2, Server, Trash2, Zap, Wallet as WalletIcon, Globe, FlaskConical } from "lucide-react"
+import { AlertCircle, ArrowUpRight, CheckCircle, Clipboard, Info, Loader2, Server } from "lucide-react"
 import Link from "next/link"
 import { useEffect, useState } from "react"
 import { toast } from "sonner"
 import { MonetizeWizard } from "@/components/custom-ui/monetize-wizard"
 
 
-// Helper function to format wallet address for display
-const formatWalletAddress = (address: string): string => {
-  if (!address) return ''
-  return `${address.slice(0, 6)}...${address.slice(-4)}`
-}
 
 
 
@@ -71,19 +61,6 @@ type PricingEntry = {
   tokenDecimals: number
 }
 
-type UserWallet = {
-  id: string
-  userId: string
-  walletAddress: string
-  blockchain: string
-  walletType: 'external' | 'managed' | 'custodial'
-  provider?: string
-  isPrimary: boolean
-  isActive: boolean
-  walletMetadata?: Record<string, unknown>
-  createdAt: string
-  updatedAt: string
-}
 
 // Create a thin wrapper around the real API with graceful mock fallbacks
 const api = {
@@ -166,11 +143,10 @@ function RegisterPageLoading() {
 
 // New Register Options Page Component
 function RegisterOptionsPage() {
-  const { isDark } = useTheme()
   const [indexing, setIndexing] = useState(false)
   const [indexError, setIndexError] = useState<string | null>(null)
   const [monetizing, setMonetizing] = useState(false)
-  const [monetizeError, setMonetizeError] = useState<string | null>(null)
+  const [monetizeError] = useState<string | null>(null)
   const [serverUrl, setServerUrl] = useState('')
   const [urlTouched, setUrlTouched] = useState(false)
   const [urlValid, setUrlValid] = useState(false)
@@ -178,42 +154,26 @@ function RegisterOptionsPage() {
   const [previewTools, setPreviewTools] = useState<RegisterMCPTool[] | null>(null)
   const [isPreviewLoading, setIsPreviewLoading] = useState(false)
   const [previewError, setPreviewError] = useState<string | null>(null)
-  const [lastMonetizedUrl, setLastMonetizedUrl] = useState<string | null>(null)
+  const [lastMonetizedUrl] = useState<string | null>(null)
   const [clipboardUrlSuggestion, setClipboardUrlSuggestion] = useState<string | null>(null)
   const [clipboardPrompted, setClipboardPrompted] = useState(false)
 
   // Monetize wizard state
   const [monetizeOpen, setMonetizeOpen] = useState(false)
-  const [isMobile, setIsMobile] = useState(false)
-  const [monetizeStep, setMonetizeStep] = useState<1 | 2 | 3 | 4 | 5>(1)
-  const [monetizeLoading, setMonetizeLoading] = useState(false)
   const [monetizeTools, setMonetizeTools] = useState<RegisterMCPTool[]>([])
   const [priceByTool, setPriceByTool] = useState<Record<string, number>>({})
   const [evmRecipientAddress, setEvmRecipientAddress] = useState<string>("")
   const [svmRecipientAddress, setSvmRecipientAddress] = useState<string>("")
   const [recipientIsTestnet, setRecipientIsTestnet] = useState<boolean>(false)
-  const [monetizeErrorMsg, setMonetizeErrorMsg] = useState<string | null>(null)
-  const [createdServerId, setCreatedServerId] = useState<string | null>(null)
-  const [createdEndpointUrl, setCreatedEndpointUrl] = useState<string | null>(null)
   const [requireAuth, setRequireAuth] = useState<boolean>(false)
   const [authHeaders, setAuthHeaders] = useState<Array<{ key: string; value: string }>>([{ key: '', value: '' }])
-  const [authShowValues, setAuthShowValues] = useState<boolean>(false)
-  const [bulkHeadersText, setBulkHeadersText] = useState<string>("")
-  const wallets = useUserWallets()
   const primaryWallet = usePrimaryWallet()
-  const [selectedWalletId, setSelectedWalletId] = useState<string | null>(null)
-  const selectedWalletAddress = (wallets.find(w => w.id === selectedWalletId)?.walletAddress) || primaryWallet?.walletAddress || ""
+  const selectedWalletAddress = primaryWallet?.walletAddress || ""
   const [selectedNetworks, setSelectedNetworks] = useState<string[]>([])
 
   const validateEvm = (addr: string): boolean => /^0x[a-fA-F0-9]{40}$/.test((addr || '').trim())
   const validateSvm = (addr: string): boolean => /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test((addr || '').trim())
 
-  // Wizard footer state – enables/disables footer actions
-  const toolsPresent = monetizeTools.length > 0
-  const pricesValid = monetizeTools.length > 0 && monetizeTools.every((t) => Number.isFinite(priceByTool[t.name]) && (priceByTool[t.name] ?? 0) > 0)
-  const authValid = !requireAuth || authHeaders.every((h) => h.key.trim() && h.value.trim())
-  const canNext = monetizeStep === 1 ? toolsPresent : monetizeStep === 2 ? pricesValid : monetizeStep === 3 ? authValid : false
-  const canCreate = !monetizing
 
   const handleAddServer = async () => {
     if (!serverUrl.trim()) {
@@ -252,11 +212,8 @@ function RegisterOptionsPage() {
       toast.error('Enter a valid server URL')
       return
     }
-    setMonetizeErrorMsg(null)
-    setMonetizeStep(1)
     setMonetizeOpen(true)
     try {
-      setMonetizeLoading(true)
       const res = await fetch(`/api/inspect-mcp-server?url=${encodeURIComponent(serverUrl.trim())}&include=tools,prompts`)
       const data = await res.json().catch(() => ({}))
       const tools = Array.isArray(data?.tools) ? (data.tools as RegisterMCPTool[]) : []
@@ -271,7 +228,7 @@ function RegisterOptionsPage() {
       for (const t of tools) defaults[t.name] = 0.01
       setPriceByTool(defaults)
     } finally {
-      setMonetizeLoading(false)
+      // Loading state handled by MonetizeWizard component
     }
   }
 
@@ -289,7 +246,6 @@ function RegisterOptionsPage() {
     }
     try {
       setMonetizing(true)
-      setMonetizeErrorMsg(null)
       const rnd = Math.random().toString(36).slice(2, 10)
       const id = `srv_${rnd}`
       const authHeadersRecord: Record<string, string> = {}
@@ -327,9 +283,6 @@ function RegisterOptionsPage() {
         throw new Error(err?.error || `Failed to register: ${resp.status}`)
       }
       const endpoint = `${urlUtils.getMcp2Url()}/mcp?id=${encodeURIComponent(id)}`
-      setCreatedServerId(id)
-      setCreatedEndpointUrl(endpoint)
-      setLastMonetizedUrl(endpoint)
       try {
         await navigator.clipboard.writeText(endpoint)
         toast.success('Monetized endpoint copied to clipboard!')
@@ -342,10 +295,8 @@ function RegisterOptionsPage() {
           return
         }
       } catch { }
-      setMonetizeStep(5)
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Unknown error'
-      setMonetizeErrorMsg(msg)
       toast.error(`Failed to create endpoint: ${msg}`)
     } finally {
       setMonetizing(false)
@@ -450,12 +401,6 @@ function RegisterOptionsPage() {
     }
   }
 
-  useEffect(() => {
-    const checkMobile = () => setIsMobile(typeof window !== 'undefined' && window.innerWidth < 768)
-    checkMobile()
-    window.addEventListener('resize', checkMobile)
-    return () => window.removeEventListener('resize', checkMobile)
-  }, [])
 
   return (
     <div className="bg-background">
@@ -684,7 +629,7 @@ function RegisterOptionsPage() {
               /* SDK Suggestions - Show when no URL or invalid URL */
               <div className="rounded-md border border-border bg-muted/30 p-4 md:p-6">
                 <div className="text-center mb-6">
-                  <h3 className="text-lg font-medium text-foreground mb-2">Don't have a server yet?</h3>
+                  <h3 className="text-lg font-medium text-foreground mb-2">Don&apos;t have a server yet?</h3>
                   <p className="text-sm text-muted-foreground">Build one with our SDK and integrate payments directly</p>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

@@ -1,4 +1,4 @@
-import { getNetworkTokens, type UnifiedNetwork } from "@/lib/commons/networks"
+import { type UnifiedNetwork } from "@/lib/commons/networks"
 import { Client } from "@modelcontextprotocol/sdk/client/index.js"
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js"
 import { experimental_createMCPClient as createMCPClient } from "ai"
@@ -142,28 +142,6 @@ export async function getMcpPrompts(url: string) {
  */
 // (unused token resolver removed)
 
-/**
- * Helper function to get default token addresses when token lookup fails
- */
-function getDefaultTokenAddress(tokenSymbol: string, network: UnifiedNetwork): string {
-  // Known token addresses for common networks
-  const tokenAddresses: Record<string, Record<string, string>> = {
-    'base-sepolia': {
-      'USDC': '0x036CbD53842c5426634e7929541eC2318f3dCF7e',
-      'ETH': '0x0000000000000000000000000000000000000000',
-    },
-    'base': {
-      'USDC': '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
-      'ETH': '0x0000000000000000000000000000000000000000',
-    },
-    'sei-testnet': {
-      'USDC': '0x4fCF1784B31630811181f670Aea7A7bEF803eaED',
-      'SEI': '0x0000000000000000000000000000000000000000',
-    }
-  }
-
-  return tokenAddresses[network]?.[tokenSymbol.toUpperCase()] || '0x0000000000000000000000000000000000000000'
-}
 
 /**
  * Helper function to get default USDC address for a network

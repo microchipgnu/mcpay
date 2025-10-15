@@ -67,7 +67,7 @@ export function ToolsAccordion({ tools, onTry }: ToolsAccordionProps) {
                 <div className="text-xs text-gray-500 dark:text-gray-400 flex-1">
                   {Array.isArray(t.pricing) && t.pricing.length > 0 && (
                     <span>
-                      Pricing: {t.pricing.filter(p => p.active !== false).map((p, i) => `${p.label || "tier"}${p.amount ? ` - ${p.amount} ${p.currency || "USD"}` : ""}`).join(", ")}
+                      Pricing: {t.pricing.filter(p => p.active !== false).map((p) => `${p.label || "tier"}${p.amount ? ` - ${p.amount} ${p.currency || "USD"}` : ""}`).join(", ")}
                     </span>
                   )}
                 </div>

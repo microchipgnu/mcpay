@@ -219,7 +219,7 @@ export function ToolExecutionModal({ isOpen, onClose, tool, serverId, url }: Too
     return tool as ToolFromMcpServerWithStats & {
       pricing?: PricingEntry[]
     }
-  }, [tool, toolInputSchemaString])
+  }, [tool])
 
   // State management
   const [toolInputs, setToolInputs] = useState<Record<string, unknown>>({})
@@ -643,7 +643,7 @@ export function ToolExecutionModal({ isOpen, onClose, tool, serverId, url }: Too
     }
 
     initializeMcpClient()
-  }, [isOpen, isConnected, walletAddress, stableTool, serverId, walletClient, isInitialized, needsWalletClient, activeWallet])
+  }, [isOpen, isConnected, walletAddress, stableTool, serverId, walletClient, isInitialized, needsWalletClient, activeWallet, getCurrentNetwork, getRequiredNetwork, url])
 
   // Cleanup when modal closes
   useEffect(() => {

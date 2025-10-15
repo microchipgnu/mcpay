@@ -21,7 +21,7 @@ import { useEffect, useState } from "react"
 export default function MCPBrowser() {
   const [mcpServers, setMcpServers] = useState<McpServer[]>([])
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [error] = useState<string | null>(null)
   
   useEffect(() => {
 
