@@ -56,7 +56,7 @@ export default function Navbar() {
             </Link>
           </div>
 
-          {/* Center (desktop only): BROWSE / MONETIZE */}
+          {/* Center (desktop only): BROWSE / EXPLORER / REGISTER */}
           <div className="hidden sm:flex justify-center items-center gap-8">
             <Button
               asChild
@@ -64,6 +64,13 @@ export default function Navbar() {
               className={`${linkClasses} ${pathname === "/servers" ? activeLinkClasses : ""}`}
             >
               <Link href="/servers">BROWSE</Link>
+            </Button>
+            <Button
+              asChild
+              variant="link"
+              className={`${linkClasses} ${pathname === "/explorer" ? activeLinkClasses : ""}`}
+            >
+              <Link href="/explorer">EXPLORER</Link>
             </Button>
             <Button
               asChild
@@ -147,6 +154,14 @@ export default function Navbar() {
                       className="block font-mono tracking-wide text-lg text-muted-foreground hover:text-foreground"
                     >
                       BROWSE
+                    </Link>
+                  </SheetClose>
+                  <SheetClose asChild>
+                    <Link
+                      href="/explorer"
+                      className="block font-mono tracking-wide text-lg text-muted-foreground hover:text-foreground"
+                    >
+                      EXPLORER
                     </Link>
                   </SheetClose>
                   <SheetClose asChild>

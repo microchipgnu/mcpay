@@ -35,6 +35,8 @@ type ClientDescriptor = {
   supportsOAuth?: boolean
   status?: 'popular' | 'beta'
   icon?: string
+  generateDeepLink?: (server: ServerInfo, apiKey?: string) => string
+  generateCommand?: (server: ServerInfo, apiKey?: string) => string
 }
 
 type Templates = {
@@ -213,13 +215,30 @@ async def main():
   }
 }
 
+// Client-specific integration functions
+const generateCursorDeepLink = (server: ServerInfo) => {
+  const config = { 
+    url: server.baseUrl
+  }
+  const encodedConfig = btoa(JSON.stringify(config))
+  const serverName = (server.displayName || 'mcp-server').toLowerCase().replace(/[^a-z0-9-]/g, '-')
+  
+  return `cursor://anysphere.cursor-deeplink/mcp/install?name=${serverName}&config=${encodedConfig}`
+}
+
+const generateClaudeDesktopCommand = (server: ServerInfo) => {
+  return `npx -y @smithery/cli@latest run @upstash/${server.id}`
+}
+
+const generateCursorCommand = (server: ServerInfo) => {
+  return `npx -y @smithery/cli@latest install @upstash/${server.id}`
+}
+
 // Default clients
 const defaultClients: ClientDescriptor[] = [
   { 
     id: "chatgpt", 
     name: "ChatGPT", 
-    status: "popular", 
-    icon: "🤖",
     steps: [
       { n: 1, text: "Enable Developer Mode in ChatGPT settings." },
       { n: 2, text: "Go to Settings → Connectors → Create and paste the server URL." },
@@ -228,41 +247,29 @@ const defaultClients: ClientDescriptor[] = [
   { 
     id: "claude-desktop", 
     name: "Claude Desktop", 
-    status: "popular", 
-    icon: "🧠",
-    command: "npx -y @smithery/cli@latest run @upstash/context7-mcp --key <API_KEY>"
+    generateCommand: generateClaudeDesktopCommand
   },
   { 
     id: "cursor", 
     name: "Cursor", 
-    status: "popular", 
-    icon: "⚡",
-    oneClickUrl: "cursor://install?server=context7-mcp",
-    command: "npx -y @smithery/cli@latest install @upstash/context7-mcp --key <API_KEY>"
+    generateDeepLink: generateCursorDeepLink,
+    generateCommand: generateCursorCommand
   },
   { 
     id: "poke", 
-    name: "Poke", 
-    status: "beta", 
-    icon: "🔗"
+    name: "Poke"
   },
   { 
     id: "claude-code", 
-    name: "Claude Code", 
-    status: "beta", 
-    icon: "💻"
+    name: "Claude Code"
   },
   { 
     id: "codex", 
-    name: "Codex", 
-    status: "beta", 
-    icon: "📝"
+    name: "Codex"
   },
   { 
     id: "raycast", 
-    name: "Raycast", 
-    status: "beta", 
-    icon: "🚀"
+    name: "Raycast"
   },
 ]
 
@@ -381,10 +388,14 @@ function CodeBlock({
 }
 
 // Component: ClientDetails
-function ClientDetails({ client, server }: { client: ClientDescriptor; server: ServerInfo }) {
+function ClientDetails({ client, server, apiKey }: { client: ClientDescriptor; server: ServerInfo; apiKey?: string }) {
   const { isDark } = useTheme()
   
-  if (client.oneClickUrl) {
+  // Generate dynamic URLs and commands
+  const deepLink = client.generateDeepLink?.(server, apiKey)
+  const command = client.generateCommand?.(server, apiKey) || client.command
+  
+  if (deepLink) {
     return (
       <div className="space-y-3">
         <div className="text-sm text-muted-foreground">
@@ -392,7 +403,7 @@ function ClientDetails({ client, server }: { client: ClientDescriptor; server: S
         </div>
         <Button 
           className="w-full"
-          onClick={() => window.open(client.oneClickUrl, '_blank')}
+          onClick={() => window.open(deepLink, '_blank')}
           aria-label={`One-click install for ${client.name}`}
         >
           One-Click Install
@@ -401,10 +412,10 @@ function ClientDetails({ client, server }: { client: ClientDescriptor; server: S
     )
   }
 
-  if (client.command) {
+  if (command) {
     return (
-      <CodeBlock language="bash" copyText={client.command}>
-        {client.command}
+      <CodeBlock language="bash" copyText={command}>
+        {command}
       </CodeBlock>
     )
   }
@@ -565,7 +576,7 @@ export function ConnectPanel({
     platform: 'mac',
     copied: {},
     showApiKeyModal: false,
-    jsonAuthMode: 'api_key',
+    jsonAuthMode: 'oauth',
     codeLanguage: 'ts',
     codeAuthMode: 'api_key'
   })
@@ -660,7 +671,6 @@ export function ConnectPanel({
                     onClick={() => setIsDropdownOpen(!isDropdownOpen)}
                   >
                     <div className="flex items-center gap-3">
-                      <span className="text-lg">{selectedClient?.icon || "🤖"}</span>
                       <span className="text-sm font-medium text-foreground">
                         {selectedClient?.name || "Select a client"}
                       </span>
@@ -670,19 +680,21 @@ export function ConnectPanel({
                   
                   {/* Client List Dropdown */}
                   {isDropdownOpen && (
-                    <div className="absolute top-full left-0 right-0 mt-1 max-h-72 overflow-auto rounded-md border bg-background shadow-lg z-10">
-                    <div className="p-2">
-                      <div className="relative mb-2">
-                        <Input 
-                          placeholder="Search clients..." 
-                          value={searchQuery}
-                          onChange={(e) => setSearchQuery(e.target.value)}
-                          className="pl-8 h-8"
-                          aria-label="Search AI clients" 
-                        />
-                        <Code2 className="absolute left-2.5 top-2 h-4 w-4 text-muted-foreground" />
+                    <div className="absolute top-full left-0 right-0 mt-1 max-h-72 overflow-hidden rounded-md border bg-background shadow-lg z-10">
+                      <div className="sticky top-0 p-2 bg-background border-b">
+                        <div className="relative">
+                          <Input 
+                            placeholder="Search clients..." 
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className="pl-8 h-8"
+                            aria-label="Search AI clients" 
+                          />
+                          <Code2 className="absolute left-2.5 top-2 h-4 w-4 text-muted-foreground" />
+                        </div>
                       </div>
-                      {filteredClients.map((client) => (
+                      <div className="max-h-56 overflow-auto p-2">
+                        {filteredClients.map((client) => (
                         <div 
                           key={client.id} 
                           className={`group flex items-center justify-between p-2 rounded-md hover:bg-muted/40 transition-all duration-300 cursor-pointer ${
@@ -704,16 +716,8 @@ export function ConnectPanel({
                           aria-label={`Select ${client.name} client`}
                         >
                           <div className="flex items-center gap-3">
-                            <span className="text-lg">{client.icon}</span>
                             <div>
                               <span className="text-sm font-medium text-foreground">{client.name}</span>
-                              <span className={`ml-2 text-xs px-2 py-0.5 rounded font-mono border ${
-                                client.status === "popular" 
-                                  ? "text-teal-700 bg-teal-500/10 border-teal-500/20 dark:text-teal-200 dark:bg-teal-800/50 dark:border-teal-800/50" 
-                                  : "text-muted-foreground bg-muted border-border"
-                              }`}>
-                                {client.status}
-                              </span>
                             </div>
                           </div>
                           {state.selectedClientId === client.id && (
@@ -721,12 +725,12 @@ export function ConnectPanel({
                           )}
                         </div>
                       ))}
-                      {filteredClients.length === 0 && (
-                        <div className="p-4 text-center text-sm text-muted-foreground">
-                          No clients found matching &quot;{searchQuery}&quot;
-                        </div>
-                      )}
-                    </div>
+                        {filteredClients.length === 0 && (
+                          <div className="p-4 text-center text-sm text-muted-foreground">
+                            No clients found matching &quot;{searchQuery}&quot;
+                          </div>
+                        )}
+                      </div>
                     </div>
                   )}
                 </div>
@@ -737,7 +741,7 @@ export function ConnectPanel({
                     <div className="text-sm font-medium text-foreground">
                       Follow these steps to add this server to {selectedClient.name}:
                     </div>
-                    <ClientDetails client={selectedClient} server={server} />
+                    <ClientDetails client={selectedClient} server={server} apiKey={state.key?.full} />
                   </div>
                 )}
               </div>

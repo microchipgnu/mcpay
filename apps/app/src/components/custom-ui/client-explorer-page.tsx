@@ -346,51 +346,55 @@ export default function ClientExplorerPage() {
 
                           {/* Transaction: right-aligned, reduced left padding */}
                           <TableCell className={`${td} font-mono text-right pr-0 pl-1`}>
-                            <div className="flex items-center justify-end gap-1">
-                              <span className="text-xs sm:text-sm mr-2">{truncateHash(r.txHash)}</span>
+                            {r.txHash ? (
+                              <div className="flex items-center justify-end gap-1">
+                                <span className="text-xs sm:text-sm mr-2">{truncateHash(r.txHash)}</span>
 
-                              <TooltipProvider>
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <Button
-                                      size="icon"
-                                      variant="ghost"
-                                      className="group h-7 w-7 rounded-sm"
-                                      onClick={(e) => {
-                                        e.stopPropagation()
-                                        onCopy(r.txHash, "Copied transaction hash")
-                                      }}
-                                    >
-                                      <Copy className="size-4 stroke-[2] text-muted-foreground group-hover:text-foreground transition-all duration-300" />
-                                    </Button>
-                                  </TooltipTrigger>
-                                  <TooltipContent>Copy</TooltipContent>
-                                </Tooltip>
-
-
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <Button
-                                      asChild
-                                      size="icon"
-                                      variant="ghost"
-                                      className="group h-7 w-7 rounded-sm"
-                                    >
-                                      <a
-                                        href={txUrl}
-                                        target="_blank"
-                                        rel="noreferrer"
-                                        onClick={(e) => e.stopPropagation()}
+                                <TooltipProvider>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <Button
+                                        size="icon"
+                                        variant="ghost"
+                                        className="group h-7 w-7 rounded-sm"
+                                        onClick={(e) => {
+                                          e.stopPropagation()
+                                          onCopy(r.txHash, "Copied transaction hash")
+                                        }}
                                       >
-                                        <ArrowUpRight className="size-5 stroke-[2] text-muted-foreground/80 group-hover:text-foreground transition-all duration-300" />
-                                      </a>
-                                    </Button>
-                                  </TooltipTrigger>
-                                  <TooltipContent>Transaction Details</TooltipContent>
-                                </Tooltip>
+                                        <Copy className="size-4 stroke-[2] text-muted-foreground group-hover:text-foreground transition-all duration-300" />
+                                      </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>Copy</TooltipContent>
+                                  </Tooltip>
 
-                              </TooltipProvider>
-                            </div>
+
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <Button
+                                        asChild
+                                        size="icon"
+                                        variant="ghost"
+                                        className="group h-7 w-7 rounded-sm"
+                                      >
+                                        <a
+                                          href={txUrl}
+                                          target="_blank"
+                                          rel="noreferrer"
+                                          onClick={(e) => e.stopPropagation()}
+                                        >
+                                          <ArrowUpRight className="size-5 stroke-[2] text-muted-foreground/80 group-hover:text-foreground transition-all duration-300" />
+                                        </a>
+                                      </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>Transaction Details</TooltipContent>
+                                  </Tooltip>
+
+                                </TooltipProvider>
+                              </div>
+                            ) : (
+                              <span className="text-xs text-muted-foreground">—</span>
+                            )}
                           </TableCell>
                         </TableRow>
                       )

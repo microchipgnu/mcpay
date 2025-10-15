@@ -367,30 +367,34 @@ export default function MinimalExplorer() {
                         </TooltipProvider>
                       </TableCell>
 
-                      {/* Transaction: only open in new tab button */}
+                      {/* Transaction: only show button if transaction hash exists */}
                       <TableCell className={`${td} text-right`}>
-                        <TooltipProvider>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Button
-                                asChild
-                                size="icon"
-                                variant="ghost"
-                                className="group h-7 w-7 rounded-sm"
-                              >
-                                <a
-                                  href={txUrl}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  onClick={(e) => e.stopPropagation()}
+                        {r.txHash ? (
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  asChild
+                                  size="icon"
+                                  variant="ghost"
+                                  className="group h-7 w-7 rounded-sm"
                                 >
-                                  <ArrowUpRight className="size-5 stroke-[2] text-muted-foreground/80 group-hover:text-foreground transition-all duration-300" />
-                                </a>
-                              </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>View Transaction</TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
+                                  <a
+                                    href={txUrl}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    onClick={(e) => e.stopPropagation()}
+                                  >
+                                    <ArrowUpRight className="size-5 stroke-[2] text-muted-foreground/80 group-hover:text-foreground transition-all duration-300" />
+                                  </a>
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>View Transaction</TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">—</span>
+                        )}
                       </TableCell>
                     </TableRow>
                   )
