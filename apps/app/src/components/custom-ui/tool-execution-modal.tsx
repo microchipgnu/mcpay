@@ -537,7 +537,8 @@ export function ToolExecutionModal({ isOpen, onClose, tool, serverId, url }: Too
             'X-Wallet-Type': activeWallet?.walletType || 'unknown',
             'X-Wallet-Address': walletAddress || '',
             'X-Wallet-Provider': activeWallet?.provider || 'unknown',
-          }
+          },
+          cookies: document.cookie ? 'present' : 'missing'
         });
 
 

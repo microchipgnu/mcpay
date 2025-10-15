@@ -4,6 +4,41 @@ import { serverAuth } from "@/lib/client/auth"
 // TODO: add withProxy and LoggingHook back in
 // import { withProxy, LoggingHook } from 'mcpay/handler'
 
+// Helper function to validate and extract origin
+function getValidOrigin(request: Request): string | null {
+  const origin = request.headers.get('origin')
+  const referer = request.headers.get('referer')
+  
+  // Extract origin from referer if origin header is missing
+  const extractedOrigin = origin || (referer ? new URL(referer).origin : null)
+  
+  // In production, only allow specific domains
+  if (env.NODE_ENV === 'production') {
+    const allowedOrigins = [
+      'https://mcpay.tech',
+      'https://www.mcpay.tech',
+    ]
+    
+    if (extractedOrigin && allowedOrigins.includes(extractedOrigin)) {
+      return extractedOrigin
+    }
+    
+    return null
+  }
+  
+  // In development, allow localhost and local IPs
+  if (extractedOrigin && (
+    extractedOrigin.startsWith('http://localhost:') ||
+    extractedOrigin.startsWith('http://127.0.0.1:') ||
+    extractedOrigin.startsWith('https://localhost:') ||
+    extractedOrigin.startsWith('https://127.0.0.1:')
+  )) {
+    return extractedOrigin
+  }
+  
+  return extractedOrigin
+}
+
 export async function POST(request: Request) {
   const h = await headers()
   const url = new URL(request.url)
@@ -29,7 +64,7 @@ export async function POST(request: Request) {
   console.log('targetUrl', targetUrl)
 
   // Use the local MCP server instead of external proxy
-  const mcpUrl = `${process.env.NEXT_PUBLIC_AUTH_URL}/mcp?target-url=${targetUrl}`
+  const mcpUrl = `${env.NEXT_PUBLIC_AUTH_URL}/mcp?target-url=${targetUrl}`
 
   console.log('mcpUrl', mcpUrl)
   
@@ -50,13 +85,17 @@ export async function POST(request: Request) {
     duplex: 'half',
   })
 
+  // Get the validated origin for CORS
+  const validOrigin = getValidOrigin(request)
+  
   return new Response(response.body, {
     status: response.status,
     headers: {
       'Content-Type': response.headers.get('Content-Type') || 'application/json',
-      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Origin': validOrigin || '*',
       'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
       'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Wallet-Type, X-Wallet-Address, X-Wallet-Provider',
+      'Access-Control-Allow-Credentials': validOrigin ? 'true' : 'false',
     },
   })
 }
@@ -102,25 +141,33 @@ export async function GET(request: Request) {
     duplex: 'half',
   })
 
+  // Get the validated origin for CORS
+  const validOrigin = getValidOrigin(request)
+  
   return new Response(response.body, {
     status: response.status,
     headers: {
       'Content-Type': response.headers.get('Content-Type') || 'application/json',
-      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Origin': validOrigin || '*',
       'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
       'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Wallet-Type, X-Wallet-Address, X-Wallet-Provider',
+      'Access-Control-Allow-Credentials': validOrigin ? 'true' : 'false',
     },
   })
 }
 
-export async function OPTIONS() {
+export async function OPTIONS(request: Request) {
+  // Get the validated origin for CORS
+  const validOrigin = getValidOrigin(request)
+  
   return new Response(null, {
     status: 200,
     headers: {
       'Content-Type': 'application/json, text/event-stream',
-      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Origin': validOrigin || '*',
       'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
       'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Wallet-Type, X-Wallet-Address, X-Wallet-Provider',
+      'Access-Control-Allow-Credentials': validOrigin ? 'true' : 'false',
     },
   })
 }
