@@ -78,20 +78,20 @@ interface ToolExecution {
 // =============================================================================
 
 const getThemeClasses = (isDark: boolean) => ({
-  input: isDark ? "bg-gray-700 border-gray-600 text-white" : "",
-  button: isDark ? "border-gray-600 text-gray-300 hover:bg-gray-700" : "",
-  modal: isDark ? "bg-gray-800 border-gray-700" : "",
+  input: "bg-background border-border text-foreground placeholder:text-muted-foreground",
+  button: "border-border text-foreground hover:bg-muted/40 transition-all duration-300",
+  modal: "bg-background border-border",
   text: {
-    primary: isDark ? "text-gray-300" : "text-gray-700",
-    secondary: isDark ? "text-gray-400" : "text-gray-600",
-    error: isDark ? "text-gray-300" : "text-gray-800"
+    primary: "text-foreground",
+    secondary: "text-muted-foreground",
+    error: "text-foreground"
   },
   background: {
-    error: isDark ? "bg-red-900/20 text-red-400 border border-red-800" : "bg-red-50 text-red-600 border border-red-200",
-    success: isDark ? "bg-green-900/20 text-green-400 border-green-800" : "bg-green-50 text-green-600 border-green-200",
-    warning: isDark ? "bg-orange-900/20 text-orange-400 border-orange-800" : "bg-orange-50 text-orange-600 border-orange-200",
-    info: isDark ? "bg-blue-900/20 text-blue-400 border-blue-800" : "bg-blue-50 text-blue-600 border-blue-200",
-    code: isDark ? "bg-gray-800 border-gray-700" : "bg-gray-100 border-gray-200"
+    error: "bg-red-500/10 text-red-600 border border-red-500/20 dark:text-red-400 dark:bg-red-800/50 dark:border-red-800/50",
+    success: "bg-teal-500/10 text-teal-600 border border-teal-500/20 dark:text-teal-400 dark:bg-teal-800/50 dark:border-teal-800/50",
+    warning: "bg-yellow-500/10 text-yellow-600 border border-yellow-500/20 dark:text-yellow-400 dark:bg-yellow-800/50 dark:border-yellow-800/50",
+    info: "bg-blue-500/10 text-blue-600 border border-blue-500/20 dark:text-blue-400 dark:bg-blue-800/50 dark:border-blue-800/50",
+    code: "bg-muted/50 border-border"
   }
 })
 
@@ -1292,13 +1292,13 @@ export function ToolExecutionModal({ isOpen, onClose, tool, serverId, url }: Too
 
     if (!stableTool?.isMonetized || !activePricing.length) {
       return (
-        <div className="space-y-2">
+        <div className="space-y-3">
           <div className="flex items-center gap-2">
-            <Coins className="h-4 w-4 text-green-600" />
-            <h4 className="font-medium">Pricing</h4>
+            <Coins className="h-4 w-4 text-teal-600 dark:text-teal-400" />
+            <h4 className="text-sm font-medium text-foreground">Pricing</h4>
           </div>
-          <div className="text-sm text-gray-600 dark:text-gray-400 ml-6">
-            This tool is free to use
+          <div className="p-3 rounded-md border bg-muted/30 border-border">
+            <p className="text-xs text-muted-foreground">This tool is free to use</p>
           </div>
         </div>
       )
@@ -1311,16 +1311,16 @@ export function ToolExecutionModal({ isOpen, onClose, tool, serverId, url }: Too
     console.log("selectedPricing", selectedPricing)
 
     return (
-      <div className="space-y-2">
+      <div className="space-y-3">
         <div className="flex items-center gap-2">
-          <Coins className="h-4 w-4" />
-          <h4 className="font-medium">Pricing</h4>
+          <Coins className="h-4 w-4 text-teal-600 dark:text-teal-400" />
+          <h4 className="text-sm font-medium text-foreground">Pricing</h4>
         </div>
-        <div className="ml-6">
-          <div className="flex items-center justify-between p-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/30">
+        <div className="p-3 rounded-md border bg-muted/30 border-border">
+          <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <span className="font-medium text-sm">{formatCurrency(amount, selectedPricing?.assetAddress || '', selectedPricing?.network || '')}</span>
-              <span className="text-gray-600 dark:text-gray-400 text-sm">on {selectedPricing?.network}</span>
+              <span className="text-sm font-medium text-foreground">{formatCurrency(amount, selectedPricing?.assetAddress || '', selectedPricing?.network || '')}</span>
+              <span className="text-xs text-muted-foreground">on {selectedPricing?.network}</span>
             </div>
 
             {hasMultipleTiers && (
@@ -1330,15 +1330,15 @@ export function ToolExecutionModal({ isOpen, onClose, tool, serverId, url }: Too
                     type="button"
                     variant="outline"
                     size="sm"
-                    className="text-xs"
+                    className="text-xs h-7 w-7 rounded-sm"
                   >
-                    {activePricing.length} Options
+                    {activePricing.length}
                     <ChevronDown className="h-3 w-3 ml-1" />
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-80 p-0" align="end">
                   <div className="p-4">
-                    <h5 className="text-sm font-medium mb-3">Select Pricing Tier</h5>
+                    <h5 className="text-sm font-medium mb-3 text-foreground">Select Pricing Tier</h5>
                     <div className="space-y-2">
                       {activePricing.map((pricing, index) => {
                         const tierAmount = parseFloat(pricing.maxAmountRequiredRaw) / Math.pow(10, pricing.tokenDecimals)
@@ -1349,22 +1349,22 @@ export function ToolExecutionModal({ isOpen, onClose, tool, serverId, url }: Too
                               setSelectedPricingTier(index)
                               setPricingPopoverOpen(false)
                             }}
-                            className={`p-3 rounded-lg border cursor-pointer transition-all duration-200 ${selectedPricingTier === index
-                                ? 'border-blue-500 bg-blue-50 dark:bg-blue-500/10'
-                                : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700/30'
+                            className={`p-3 rounded-md border cursor-pointer transition-all duration-300 ${selectedPricingTier === index
+                                ? 'border-teal-500 bg-teal-500/10 dark:bg-teal-800/50'
+                                : 'border-border hover:border-border hover:bg-muted/40'
                               }`}
                           >
                             <div className="flex items-center justify-between">
                               <div className="space-y-1">
                                 <div className="flex items-center gap-2">
-                                  <span className="font-medium text-sm">
+                                  <span className="text-sm font-medium text-foreground">
                                     {formatCurrency(tierAmount, pricing.assetAddress, pricing.network)}
                                   </span>
-                                  <span className="text-xs text-gray-500">on {pricing.network}</span>
+                                  <span className="text-xs text-muted-foreground">on {pricing.network}</span>
                                 </div>
                               </div>
                               {selectedPricingTier === index && (
-                                <CheckCircle className="w-4 h-4 text-blue-500" />
+                                <CheckCircle className="w-4 h-4 text-teal-600 dark:text-teal-400" />
                               )}
                             </div>
                           </div>
@@ -1384,15 +1384,22 @@ export function ToolExecutionModal({ isOpen, onClose, tool, serverId, url }: Too
   const renderWalletSection = () => {
     if (!hasAccountWallets) {
       return (
-        <div className="space-y-2">
+        <div className="space-y-3">
           <div className="flex items-center gap-2">
-            <Wallet className="h-4 w-4" />
-            <h4 className="font-medium">Payment Wallet</h4>
+            <Wallet className="h-4 w-4 text-teal-600 dark:text-teal-400" />
+            <h4 className="text-sm font-medium text-foreground">Payment Wallet</h4>
           </div>
-          <div className={`ml-6 p-3 rounded-lg border ${themeClasses.background.warning}`}>
-            <div className="flex items-center gap-2">
-              <AlertCircle className="h-4 w-4" />
-              <p className="text-sm">Connect a wallet to execute this tool</p>
+          <div className="p-3 rounded-md border bg-muted/30 border-border">
+            <div className="flex items-start gap-3">
+              <div className="p-2 rounded-md bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 dark:bg-yellow-800/50">
+                <AlertCircle className="h-4 w-4" />
+              </div>
+              <div className="space-y-2">
+                <h4 className="text-sm font-medium text-foreground">Connect a wallet to execute this tool</h4>
+                <p className="text-xs text-muted-foreground">
+                  You need a connected wallet to pay for tool execution.
+                </p>
+              </div>
             </div>
           </div>
         </div>
@@ -1400,15 +1407,15 @@ export function ToolExecutionModal({ isOpen, onClose, tool, serverId, url }: Too
     }
 
     return (
-      <div className="space-y-2">
+      <div className="space-y-3">
         <div className="flex items-center gap-2">
-          <Wallet className="h-4 w-4" />
-          <h4 className="font-medium">Payment Wallet</h4>
+          <Wallet className="h-4 w-4 text-teal-600 dark:text-teal-400" />
+          <h4 className="text-sm font-medium text-foreground">Payment Wallet</h4>
         </div>
-        <div className="ml-6">
-          <div className="flex items-center justify-between p-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/30">
+        <div className="p-3 rounded-md border bg-muted/30 border-border">
+          <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <span className="font-medium text-sm">
+              <span className="text-sm font-medium text-foreground">
                 {activeWallet?.provider || 'Wallet'} ({formatWalletAddress(walletAddress || '')})
               </span>
               {needsBrowserConnection && (
@@ -1429,15 +1436,15 @@ export function ToolExecutionModal({ isOpen, onClose, tool, serverId, url }: Too
                       type="button"
                       variant="outline"
                       size="sm"
-                      className="text-xs"
+                      className="text-xs px-3 py-1 h-7 rounded-sm"
                     >
-                      Change
+                      Change Wallet
                       <ChevronDown className="h-3 w-3 ml-1" />
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-80 p-0" align="end">
                     <div className="p-4">
-                      <h5 className="text-sm font-medium mb-3">Select Payment Wallet</h5>
+                      <h5 className="text-sm font-medium mb-3 text-foreground">Select Payment Wallet</h5>
                       <div className="space-y-2">
                         {[...userWallets]
                           .sort((a, b) => {
@@ -1452,22 +1459,25 @@ export function ToolExecutionModal({ isOpen, onClose, tool, serverId, url }: Too
                                 setSelectedWallet(wallet)
                                 setWalletPopoverOpen(false)
                               }}
-                              className={`p-3 rounded-lg border cursor-pointer transition-all duration-200 ${selectedWallet?.id === wallet.id
-                                  ? 'border-blue-500 bg-blue-50 dark:bg-blue-500/10'
-                                  : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700/30'
+                              className={`p-3 rounded-md border cursor-pointer transition-all duration-300 ${selectedWallet?.id === wallet.id
+                                  ? 'border-teal-500 bg-teal-500/10 dark:bg-teal-800/50'
+                                  : 'border-border hover:border-border hover:bg-muted/40'
                                 }`}
                             >
                               <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-2">
-                                  <span className="font-mono text-sm">
+                                  <span className="font-mono text-sm text-foreground">
                                     {formatWalletAddress(wallet.walletAddress)}
                                   </span>
                                   {wallet.provider && (
                                     <Badge variant="outline" className="text-xs">{wallet.provider}</Badge>
                                   )}
+                                  {wallet.isPrimary && (
+                                    <Badge variant="secondary" className="text-xs">Primary</Badge>
+                                  )}
                                 </div>
                                 {selectedWallet?.id === wallet.id && (
-                                  <CheckCircle className="w-4 h-4 text-blue-500" />
+                                  <CheckCircle className="w-4 h-4 text-teal-600 dark:text-teal-400" />
                                 )}
                               </div>
                             </div>
@@ -1480,7 +1490,7 @@ export function ToolExecutionModal({ isOpen, onClose, tool, serverId, url }: Too
             </div>
           </div>
           {needsBrowserConnection && (
-            <p className="text-xs text-yellow-600 dark:text-yellow-400 mt-1 ml-3">
+            <p className="text-xs text-yellow-600 dark:text-yellow-400 mt-2">
               Browser wallet connection required
             </p>
           )}
@@ -1497,9 +1507,11 @@ export function ToolExecutionModal({ isOpen, onClose, tool, serverId, url }: Too
     const amount = parseFloat(selectedPricing.maxAmountRequiredRaw) / Math.pow(10, selectedPricing.tokenDecimals)
 
     return (
-      <div className="text-center text-sm text-gray-600 dark:text-gray-400 py-2">
-        You&apos;ll be charged <span className="font-medium">{formatCurrency(amount, selectedPricing.assetAddress, selectedPricing.network)}</span> via{" "}
-        <span className="font-medium">{activeWallet?.provider || 'your wallet'}</span>
+      <div className="p-3 rounded-md border bg-muted/30 border-border">
+        <p className="text-xs text-muted-foreground text-center">
+          You&apos;ll be charged <span className="font-medium text-foreground">{formatCurrency(amount, selectedPricing.assetAddress, selectedPricing.network)}</span> via{" "}
+          <span className="font-medium text-foreground">{activeWallet?.provider || 'your wallet'}</span>
+        </p>
       </div>
     )
   }
@@ -1551,14 +1563,14 @@ export function ToolExecutionModal({ isOpen, onClose, tool, serverId, url }: Too
     const Icon = status.icon
 
     const variantClasses = {
-      success: "text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20",
-      warning: "text-yellow-600 dark:text-yellow-400 bg-yellow-50 dark:bg-yellow-900/20",
-      error: "text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20",
-      info: "text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20"
+      success: "text-teal-600 dark:text-teal-400 bg-teal-500/10 dark:bg-teal-800/50",
+      warning: "text-yellow-600 dark:text-yellow-400 bg-yellow-500/10 dark:bg-yellow-800/50",
+      error: "text-red-600 dark:text-red-400 bg-red-500/10 dark:bg-red-800/50",
+      info: "text-blue-600 dark:text-blue-400 bg-blue-500/10 dark:bg-blue-800/50"
     }
 
     return (
-      <div className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${variantClasses[status.variant]}`}>
+      <div className={`inline-flex items-center gap-1 px-2 py-1 rounded-sm text-xs font-medium border ${variantClasses[status.variant]}`}>
         <Icon className={`h-3 w-3 ${status.animate ? 'animate-spin' : ''}`} />
         {status.text}
       </div>
@@ -1593,31 +1605,30 @@ export function ToolExecutionModal({ isOpen, onClose, tool, serverId, url }: Too
     if (execution.status !== 'error' || !execution.error) return null
 
     return (
-      <div className={`p-3 rounded-lg border ${themeClasses.background.error}`}>
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <AlertCircle className="h-4 w-4 flex-shrink-0" />
-            <div>
-              <p className="text-sm font-medium">Error</p>
-              <p className="text-xs mt-1">{execution.error}</p>
-            </div>
+      <div className="p-3 rounded-md border bg-muted/30 border-border">
+        <div className="flex items-start gap-3">
+          <div className="p-2 rounded-md bg-red-500/10 text-red-600 dark:text-red-400 dark:bg-red-800/50">
+            <AlertCircle className="h-4 w-4" />
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              setExecution({ status: 'idle' })
-              if (stableTool?.isMonetized && !isOnCorrectNetwork() && activeWallet?.walletType !== 'managed') {
-                handleNetworkSwitch()
-              } else {
-                executeTool()
-              }
-            }}
-            className="text-xs"
-          >
-            <RefreshCw className="h-3 w-3 mr-1" />
-            Retry
-          </Button>
+          <div className="flex-1 space-y-2">
+            <h4 className="text-sm font-medium text-foreground">Execution Error</h4>
+            <p className="text-xs text-muted-foreground">{execution.error}</p>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setExecution({ status: 'idle' })
+                if (stableTool?.isMonetized && !isOnCorrectNetwork() && activeWallet?.walletType !== 'managed') {
+                  handleNetworkSwitch()
+                } else {
+                  executeTool()
+                }
+              }}
+              className="text-xs h-7 w-7 rounded-sm"
+            >
+              <RefreshCw className="h-3 w-3" />
+            </Button>
+          </div>
         </div>
       </div>
     )
@@ -1635,30 +1646,28 @@ export function ToolExecutionModal({ isOpen, onClose, tool, serverId, url }: Too
     }
 
     return (
-      <div className={`p-3 rounded-lg border ${themeClasses.background.warning}`}>
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
+      <div className="p-3 rounded-md border bg-muted/30 border-border">
+        <div className="flex items-start gap-3">
+          <div className="p-2 rounded-md bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 dark:bg-yellow-800/50">
             <RefreshCw className="h-4 w-4" />
-            <div>
-              <p className="text-sm font-medium">Network Switch Required</p>
-              <p className="text-xs">Switch to {getRequiredNetwork()} to execute this tool</p>
-            </div>
           </div>
-          <Button
-            onClick={handleNetworkSwitch}
-            disabled={isSwitchingNetwork}
-            size="sm"
-            variant="outline"
-          >
-            {isSwitchingNetwork ? (
-              <>
-                <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-                Switching...
-              </>
-            ) : (
-              `Switch Network`
-            )}
-          </Button>
+          <div className="flex-1 space-y-2">
+            <h4 className="text-sm font-medium text-foreground">Network Switch Required</h4>
+            <p className="text-xs text-muted-foreground">Switch to {getRequiredNetwork()} to execute this tool</p>
+            <Button
+              onClick={handleNetworkSwitch}
+              disabled={isSwitchingNetwork}
+              size="sm"
+              variant="outline"
+              className="text-xs h-7 w-7 rounded-sm"
+            >
+              {isSwitchingNetwork ? (
+                <Loader2 className="h-3 w-3 animate-spin" />
+              ) : (
+                <RefreshCw className="h-3 w-3" />
+              )}
+            </Button>
+          </div>
         </div>
       </div>
     )
@@ -1775,10 +1784,10 @@ export function ToolExecutionModal({ isOpen, onClose, tool, serverId, url }: Too
         {hasInputs && (
           <div className="space-y-3">
             <div className="flex items-center gap-2">
-              <Wrench className="h-4 w-4" />
-              <h4 className="font-medium">Parameters</h4>
+              <Wrench className="h-4 w-4 text-teal-600 dark:text-teal-400" />
+              <h4 className="text-sm font-medium text-foreground">Parameters</h4>
             </div>
-            <div className="ml-6 grid grid-cols-1 gap-4">
+            <div className="space-y-4">
               {Object.entries(properties).map(([inputName, inputProp]) =>
                 renderInputField(inputName, inputProp)
               )}
@@ -1807,7 +1816,7 @@ export function ToolExecutionModal({ isOpen, onClose, tool, serverId, url }: Too
               needsBrowserConnection
             }
             size="lg"
-            className={`px-8 ${isDark ? "bg-blue-600 hover:bg-blue-700" : ""}`}
+            className="px-8 bg-teal-600 hover:bg-teal-700 text-white"
           >
             {execution.status === 'executing' ? (
               <>
@@ -1836,16 +1845,16 @@ export function ToolExecutionModal({ isOpen, onClose, tool, serverId, url }: Too
   if (isMobile) {
     return (
       <Drawer open={isOpen} onOpenChange={onClose}>
-        <DrawerContent className={`max-h-[85vh] ${themeClasses.modal}`}>
+        <DrawerContent className="max-h-[85vh] bg-background border-border">
           <DrawerHeader>
             <div className="flex items-center justify-between">
-              <DrawerTitle className="flex items-center gap-2">
-                <Wrench className="h-5 w-5" />
+              <DrawerTitle className="flex items-center gap-2 text-foreground">
+                <Wrench className="h-5 w-5 text-teal-600 dark:text-teal-400" />
                 {stableTool?.name || 'Run Tool'}
               </DrawerTitle>
               {stableTool && renderStatusChip()}
             </div>
-            <DrawerDescription>
+            <DrawerDescription className="text-muted-foreground">
               {stableTool
                 ? (isInitialized && (mcpToolsCollection[stableTool.name] as MCPToolFromClient)?.description) || stableTool.description
                 : 'Configure and execute'
@@ -1862,16 +1871,16 @@ export function ToolExecutionModal({ isOpen, onClose, tool, serverId, url }: Too
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className={`max-w-2xl max-h-[85vh] overflow-hidden flex flex-col ${themeClasses.modal}`}>
+      <DialogContent className="max-w-2xl max-h-[85vh] overflow-hidden flex flex-col bg-background border-border">
         <DialogHeader className="flex-shrink-0">
           <div className="flex items-center justify-between">
-            <DialogTitle className="flex items-center gap-2">
-              <Wrench className="h-5 w-5" />
+            <DialogTitle className="flex items-center gap-2 text-foreground">
+              <Wrench className="h-5 w-5 text-teal-600 dark:text-teal-400" />
               {stableTool?.name || 'Run Tool'}
             </DialogTitle>
             {stableTool && renderStatusChip()}
           </div>
-          <DialogDescription>
+          <DialogDescription className="text-muted-foreground">
             {stableTool
               ? (isInitialized && (mcpToolsCollection[stableTool.name] as MCPToolFromClient)?.description) || stableTool.description
               : 'Configure and execute'
