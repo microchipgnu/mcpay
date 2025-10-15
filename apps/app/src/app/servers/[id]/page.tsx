@@ -274,7 +274,6 @@ export default function ServerPage() {
                   <div className="flex items-center justify-between">
                     <div>
                       <CardTitle className="text-base">Tools ({data.summary.totalTools})</CardTitle>
-                      <CardDescription>From last inspection</CardDescription>
                     </div>
                     <Button
                       variant="ghost"
