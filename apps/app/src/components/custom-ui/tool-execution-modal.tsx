@@ -11,13 +11,11 @@ import { Input } from "@/components/ui/input"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Textarea } from "@/components/ui/textarea"
 import { createInjectedSigner } from "@/lib/client/signer"
-import { urlUtils } from "@/lib/client/utils"
 import { switchToNetwork } from "@/lib/client/wallet-utils"
 import {
   formatTokenAmount,
   getNetworkByChainId,
-  getTokenInfo,
-  normalizeLegacyNetwork,
+  getTokenInfo
 } from "@/lib/commons"
 import { getNetworkInfo } from "@/lib/commons/tokens"
 import { type Network } from "@/types/blockchain"
@@ -27,7 +25,6 @@ import {
   AlertCircle,
   CheckCircle,
   ChevronDown,
-  Coins,
   Copy,
   Loader2,
   Play,
@@ -185,8 +182,6 @@ export function ToolExecutionModal({ isOpen, onClose, tool, serverId, url }: Too
   // State for selected wallet (defaults to primary wallet)
   const [selectedWallet, setSelectedWallet] = useState<UserWallet | null>(null)
   const [walletPopoverOpen, setWalletPopoverOpen] = useState(false)
-  const [pricingPopoverOpen, setPricingPopoverOpen] = useState(false)
-  const [selectedPricingTier, setSelectedPricingTier] = useState(0) // Index of selected pricing tier
 
   // Set selected wallet to primary when primary wallet changes
   useEffect(() => {
@@ -237,18 +232,9 @@ export function ToolExecutionModal({ isOpen, onClose, tool, serverId, url }: Too
   // NETWORK UTILITIES
   // =============================================================================
 
-  const getActivePricing = useCallback((): PricingEntry[] => {
-    if (!stableTool?.isMonetized || !stableTool.pricing?.length) return []
-    return (stableTool.pricing as PricingEntry[]).filter(p => p.active === true)
-  }, [stableTool])
-
   const getRequiredNetwork = useCallback((): string | null => {
-    const activePricing = getActivePricing()
-    if (!activePricing.length) return null
-    const selectedPricing = activePricing[selectedPricingTier] || activePricing[0]
-    // Normalize legacy/network aliases to unified format
-    return normalizeLegacyNetwork(selectedPricing.network) || selectedPricing.network
-  }, [getActivePricing, selectedPricingTier])
+    return null // No pricing, so no network requirement
+  }, [])
 
   const getCurrentNetwork = useCallback((): string | null => {
     // If a switch just succeeded, optimistically use that until wagmi updates chainId
@@ -258,16 +244,8 @@ export function ToolExecutionModal({ isOpen, onClose, tool, serverId, url }: Too
   }, [chainId, pendingNetwork])
 
   const isOnCorrectNetwork = useCallback((): boolean => {
-    const requiredNetwork = getRequiredNetwork()
-    const currentNetwork = getCurrentNetwork()
-
-    if (!requiredNetwork) return true // Free tools don't require specific network
-
-    // Managed wallets don't need network switching - handled server-side
-    if (activeWallet?.walletType === 'managed') return true
-
-    return requiredNetwork === currentNetwork
-  }, [getRequiredNetwork, getCurrentNetwork, activeWallet?.walletType])
+    return true // No pricing, so always on correct network
+  }, [])
 
 
 
@@ -324,13 +302,6 @@ export function ToolExecutionModal({ isOpen, onClose, tool, serverId, url }: Too
     }
   }, [chainId, pendingNetwork])
 
-  // Reset pricing tier when active pricing changes
-  useEffect(() => {
-    const activePricing = getActivePricing()
-    if (selectedPricingTier >= activePricing.length) {
-      setSelectedPricingTier(0)
-    }
-  }, [getActivePricing, selectedPricingTier])
 
   // =============================================================================
   // CURRENCY AND TOKEN UTILITIES
@@ -515,9 +486,13 @@ export function ToolExecutionModal({ isOpen, onClose, tool, serverId, url }: Too
         let mcpUrl = null
 
         if (url) {
-          mcpUrl = new URL(url)
+          // Use the local proxy route for direct URLs
+          const base64ServerUrl = btoa(url)
+          mcpUrl = new URL(`/api/mcp-proxy?target-url=${encodeURIComponent(base64ServerUrl)}`, window.location.origin)
         } else if (serverId) {
-          mcpUrl = new URL(urlUtils.getMcpUrl(serverId))
+          // Use the local proxy route for server IDs
+          const base64ServerUrl = btoa(serverId)
+          mcpUrl = new URL(`/api/mcp-proxy?target-url=${encodeURIComponent(base64ServerUrl)}`, window.location.origin)
         } else {
           throw new Error("Either server ID or URL must be provided")
         }
@@ -552,6 +527,16 @@ export function ToolExecutionModal({ isOpen, onClose, tool, serverId, url }: Too
               'X-Wallet-Address': walletAddress || '',
               'X-Wallet-Provider': activeWallet?.provider || 'unknown',
             }
+          }
+        });
+
+        console.log('MCP Transport initialized with:', {
+          url: mcpUrl.toString(),
+          credentials: 'include',
+          headers: {
+            'X-Wallet-Type': activeWallet?.walletType || 'unknown',
+            'X-Wallet-Address': walletAddress || '',
+            'X-Wallet-Provider': activeWallet?.provider || 'unknown',
           }
         });
 
@@ -635,9 +620,24 @@ export function ToolExecutionModal({ isOpen, onClose, tool, serverId, url }: Too
         }
       } catch (error) {
         log.error("Failed to initialize MCP client:", error)
+        
+        // Enhanced error handling for CORS and network issues
+        let errorMessage = 'Failed to initialize MCP client'
+        if (error instanceof Error) {
+          if (error.message.includes('CORS') || error.message.includes('cross-origin')) {
+            errorMessage = `CORS Error: ${error.message}. Please check server configuration.`
+          } else if (error.message.includes('fetch') || error.message.includes('network')) {
+            errorMessage = `Network Error: ${error.message}. Please check your connection and server status.`
+          } else if (error.message.includes('404') || error.message.includes('not found')) {
+            errorMessage = `Server Not Found: ${error.message}. Please verify the server URL.`
+          } else {
+            errorMessage = error.message
+          }
+        }
+        
         setExecution({
           status: 'error',
-          error: error instanceof Error ? error.message : 'Failed to initialize MCP client'
+          error: errorMessage
         })
       }
     }
@@ -654,8 +654,6 @@ export function ToolExecutionModal({ isOpen, onClose, tool, serverId, url }: Too
       setExecution({ status: 'idle' })
       setIsSwitchingNetwork(false)
       setWalletPopoverOpen(false)
-      setPricingPopoverOpen(false)
-      setSelectedPricingTier(0)
       setJsonEditorStates({})
     }
   }, [isOpen])
@@ -1287,99 +1285,6 @@ export function ToolExecutionModal({ isOpen, onClose, tool, serverId, url }: Too
   // CONTENT RENDERING
   // =============================================================================
 
-  const renderPricingSection = () => {
-    const activePricing = getActivePricing()
-
-    if (!stableTool?.isMonetized || !activePricing.length) {
-      return (
-        <div className="space-y-3">
-          <div className="flex items-center gap-2">
-            <Coins className="h-4 w-4 text-teal-600 dark:text-teal-400" />
-            <h4 className="text-sm font-medium text-foreground">Pricing</h4>
-          </div>
-          <div className="p-3 rounded-md border bg-muted/30 border-border">
-            <p className="text-xs text-muted-foreground">This tool is free to use</p>
-          </div>
-        </div>
-      )
-    }
-
-    const selectedPricing = activePricing[selectedPricingTier] || activePricing[0]
-    const amount = parseFloat(selectedPricing?.maxAmountRequiredRaw || '0') / Math.pow(10, selectedPricing?.tokenDecimals || 0)
-    const hasMultipleTiers = activePricing.length > 1
-
-    console.log("selectedPricing", selectedPricing)
-
-    return (
-      <div className="space-y-3">
-        <div className="flex items-center gap-2">
-          <Coins className="h-4 w-4 text-teal-600 dark:text-teal-400" />
-          <h4 className="text-sm font-medium text-foreground">Pricing</h4>
-        </div>
-        <div className="p-3 rounded-md border bg-muted/30 border-border">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-medium text-foreground">{formatCurrency(amount, selectedPricing?.assetAddress || '', selectedPricing?.network || '')}</span>
-              <span className="text-xs text-muted-foreground">on {selectedPricing?.network}</span>
-            </div>
-
-            {hasMultipleTiers && (
-              <Popover open={pricingPopoverOpen} onOpenChange={setPricingPopoverOpen}>
-                <PopoverTrigger asChild>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="text-xs h-7 w-7 rounded-sm"
-                  >
-                    {activePricing.length}
-                    <ChevronDown className="h-3 w-3 ml-1" />
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-80 p-0" align="end">
-                  <div className="p-4">
-                    <h5 className="text-sm font-medium mb-3 text-foreground">Select Pricing Tier</h5>
-                    <div className="space-y-2">
-                      {activePricing.map((pricing, index) => {
-                        const tierAmount = parseFloat(pricing.maxAmountRequiredRaw) / Math.pow(10, pricing.tokenDecimals)
-                        return (
-                          <div
-                            key={pricing.id}
-                            onClick={() => {
-                              setSelectedPricingTier(index)
-                              setPricingPopoverOpen(false)
-                            }}
-                            className={`p-3 rounded-md border cursor-pointer transition-all duration-300 ${selectedPricingTier === index
-                                ? 'border-teal-500 bg-teal-500/10 dark:bg-teal-800/50'
-                                : 'border-border hover:border-border hover:bg-muted/40'
-                              }`}
-                          >
-                            <div className="flex items-center justify-between">
-                              <div className="space-y-1">
-                                <div className="flex items-center gap-2">
-                                  <span className="text-sm font-medium text-foreground">
-                                    {formatCurrency(tierAmount, pricing.assetAddress, pricing.network)}
-                                  </span>
-                                  <span className="text-xs text-muted-foreground">on {pricing.network}</span>
-                                </div>
-                              </div>
-                              {selectedPricingTier === index && (
-                                <CheckCircle className="w-4 h-4 text-teal-600 dark:text-teal-400" />
-                              )}
-                            </div>
-                          </div>
-                        )
-                      })}
-                    </div>
-                  </div>
-                </PopoverContent>
-              </Popover>
-            )}
-          </div>
-        </div>
-      </div>
-    )
-  }
 
   const renderWalletSection = () => {
     if (!hasAccountWallets) {
@@ -1416,7 +1321,7 @@ export function ToolExecutionModal({ isOpen, onClose, tool, serverId, url }: Too
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <span className="text-sm font-medium text-foreground">
-                {activeWallet?.provider || 'Wallet'} ({formatWalletAddress(walletAddress || '')})
+                {activeWallet?.walletType === 'managed' ? 'MCPay Wallet' : (activeWallet?.provider || 'Wallet')} ({formatWalletAddress(walletAddress || '')})
               </span>
               {needsBrowserConnection && (
                 <div className="flex items-center gap-1 text-yellow-600 dark:text-yellow-400" title="Connection required">
@@ -1469,9 +1374,6 @@ export function ToolExecutionModal({ isOpen, onClose, tool, serverId, url }: Too
                                   <span className="font-mono text-sm text-foreground">
                                     {formatWalletAddress(wallet.walletAddress)}
                                   </span>
-                                  {wallet.provider && (
-                                    <Badge variant="outline" className="text-xs">{wallet.provider}</Badge>
-                                  )}
                                   {wallet.isPrimary && (
                                     <Badge variant="secondary" className="text-xs">Primary</Badge>
                                   )}
@@ -1499,22 +1401,6 @@ export function ToolExecutionModal({ isOpen, onClose, tool, serverId, url }: Too
     )
   }
 
-  const renderPaymentPreview = () => {
-    const activePricing = getActivePricing()
-    if (!stableTool?.isMonetized || !activePricing.length || !isConnected) return null
-
-    const selectedPricing = activePricing[selectedPricingTier] || activePricing[0]
-    const amount = parseFloat(selectedPricing.maxAmountRequiredRaw) / Math.pow(10, selectedPricing.tokenDecimals)
-
-    return (
-      <div className="p-3 rounded-md border bg-muted/30 border-border">
-        <p className="text-xs text-muted-foreground text-center">
-          You&apos;ll be charged <span className="font-medium text-foreground">{formatCurrency(amount, selectedPricing.assetAddress, selectedPricing.network)}</span> via{" "}
-          <span className="font-medium text-foreground">{activeWallet?.provider || 'your wallet'}</span>
-        </p>
-      </div>
-    )
-  }
 
 
 
@@ -1535,9 +1421,6 @@ export function ToolExecutionModal({ isOpen, onClose, tool, serverId, url }: Too
       return { icon: AlertCircle, text: "Error", variant: "error" as const }
     }
 
-    if (stableTool?.isMonetized && !isOnCorrectNetwork() && activeWallet?.walletType !== 'managed') {
-      return { icon: RefreshCw, text: "Network Switch Required", variant: "warning" as const }
-    }
 
     if (isSwitchingNetwork) {
       return { icon: Loader2, text: "Switching Network...", variant: "info" as const, animate: true }
@@ -1618,11 +1501,7 @@ export function ToolExecutionModal({ isOpen, onClose, tool, serverId, url }: Too
               size="sm"
               onClick={() => {
                 setExecution({ status: 'idle' })
-                if (stableTool?.isMonetized && !isOnCorrectNetwork() && activeWallet?.walletType !== 'managed') {
-                  handleNetworkSwitch()
-                } else {
-                  executeTool()
-                }
+                executeTool()
               }}
               className="text-xs h-7 w-7 rounded-sm"
             >
@@ -1634,44 +1513,6 @@ export function ToolExecutionModal({ isOpen, onClose, tool, serverId, url }: Too
     )
   }
 
-  const renderNetworkSwitchPrompt = () => {
-    const activePricing = getActivePricing()
-    if (!stableTool?.isMonetized || !activePricing.length || !isConnected || isOnCorrectNetwork()) {
-      return null
-    }
-
-    // Managed wallets don't need network switching - handled server-side
-    if (activeWallet?.walletType === 'managed') {
-      return null
-    }
-
-    return (
-      <div className="p-3 rounded-md border bg-muted/30 border-border">
-        <div className="flex items-start gap-3">
-          <div className="p-2 rounded-md bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 dark:bg-yellow-800/50">
-            <RefreshCw className="h-4 w-4" />
-          </div>
-          <div className="flex-1 space-y-2">
-            <h4 className="text-sm font-medium text-foreground">Network Switch Required</h4>
-            <p className="text-xs text-muted-foreground">Switch to {getRequiredNetwork()} to execute this tool</p>
-            <Button
-              onClick={handleNetworkSwitch}
-              disabled={isSwitchingNetwork}
-              size="sm"
-              variant="outline"
-              className="text-xs h-7 w-7 rounded-sm"
-            >
-              {isSwitchingNetwork ? (
-                <Loader2 className="h-3 w-3 animate-spin" />
-              ) : (
-                <RefreshCw className="h-3 w-3" />
-              )}
-            </Button>
-          </div>
-        </div>
-      </div>
-    )
-  }
 
   const renderExecutionResult = () => {
     if (execution.status === 'success' && execution.result) {
@@ -1771,14 +1612,10 @@ export function ToolExecutionModal({ isOpen, onClose, tool, serverId, url }: Too
       <div className="space-y-4">
 
 
-        {/* Pricing Section */}
-        {renderPricingSection()}
 
         {/* Payment Wallet Section */}
         {renderWalletSection()}
 
-        {/* Network Switch Prompt */}
-        {renderNetworkSwitchPrompt()}
 
         {/* Parameters Section */}
         {hasInputs && (
@@ -1798,8 +1635,6 @@ export function ToolExecutionModal({ isOpen, onClose, tool, serverId, url }: Too
         {/* Error with Retry */}
         {renderErrorWithRetry()}
 
-        {/* Payment Preview */}
-        {renderPaymentPreview()}
 
         {/* Execute Button */}
         <div className="flex justify-center">
@@ -1811,8 +1646,6 @@ export function ToolExecutionModal({ isOpen, onClose, tool, serverId, url }: Too
               !mcpToolsCollection[stableTool.name] ||
               execution.status === 'executing' ||
               execution.status === 'initializing' ||
-              (stableTool.isMonetized && !isOnCorrectNetwork() && activeWallet?.walletType !== 'managed') ||
-              isSwitchingNetwork ||
               needsBrowserConnection
             }
             size="lg"
@@ -1856,7 +1689,7 @@ export function ToolExecutionModal({ isOpen, onClose, tool, serverId, url }: Too
             </div>
             <DrawerDescription className="text-muted-foreground">
               {stableTool
-                ? (isInitialized && (mcpToolsCollection[stableTool.name] as MCPToolFromClient)?.description) || stableTool.description
+                ? ((isInitialized && (mcpToolsCollection[stableTool.name] as MCPToolFromClient)?.description) || stableTool.description || 'Configure and execute').slice(0, 100) + ((stableTool.description && stableTool.description.length > 100) ? '...' : '')
                 : 'Configure and execute'
               }
             </DrawerDescription>
@@ -1882,7 +1715,7 @@ export function ToolExecutionModal({ isOpen, onClose, tool, serverId, url }: Too
           </div>
           <DialogDescription className="text-muted-foreground">
             {stableTool
-              ? (isInitialized && (mcpToolsCollection[stableTool.name] as MCPToolFromClient)?.description) || stableTool.description
+              ? ((isInitialized && (mcpToolsCollection[stableTool.name] as MCPToolFromClient)?.description) || stableTool.description || 'Configure and execute').slice(0, 100) + ((stableTool.description && stableTool.description.length > 100) ? '...' : '')
               : 'Configure and execute'
             }
           </DialogDescription>

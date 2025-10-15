@@ -42,7 +42,16 @@ const app = new Hono();
 
 
 app.use("*", cors({
-    allowHeaders: ["Origin", "Content-Type", "Authorization", "WWW-Authenticate", "x-api-key"],
+    allowHeaders: [
+        "Origin", 
+        "Content-Type", 
+        "Authorization", 
+        "WWW-Authenticate", 
+        "x-api-key",
+        "X-Wallet-Type",
+        "X-Wallet-Address", 
+        "X-Wallet-Provider"
+    ],
     allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     credentials: true,
     origin: (origin) => {

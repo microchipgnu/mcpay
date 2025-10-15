@@ -654,7 +654,15 @@ app.use("*", logger());
 app.use("*", cors({
     origin: "*",
     allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allowHeaders: ["Content-Type", "Authorization", "X-API-Key", "X-Request-ID"],
+    allowHeaders: [
+        "Content-Type", 
+        "Authorization", 
+        "X-API-Key", 
+        "X-Request-ID",
+        "X-Wallet-Type",
+        "X-Wallet-Address", 
+        "X-Wallet-Provider"
+    ],
 }));
 
 // Health check endpoint
