@@ -153,10 +153,24 @@ app.use("*", cors());
 
 // Admin: register or update an MCP server config
 app.post("/register", async (c) => {
-    const body = await c.req.json().catch(() => null) as { id?: string; mcpOrigin?: string; requireAuth?: boolean; authHeaders?: Record<string, string>; receiverAddressByNetwork?: Record<string, string>; recipient?: Record<string, string>; tools?: Record<string, string>; metadata?: Record<string, unknown> };
+    const body = await c.req.json().catch(() => null) as { 
+        id?: string; 
+        mcpOrigin?: string; 
+        requireAuth?: boolean; 
+        authHeaders?: Record<string, string>; 
+        receiverAddressByNetwork?: Record<string, string>; 
+        recipient?: { 
+            evm?: { address: string; isTestnet?: boolean }; 
+            svm?: { address: string; isTestnet?: boolean } 
+        }; 
+        tools?: Array<{ name: string; pricing: string }>; 
+        metadata?: Record<string, unknown> 
+    };
     if (!body || typeof body !== 'object') {
         return c.json({ error: "invalid_json" }, 400);
     }
+
+    console.log(`[${new Date().toISOString()}] Register request body:`, JSON.stringify(body, null, 2));
 
     const { id, mcpOrigin } = body;
     if (!id || !mcpOrigin) {
@@ -177,6 +191,7 @@ app.post("/register", async (c) => {
 
     try {
         const saved = await redisStore.upsertServerConfig(input as StoredServerConfig);
+        console.log(`[${new Date().toISOString()}] Successfully saved server config:`, JSON.stringify(saved, null, 2));
         return c.json({ ok: true, id: saved.id });
     } catch (error) {
         console.error(`[${new Date().toISOString()}] Error registering server:`, error);
