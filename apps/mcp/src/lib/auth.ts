@@ -37,6 +37,7 @@ export const auth = betterAuth({
     advanced: {
         crossSubDomainCookies: {
             enabled: true,
+            domain: ".mcpay.tech"
         },
         useSecureCookies: true
     },
