@@ -66,11 +66,20 @@ export default function TestSessionPage() {
         )}
 
         {session && (
-          <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded">
-            <h3 className="font-semibold mb-2">Session Data:</h3>
-            <pre className="bg-white p-4 rounded border overflow-auto text-sm">
-              {JSON.stringify(session, null, 2)}
-            </pre>
+          <div className="space-y-4">
+            <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded">
+              <h3 className="font-semibold mb-2">Session Data:</h3>
+              <pre className="bg-white p-4 rounded border overflow-auto text-sm">
+                {JSON.stringify(session.session, null, 2)}
+              </pre>
+            </div>
+            
+            <div className="bg-blue-100 border border-blue-400 text-blue-700 px-4 py-3 rounded">
+              <h3 className="font-semibold mb-2">Debug Information:</h3>
+              <pre className="bg-white p-4 rounded border overflow-auto text-sm">
+                {JSON.stringify(session.debug, null, 2)}
+              </pre>
+            </div>
           </div>
         )}
       </div>
