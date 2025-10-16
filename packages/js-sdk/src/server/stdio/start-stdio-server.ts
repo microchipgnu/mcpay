@@ -5,9 +5,9 @@ import type { StreamableHTTPClientTransportOptions } from "@modelcontextprotocol
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import packageJson from '../../../package.json';
-import { withX402Client, type X402ClientConfig } from "../../client/with-x402-client";
-import { proxyServer } from "./proxy-server";
+import packageJson from '../../../package.json' with { type: 'json' };
+import { withX402Client, type X402ClientConfig } from "../../client/with-x402-client.js";
+import { proxyServer } from "./proxy-server.js";
 
 export enum ServerType {
     HTTPStream = "HTTPStream",

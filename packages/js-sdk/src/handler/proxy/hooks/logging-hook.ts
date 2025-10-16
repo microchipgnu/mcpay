@@ -1,5 +1,5 @@
 import { CallToolRequest, CallToolResult } from "@modelcontextprotocol/sdk/types.js";
-import { Hook, RequestExtra } from "../hooks";
+import { Hook, RequestExtra } from "../hooks.js";
 
 export class LoggingHook implements Hook {
     name = "logging";

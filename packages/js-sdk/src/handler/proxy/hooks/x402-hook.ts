@@ -5,7 +5,7 @@ import { decodePayment as decodeX402Payment } from "x402/schemes";
 import { findMatchingPaymentRequirements, processPriceToAtomicAmount } from "x402/shared";
 import { useFacilitator } from "x402/verify";
 import { getAddress } from "viem";
-import type { Hook, RequestExtra } from "../hooks";
+import type { Hook, RequestExtra } from "../hooks.js";
 
 export type RecipientWithTestnet = { address: string; isTestnet?: boolean };
 export type X402ProxyConfig = {

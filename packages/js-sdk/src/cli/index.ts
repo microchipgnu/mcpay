@@ -3,9 +3,9 @@
 import { Command } from "commander";
 import { config } from "dotenv";
 import { createSigner } from "x402/types";
-import packageJson from '../../package.json';
-import type { X402ClientConfig } from "../client/with-x402-client";
-import { ServerType, startStdioServer } from '../server/stdio/start-stdio-server';
+import packageJson from '../../package.json' with { type: 'json' };
+import type { X402ClientConfig } from "../client/with-x402-client.js";
+import { ServerType, startStdioServer } from '../server/stdio/start-stdio-server.js';
 import {  SupportedEVMNetworks,  SupportedSVMNetworks } from "x402/types";
 
 config();
@@ -96,9 +96,10 @@ program
           // Only apply API key to proxy URLs
           transportOptions = {
             requestInit: {
-              headers: {
+              credentials: 'include',
+              headers: new Headers({
                 'Authorization': `Bearer ${apiKey}`
-              }
+              })
             }
           };
         }

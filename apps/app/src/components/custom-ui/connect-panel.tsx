@@ -30,7 +30,7 @@ type ClientDescriptor = {
   logoUrl?: string
   oneClickUrl?: string
   command?: string
-  steps?: { n: number; text: string }[]
+  steps?: { n: number; text: string | React.ReactNode }[]
   tags?: string[]
   supportsOAuth?: boolean
   status?: 'popular' | 'beta'
@@ -40,7 +40,7 @@ type ClientDescriptor = {
 }
 
 type Templates = {
-  json: (ctx: { baseUrl: string; apiKey?: string; serverId: string }, authMode?: AuthMode) => string
+  json: (ctx: { baseUrl: string; apiKey?: string; serverId: string }, authMode?: AuthMode, platform?: 'mac' | 'win' | 'wsl') => string
   ts: (ctx: { baseUrl: string; apiKey?: string }, authMode?: AuthMode) => string
   py: (ctx: { baseUrl: string; apiKey?: string }, authMode?: AuthMode) => string
 }
@@ -91,31 +91,50 @@ const copy = async (text: string) => {
 
 // Default templates
 const defaultTemplates: Templates = {
-  json: ({ baseUrl, apiKey, serverId }, authMode = 'api_key') => {
+  json: ({ baseUrl, apiKey, serverId }, authMode = 'api_key', platform = 'mac') => {
+    const getCommand = () => {
+      if (platform === 'win') return 'cmd'
+      if (platform === 'wsl') return 'wsl'
+      return 'npx'
+    }
+    
+    const getArgs = () => {
+      if (platform === 'win') {
+        return ['/c', 'mcpay', 'connect', '--urls', baseUrl]
+      }
+      if (platform === 'wsl') {
+        return ['mcpay', 'connect', '--urls', baseUrl]
+      }
+      return ['mcpay', 'connect', '--urls', baseUrl]
+    }
+    
+    const baseArgs = getArgs()
+    
     if (authMode === 'oauth') {
       return `{
   "mcpServers": {
     "${serverId}": {
-      "command": "npx",
-      "args": ["-y","@smithery/cli@latest","run","@upstash/${serverId}"]
+      "url": "${baseUrl}"
     }
   }
 }`
     } else if (authMode === 'private_key') {
+      const args = [...baseArgs, '--evm', '<PRIVATE_KEY>', '--evm-network', 'base-sepolia']
       return `{
   "mcpServers": {
     "${serverId}": {
-      "command": "npx",
-      "args": ["-y","@smithery/cli@latest","run","@upstash/${serverId}","--private-key","<PRIVATE_KEY_PATH>"]
+      "command": "${getCommand()}",
+      "args": ${JSON.stringify(args)}
     }
   }
 }`
     } else {
+      const args = [...baseArgs, '--api-key', apiKey ?? '<API_KEY>']
       return `{
   "mcpServers": {
     "${serverId}": {
-      "command": "npx",
-      "args": ["-y","@smithery/cli@latest","run","@upstash/${serverId}","--key","${apiKey ?? "<API_KEY>"}"]
+      "command": "${getCommand()}",
+      "args": ${JSON.stringify(args)}
     }
   }
 }`
@@ -136,20 +155,30 @@ await client.connect(transport);
 const tools = await client.listTools();
 console.log("Available tools:", tools.map(t => t.name).join(", "));`
     } else if (authMode === 'private_key') {
-      return `import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/transport/streamable-http";
-import { Client } from "@modelcontextprotocol/sdk/client/index";
-import { readFileSync } from "fs";
+      return `import { Client } from '@modelcontextprotocol/sdk/client/index.js'
+import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js'
+import { withX402Client } from 'mcpay/client'
+import { createSigner } from 'x402/types'
 
-const url = new URL("${baseUrl}");
-const privateKey = readFileSync("<PRIVATE_KEY_PATH>", "utf8");
-url.searchParams.set("private_key", privateKey);
-const transport = new StreamableHTTPClientTransport(url.toString());
+// Create signer for EVM network
+const evmSigner = await createSigner('base-sepolia', process.env.EVM_PRIVATE_KEY!) // dev only; secure in prod
+const url = new URL("${baseUrl}")
 
-const client = new Client({ name: "My App", version: "1.0.0" });
-await client.connect(transport);
+// Create transport
+const transport = new StreamableHTTPClientTransport(url)
 
-const tools = await client.listTools();
-console.log("Available tools:", tools.map(t => t.name).join(", "));`
+// Initialize MCP client
+const client = new Client({ name: 'my-mcp-client', version: '1.0.0' }, { capabilities: {} })
+await client.connect(transport)
+
+// Wrap client with X402 payment capabilities
+const paymentClient = withX402Client(client, {
+  wallet: { evm: evmSigner },
+  maxPaymentValue: BigInt(0.1 * 10 ** 6) // limit max on‑chain value (base units, e.g. 6‑decimals for USDC)
+})
+
+const tools = await paymentClient.listTools()
+console.log('Available tools:', tools)`
     } else {
       return `import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/transport/streamable-http";
 import { Client } from "@modelcontextprotocol/sdk/client/index";
@@ -234,20 +263,90 @@ const generateCursorCommand = (server: ServerInfo) => {
   return `npx -y @smithery/cli@latest install @upstash/${server.id}`
 }
 
+const generateRaycastDeepLink = (server: ServerInfo, apiKey?: string) => {
+  const config = {
+    name: server.displayName || server.id,
+    type: "stdio",
+    command: "npx",
+    args: ["mcpay", "connect", "--urls", server.baseUrl]
+  }
+  
+  // Add API key if provided
+  if (apiKey) {
+    config.args.push("--api-key", apiKey)
+  }
+
+  console.log(config)
+  
+  const encodedConfig = encodeURIComponent(JSON.stringify(config))
+  console.log(`raycast://mcp/install?${encodedConfig}`)
+  return `raycast://mcp/install?${encodedConfig}`
+}
+
 // Default clients
 const defaultClients: ClientDescriptor[] = [
   { 
     id: "chatgpt", 
     name: "ChatGPT", 
     steps: [
-      { n: 1, text: "Enable Developer Mode in ChatGPT settings." },
-      { n: 2, text: "Go to Settings → Connectors → Create and paste the server URL." },
+      { 
+        n: 1, 
+        text: (
+          <>
+            Enable Developer Mode in{" "}
+            <a 
+              href="https://chatgpt.com/#settings/Connectors/Advanced" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="text-teal-600 hover:text-teal-700 hover:underline dark:text-teal-400 dark:hover:text-teal-300"
+            >
+              settings
+            </a>
+            {" "}if not already enabled
+          </>
+        )
+      },
+      { 
+        n: 2, 
+        text: (
+          <>
+            Go to{" "}
+            <a 
+              href="https://chatgpt.com/#settings/Connectors" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="text-teal-600 hover:text-teal-700 hover:underline dark:text-teal-400 dark:hover:text-teal-300"
+            >
+              ChatGPT Settings {'>'} Connectors
+            </a>
+            {" "}and click Create to add your server URL:
+          </>
+        )
+      },
     ]
   },
   { 
-    id: "claude-desktop", 
-    name: "Claude Desktop", 
-    generateCommand: generateClaudeDesktopCommand
+    id: "poke", 
+    name: "Poke",
+    steps: [
+      { 
+        n: 1, 
+        text: (
+          <>
+            Go to{" "}
+            <a 
+              href="https://poke.com/settings/connections/integrations/new" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="text-teal-600 hover:text-teal-700 hover:underline dark:text-teal-400 dark:hover:text-teal-300"
+            >
+              Poke Settings {'>'} Connections {'>'} Integrations
+            </a>
+            {" "}and add your server URL.
+          </>
+        )
+      },
+    ]
   },
   { 
     id: "cursor", 
@@ -256,20 +355,22 @@ const defaultClients: ClientDescriptor[] = [
     generateCommand: generateCursorCommand
   },
   { 
-    id: "poke", 
-    name: "Poke"
+    id: "raycast", 
+    name: "Raycast",
+    generateDeepLink: generateRaycastDeepLink
   },
   { 
     id: "claude-code", 
-    name: "Claude Code"
+    name: "Claude Code",
+    generateCommand: (server: ServerInfo) => `claude mcp add --transport http ${server.id} "${server.baseUrl}"`
+  },
+  { 
+    id: "claude-desktop", 
+    name: "Claude Desktop", 
   },
   { 
     id: "codex", 
     name: "Codex"
-  },
-  { 
-    id: "raycast", 
-    name: "Raycast"
   },
 ]
 
@@ -388,7 +489,12 @@ function CodeBlock({
 }
 
 // Component: ClientDetails
-function ClientDetails({ client, server, apiKey }: { client: ClientDescriptor; server: ServerInfo; apiKey?: string }) {
+function ClientDetails({ client, server, apiKey, onApiKeyNeeded }: { 
+  client: ClientDescriptor; 
+  server: ServerInfo; 
+  apiKey?: string;
+  onApiKeyNeeded?: () => void;
+}) {
   const { isDark } = useTheme()
   
   // Generate dynamic URLs and commands
@@ -403,11 +509,24 @@ function ClientDetails({ client, server, apiKey }: { client: ClientDescriptor; s
         </div>
         <Button 
           className="w-full"
-          onClick={() => window.open(deepLink, '_blank')}
+          onClick={async () => {
+            if (!apiKey && client.id === 'raycast') {
+              // For Raycast, we need an API key for the deep link to work
+              onApiKeyNeeded?.()
+              return
+            }
+            window.open(deepLink, '_blank')
+          }}
           aria-label={`One-click install for ${client.name}`}
         >
           One-Click Install
         </Button>
+        {!apiKey && client.id === 'raycast' && (
+          <div className="text-xs text-amber-300/90 flex items-center gap-1">
+            <AlertTriangle className="h-3 w-3" />
+            API key required for Raycast integration
+          </div>
+        )}
       </div>
     )
   }
@@ -568,10 +687,7 @@ export function ConnectPanel({
   const { isDark } = useTheme()
   const [state, setState] = useState<ConnectState>({
     authMode: initialAuthMode,
-    key: {
-      full: "1bffc537-8603-4abc-bb5e-cc12981e048a",
-      masked: "1bf•••••••048a"
-    },
+    key: null,
     selectedTab: 'auto',
     platform: 'mac',
     copied: {},
@@ -741,7 +857,12 @@ export function ConnectPanel({
                     <div className="text-sm font-medium text-foreground">
                       Follow these steps to add this server to {selectedClient.name}:
                     </div>
-                    <ClientDetails client={selectedClient} server={server} apiKey={state.key?.full} />
+                    <ClientDetails 
+                      client={selectedClient} 
+                      server={server} 
+                      apiKey={state.key?.full}
+                      onApiKeyNeeded={() => setState(prev => ({ ...prev, showApiKeyModal: true }))}
+                    />
                   </div>
                 )}
               </div>
@@ -792,7 +913,7 @@ export function ConnectPanel({
                     baseUrl: server.baseUrl, 
                     apiKey: state.key?.full, 
                     serverId: server.id 
-                  }, state.jsonAuthMode)}
+                  }, state.jsonAuthMode, state.platform)}
                   showAuthDropdown={true}
                   authMode={state.jsonAuthMode}
                   onAuthModeChange={(mode) => setState(prev => ({ ...prev, jsonAuthMode: mode }))}
@@ -801,7 +922,7 @@ export function ConnectPanel({
                     baseUrl: server.baseUrl, 
                     apiKey: state.key?.full, 
                     serverId: server.id 
-                  }, state.jsonAuthMode)}
+                  }, state.jsonAuthMode, state.platform)}
                 </CodeBlock>
               </div>
             </TabsContent>
@@ -840,7 +961,7 @@ export function ConnectPanel({
                 <div className="space-y-3">
                   <div className="text-xs text-muted-foreground">
                     {state.codeLanguage === 'ts' 
-                      ? 'npm install @modelcontextprotocol/sdk'
+                      ? 'npm install @modelcontextprotocol/sdk mcpay x402'
                       : 'pip install mcp'
                     }
                   </div>

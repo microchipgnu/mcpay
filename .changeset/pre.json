@@ -6,7 +6,7 @@
     "docs": "0.0.0",
     "auth-example": "0.1.0",
     "openai-apps-minimal-nextjs": "0.1.0",
-    "mcpay": "0.1.7-beta.14"
+    "mcpay": "0.1.7-beta.15"
   },
   "changesets": [
     "cold-lizards-sniff",
@@ -21,6 +21,7 @@
     "ripe-chicken-attack",
     "rotten-toes-own",
     "tall-chairs-sort",
+    "warm-games-throw",
     "wide-sides-make"
   ]
 }

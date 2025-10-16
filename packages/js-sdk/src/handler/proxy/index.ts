@@ -1,4 +1,4 @@
-import { Hook, RequestExtra } from "./hooks";
+import { Hook, RequestExtra } from "./hooks.js";
 import {
     CallToolRequest,
     CallToolResult,

@@ -1,6 +1,6 @@
 import { config } from "dotenv";
 import { createServerConnections, ServerType, startStdioServer } from "./start-stdio-server.js";
-import type { X402ClientConfig } from "../../client/with-x402-client";
+import type { X402ClientConfig } from "../../client/with-x402-client.js";
 
 config();
 

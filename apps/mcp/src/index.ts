@@ -481,8 +481,13 @@ app.all("/mcp", async (c) => {
             new SecurityHook(),
         ]);
         
-        // Extract all possible types of keys from URL search params
-        const apiKey = currentUrl.searchParams.get("apiKey") || currentUrl.searchParams.get("api_key");
+        // Extract API key from various sources
+        const apiKeyFromQuery = currentUrl.searchParams.get("apiKey") || currentUrl.searchParams.get("api_key");
+        const authHeader = original.headers.get("authorization");
+        const apiKeyFromHeader = authHeader?.startsWith("Bearer ") ? authHeader.substring(7) : null;
+        const apiKeyFromXHeader = original.headers.get("x-api-key");
+        
+        const apiKey = apiKeyFromQuery || apiKeyFromHeader || apiKeyFromXHeader;
 
         let session = null;
         if (apiKey) {

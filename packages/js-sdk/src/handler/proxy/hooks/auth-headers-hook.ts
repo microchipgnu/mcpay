@@ -1,5 +1,5 @@
 import { Request as McpRequest } from "@modelcontextprotocol/sdk/types.js";
-import { Hook, RequestExtra, CallToolRequestWithContext } from "../hooks";
+import { Hook, RequestExtra, CallToolRequestWithContext } from "../hooks.js";
 
 /**
  * Injects per-server auth headers configured in DB into the forwarded upstream request.
