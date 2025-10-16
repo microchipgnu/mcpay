@@ -528,8 +528,6 @@ export function ToolExecutionModal({ isOpen, onClose, tool, serverId, url }: Too
               'X-Wallet-Type': activeWallet?.walletType || 'unknown',
               'X-Wallet-Address': walletAddress || '',
               'X-Wallet-Provider': activeWallet?.provider || 'unknown',
-              // Explicitly include cookies if available
-              ...(document.cookie ? { 'Cookie': document.cookie } : {}),
             }
           }
         });
