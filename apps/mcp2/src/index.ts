@@ -17,24 +17,24 @@ type RecipientWithTestnet = { address: string; isTestnet?: boolean };
 async function initializeStore(): Promise<void> {
     try {
         await redisStore.connect();
-        console.log(`[${new Date().toISOString()}] Redis store initialized successfully`);
+        // No console logging
     } catch (error) {
-        console.error(`[${new Date().toISOString()}] Failed to initialize Redis store:`, error);
+        // No console logging
         throw error;
     }
 }
 
 // Resolve upstream target MCP origin from header/query (base64) or store by server id
 async function resolveTargetUrl(req: Request): Promise<string | null> {
-    console.log(`[${new Date().toISOString()}] Resolving target URL for request: ${req.url}`);
+    // No console logging
     const url = new URL(req.url);
     const id = url.searchParams.get("id");
-    console.log(`[${new Date().toISOString()}] ID: ${id}`);
+    // No console logging
     if (id) {
         const server = await redisStore.getServerById(id);
-        console.log(`[${new Date().toISOString()}] Server: ${JSON.stringify(server)}`);
+        // No console logging
         if (server?.mcpOrigin) {
-            console.log(`[${new Date().toISOString()}] Found server by ID: ${id}, returning MCP origin: ${server.mcpOrigin}`);
+            // No console logging
             return server.mcpOrigin;
         }
     }
@@ -170,7 +170,7 @@ app.post("/register", async (c) => {
         return c.json({ error: "invalid_json" }, 400);
     }
 
-    console.log(`[${new Date().toISOString()}] Register request body:`, JSON.stringify(body, null, 2));
+    // No console logging
 
     const { id, mcpOrigin } = body;
     if (!id || !mcpOrigin) {
@@ -191,10 +191,10 @@ app.post("/register", async (c) => {
 
     try {
         const saved = await redisStore.upsertServerConfig(input as StoredServerConfig);
-        console.log(`[${new Date().toISOString()}] Successfully saved server config:`, JSON.stringify(saved, null, 2));
+        // No console logging
         return c.json({ ok: true, id: saved.id });
     } catch (error) {
-        console.error(`[${new Date().toISOString()}] Error registering server:`, error);
+        // No console logging
         return c.json({ error: "failed_to_save" }, 500);
     }
 });
@@ -205,7 +205,7 @@ app.get("/servers", async (c) => {
         const list = await redisStore.getAllServers();
         return c.json({ servers: list });
     } catch (error) {
-        console.error(`[${new Date().toISOString()}] Error listing servers:`, error);
+        // No console logging
         return c.json({ error: "failed_to_list" }, 500);
     }
 });
@@ -227,10 +227,10 @@ app.get("/servers", async (c) => {
 
 // Proxy endpoint: /mcp?id=<ID>
 app.all("/mcp", async (c) => {
-    console.log(`[${new Date().toISOString()}] Handling request to ${c.req.url}`);
+    // No console logging
     const original = c.req.raw;
     const targetUrl = await resolveTargetUrl(original);
-    console.log(`[${new Date().toISOString()}] Target URL: ${targetUrl}`);
+    // No console logging
 
     let prices: Record<string, Price> = {};
     let recipient: Partial<Record<Network, string>> | { evm: RecipientWithTestnet } = {
@@ -280,27 +280,26 @@ app.all("/mcp", async (c) => {
 
 
     const mcpConfig = await redisStore.getServerById(serverId);
-    console.log(`[AuthHeadersHook] mcpConfig for serverId ${serverId}:`, mcpConfig);
+    // No console logging
     if (!mcpConfig?.authHeaders || mcpConfig.requireAuth !== true) {
-        console.log(`[AuthHeadersHook] authHeaders missing or requireAuth not true, skipping injection for serverId ${serverId}.`);
+        // No console logging
         return new Response("Auth headers missing", { status: 400 });
     }
-    const result: Record<string, string> = {};
+    // Iterate through auth headers and set them in the request headers
     for (const [key, value] of Object.entries(mcpConfig.authHeaders)) {
-        if (typeof value === "string" && value.length > 0) result[key] = value;
+        if (typeof value === "string" && value.length > 0) {
+            headers.set(key, value);
+        }
     }
 
     const reqForProxyWithHeaders = new Request(targetUrl, {
         method: original.method,
-        headers: {
-            ...headers,
-            ...result
-        },
+        headers: headers,
         body: original.body,
         duplex: 'half'
     } as RequestInit);  
 
-    console.log(`[${new Date().toISOString()}] reqForProxyWithHeaders:`, reqForProxyWithHeaders);
+    // No console logging
 
     return await proxy(reqForProxyWithHeaders);
 });
@@ -317,7 +316,7 @@ if (!isVercel) {
         port: port,
         hostname: '0.0.0.0' // Important for sandbox access
     }, (info) => {
-        console.log(`[MCP2] Server running on http://0.0.0.0:${info.port}`);
+        // No console logging
     });
 }
 
