@@ -575,7 +575,7 @@ export default function ServerPage() {
                                     <div className="space-y-2">
                                       <h3 className="text-lg font-semibold text-foreground">No Recent Payments</h3>
                                       <p className="text-sm text-muted-foreground max-w-sm">
-                                        This server hasn't received any payments yet. Payments will appear here once tools are used with monetization enabled.
+                                        This server hasn&apos;t received any payments yet. Payments will appear here once tools are used with monetization enabled.
                                       </p>
                                     </div>
                                   </div>
