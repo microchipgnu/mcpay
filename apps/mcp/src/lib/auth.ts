@@ -6,7 +6,7 @@ import dotenv from "dotenv";
 import { drizzle } from "drizzle-orm/neon-http";
 import { neon, neonConfig } from "@neondatabase/serverless";
 import * as schema from "../../auth-schema.js";
-import env, { getDatabaseUrl, getGitHubConfig, getTrustedOrigins, isTest } from "../env.js";
+import env, { getDatabaseUrl, getGitHubConfig, getTrustedOrigins, isTest, isProduction } from "../env.js";
 import { CDPWalletMetadata } from "./3rd-parties/cdp/types.js";
 import { txOperations } from "./db/actions.js";
 
@@ -38,6 +38,7 @@ export const auth = betterAuth({
         crossSubDomainCookies: {
             enabled: true,
         },
+        useSecureCookies: true
     },
     plugins: [
         apiKey({

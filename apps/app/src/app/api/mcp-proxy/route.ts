@@ -63,6 +63,9 @@ export async function POST(request: Request) {
   }
 
   console.log('targetUrl', targetUrl)
+  console.log('Incoming cookies:', h.get('cookie'))
+  console.log('Request origin:', request.headers.get('origin'))
+  console.log('Request referer:', request.headers.get('referer'))
 
   // Use the local MCP server instead of external proxy
   const mcpUrl = `${env.NEXT_PUBLIC_AUTH_URL}/mcp?target-url=${targetUrl}`

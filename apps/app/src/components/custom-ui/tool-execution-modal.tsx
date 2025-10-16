@@ -19,6 +19,7 @@ import {
 } from "@/lib/commons"
 import { getNetworkInfo } from "@/lib/commons/tokens"
 import { type Network } from "@/types/blockchain"
+import { env } from "@/env"
 import { Client } from "@modelcontextprotocol/sdk/client/index.js"
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js"
 import {
@@ -522,10 +523,13 @@ export function ToolExecutionModal({ isOpen, onClose, tool, serverId, url }: Too
         const transport = new StreamableHTTPClientTransport(mcpUrl, {
           requestInit: {
             credentials: 'include',
+            mode: 'cors',
             headers: {
               'X-Wallet-Type': activeWallet?.walletType || 'unknown',
               'X-Wallet-Address': walletAddress || '',
               'X-Wallet-Provider': activeWallet?.provider || 'unknown',
+              // Explicitly include cookies if available
+              ...(document.cookie ? { 'Cookie': document.cookie } : {}),
             }
           }
         });
@@ -538,7 +542,11 @@ export function ToolExecutionModal({ isOpen, onClose, tool, serverId, url }: Too
             'X-Wallet-Address': walletAddress || '',
             'X-Wallet-Provider': activeWallet?.provider || 'unknown',
           },
-          cookies: document.cookie ? 'present' : 'missing'
+          cookies: document.cookie ? 'present' : 'missing',
+          cookieDetails: document.cookie,
+          currentDomain: window.location.hostname,
+          currentOrigin: window.location.origin,
+          isProduction: env.NODE_ENV === 'production'
         });
 
 
