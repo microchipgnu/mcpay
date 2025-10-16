@@ -245,6 +245,11 @@ app.all("/mcp", async (c) => {
         }
     }
 
+    const serverId = new URL(original.url).searchParams.get("id");
+    if (!serverId) {
+        return new Response("server-id missing", { status: 400 });
+    }
+
     // Ensure the proxy receives a base64 target-url header
     const headers = new Headers(original.headers);
     if (targetUrl && !headers.get("x-mcpay-target-url")) {
@@ -270,59 +275,34 @@ app.all("/mcp", async (c) => {
             facilitator: {
                 url: "https://facilitator.payai.network",
             },
-        }),
-        new AuthHeadersHook(async (_req, extra) => {
-            const serverId = extra.serverId;
-            if (!serverId) return null;
-            const mcpConfig = await redisStore.getServerById(serverId);
-            if (!mcpConfig?.authHeaders || mcpConfig.requireAuth !== true) return null;
-            const result: Record<string, string> = {};
-            for (const [key, value] of Object.entries(mcpConfig.authHeaders)) {
-                if (typeof value === "string" && value.length > 0) result[key] = value;
-            }
-            return result;
-        }),
+        })
     ]);
 
-    // Emit generic proxy request/response events around the proxy call
-    const ingestUrl = process.env.MCP_DATA_INGEST_URL || "http://localhost:3010/ingest/event";
-    const requestId = crypto.randomUUID();
-    const startedAt = Date.now();
-    try {
-        // Best-effort request event
-        await fetch(ingestUrl, {
-            method: "POST",
-            headers: { "content-type": "application/json" },
-            body: JSON.stringify({
-                kind: "proxy.request",
-                request_id: requestId,
-                origin: targetUrl,
-                method: original.method,
-                ts: new Date().toISOString(),
-                meta: {}
-            }),
-        }).catch(() => {});
-    } catch {}
 
-    const upstreamRes = await proxy(reqForProxy);
-    try {
-        const latency = Date.now() - startedAt;
-        await fetch(ingestUrl, {
-            method: "POST",
-            headers: { "content-type": "application/json" },
-            body: JSON.stringify({
-                kind: "proxy.response",
-                request_id: requestId,
-                origin: targetUrl,
-                status_code: upstreamRes.status,
-                latency_ms: latency,
-                ts: new Date().toISOString(),
-                meta: {}
-            }),
-        }).catch(() => {});
-    } catch {}
+    const mcpConfig = await redisStore.getServerById(serverId);
+    console.log(`[AuthHeadersHook] mcpConfig for serverId ${serverId}:`, mcpConfig);
+    if (!mcpConfig?.authHeaders || mcpConfig.requireAuth !== true) {
+        console.log(`[AuthHeadersHook] authHeaders missing or requireAuth not true, skipping injection for serverId ${serverId}.`);
+        return new Response("Auth headers missing", { status: 400 });
+    }
+    const result: Record<string, string> = {};
+    for (const [key, value] of Object.entries(mcpConfig.authHeaders)) {
+        if (typeof value === "string" && value.length > 0) result[key] = value;
+    }
 
-    return upstreamRes;
+    const reqForProxyWithHeaders = new Request(targetUrl, {
+        method: original.method,
+        headers: {
+            ...headers,
+            ...result
+        },
+        body: original.body,
+        duplex: 'half'
+    } as RequestInit);  
+
+    console.log(`[${new Date().toISOString()}] reqForProxyWithHeaders:`, reqForProxyWithHeaders);
+
+    return await proxy(reqForProxyWithHeaders);
 });
 
 const portPromise = getPort({ port: process.env.PORT ? Number(process.env.PORT) : 3006 });

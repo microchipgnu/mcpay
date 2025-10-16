@@ -21,7 +21,7 @@ export class AuthHeadersHook implements Hook {
         return { resultType: "continue" as const, request: req };
     }
 
-    async prepareUpstreamHeaders(headers: Headers, req: McpRequest, extra: RequestExtra) {
+    async prepareUpstreamHeaders(headers: Headers, req: Request, extra: RequestExtra) {
         const resolved = await this.resolveAuthHeaders(req, extra);
         if (!resolved) return;
 

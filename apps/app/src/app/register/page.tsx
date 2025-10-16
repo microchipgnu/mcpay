@@ -5,13 +5,14 @@ import { Suspense } from "react"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { mcpDataApi, api as realApi, urlUtils } from "@/lib/client/utils"
 import { usePrimaryWallet } from "@/components/providers/user"
 import { SupportedEVMNetworks, SupportedSVMNetworks } from "x402/types"
 import { type Network } from "@/types/blockchain"
-import { AlertCircle, ArrowUpRight, CheckCircle, Clipboard, Info, Loader2, Server } from "lucide-react"
+import { AlertCircle, ArrowUpRight, CheckCircle, Clipboard, Info, Loader2, Server, Trash2 } from "lucide-react"
 import Link from "next/link"
 import { useEffect, useState } from "react"
 import { toast } from "sonner"
@@ -64,7 +65,7 @@ type PricingEntry = {
 
 // Create a thin wrapper around the real API with graceful mock fallbacks
 const api = {
-  async registerServer(data: {
+  async registerServer(_data: {
     mcpOrigin: string
     receiverAddress: string
     name?: string
@@ -170,6 +171,10 @@ function RegisterOptionsPage() {
   const primaryWallet = usePrimaryWallet()
   const selectedWalletAddress = primaryWallet?.walletAddress || ""
   const [selectedNetworks, setSelectedNetworks] = useState<string[]>([])
+  
+  // Auth configuration state
+  const [authConfigOpen, setAuthConfigOpen] = useState(false)
+  const [authConfigLoading, setAuthConfigLoading] = useState(false)
 
   const validateEvm = (addr: string): boolean => /^0x[a-fA-F0-9]{40}$/.test((addr || '').trim())
   const validateSvm = (addr: string): boolean => /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test((addr || '').trim())
@@ -212,23 +217,146 @@ function RegisterOptionsPage() {
       toast.error('Enter a valid server URL')
       return
     }
-    setMonetizeOpen(true)
+    
+    // First try to inspect without auth
     try {
       const res = await fetch(`/api/inspect-mcp-server?url=${encodeURIComponent(serverUrl.trim())}&include=tools,prompts`)
       const data = await res.json().catch(() => ({}))
       const tools = Array.isArray(data?.tools) ? (data.tools as RegisterMCPTool[]) : []
-      setMonetizeTools(tools)
-      const defaults: Record<string, number> = {}
-      for (const t of tools) defaults[t.name] = 0.01
-      setPriceByTool(defaults)
+      
+      if (tools.length > 0) {
+        // Server doesn't require auth, proceed directly to monetize wizard
+        setMonetizeTools(tools)
+        const defaults: Record<string, number> = {}
+        for (const t of tools) defaults[t.name] = 0.01
+        setPriceByTool(defaults)
+        setMonetizeOpen(true)
+      } else {
+        // No tools found, likely requires auth - show auth config dialog
+        setAuthConfigOpen(true)
+      }
     } catch {
-      const tools = Array.isArray(previewTools) ? previewTools : []
+      // On error, show auth config dialog
+      setAuthConfigOpen(true)
+    }
+  }
+
+  const handleAuthConfigSubmit = async () => {
+    if (!serverUrl.trim()) return
+    
+    setAuthConfigLoading(true)
+    try {
+      const authHeadersObj = Object.fromEntries(
+        authHeaders.filter(h => h.key && h.value).map(h => [h.key, h.value])
+      )
+      
+      const authHeadersParam = Object.keys(authHeadersObj).length > 0 
+        ? encodeURIComponent(JSON.stringify(authHeadersObj))
+        : ''
+      
+      const url = `/api/inspect-mcp-server?url=${encodeURIComponent(serverUrl.trim())}&include=tools,prompts${
+        authHeadersParam ? `&authHeaders=${authHeadersParam}` : ''
+      }`
+      
+      const res = await fetch(url)
+      const data = await res.json().catch(() => ({}))
+      const tools = Array.isArray(data?.tools) ? (data.tools as RegisterMCPTool[]) : []
+      
       setMonetizeTools(tools)
       const defaults: Record<string, number> = {}
       for (const t of tools) defaults[t.name] = 0.01
       setPriceByTool(defaults)
+      
+      // Set requireAuth to true since we're using auth headers
+      setRequireAuth(true)
+      
+      setAuthConfigOpen(false)
+      
+      // Small delay to ensure state updates before opening wizard
+      setTimeout(() => {
+        setMonetizeOpen(true)
+      }, 100)
+      
+      if (tools.length === 0) {
+        toast.warning('No tools found. Check your authentication headers.')
+      }
+    } catch {
+      toast.error('Failed to inspect server with authentication')
     } finally {
-      // Loading state handled by MonetizeWizard component
+      setAuthConfigLoading(false)
+    }
+  }
+
+  const createMonetizedEndpointWithData = async (data: {
+    prices: Record<string, number>
+    evmRecipientAddress?: string
+    svmRecipientAddress?: string
+    networks: string[]
+    requireAuth: boolean
+    authHeaders: Record<string, string>
+    testnet: boolean
+  }) => {
+    if (!serverUrl.trim()) return
+    const includesEvm = data.networks.some(n => (SupportedEVMNetworks as readonly string[]).includes(n))
+    const includesSvm = data.networks.some(n => (SupportedSVMNetworks as readonly string[]).includes(n))
+    if (includesEvm && !validateEvm(data.evmRecipientAddress || selectedWalletAddress)) {
+      toast.error('Enter a valid EVM address (0x…)')
+      return
+    }
+    if (includesSvm && !validateSvm(data.svmRecipientAddress || '')) {
+      toast.error('Enter a valid SVM address')
+      return
+    }
+    try {
+      setMonetizing(true)
+      const rnd = Math.random().toString(36).slice(2, 10)
+      const id = `srv_${rnd}`
+      const formatPrice = (value: number): string => {
+        if (!Number.isFinite(value) || value < 0) return '$0'
+        const rounded = Math.round(value * 1e6) / 1e6
+        let s = String(rounded)
+        if (s.includes('.')) s = s.replace(/\.0+$/, '').replace(/(\.\d*?)0+$/, '$1')
+        return `$${s}`
+      }
+      const body = {
+        id,
+        mcpOrigin: serverUrl.trim(),
+        recipient: {
+          ...(includesEvm ? { evm: { address: (data.evmRecipientAddress || selectedWalletAddress), isTestnet: data.testnet } } : {}),
+          ...(includesSvm ? { svm: { address: data.svmRecipientAddress, isTestnet: data.testnet } } : {}),
+        },
+        tools: monetizeTools.map((t) => ({ name: t.name, pricing: formatPrice(data.prices[t.name] ?? 0.01) })),
+        requireAuth: data.requireAuth,
+        authHeaders: data.requireAuth ? data.authHeaders : {},
+        metadata: { createdAt: new Date().toISOString(), source: 'app:register', networks: data.networks },
+      }
+      const resp = await fetch(`${urlUtils.getMcp2Url()}/register`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({})) as { error?: string }
+        throw new Error(err?.error || `Failed to register: ${resp.status}`)
+      }
+      const endpoint = `${urlUtils.getMcp2Url()}/mcp?id=${encodeURIComponent(id)}`
+      try {
+        await navigator.clipboard.writeText(endpoint)
+        toast.success('Monetized endpoint copied to clipboard!')
+      } catch { }
+      try {
+        const result = await mcpDataApi.runIndex(endpoint)
+        if ('ok' in result && result.ok && result.serverId) {
+          toast.success('Server indexed successfully!')
+          window.location.href = `/servers/${result.serverId}`
+          return
+        }
+      } catch { }
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Unknown error'
+      toast.error(`Failed to create endpoint: ${msg}`)
+    } finally {
+      setMonetizing(false)
     }
   }
 
@@ -523,6 +651,8 @@ function RegisterOptionsPage() {
               onOpenChange={(open) => setMonetizeOpen(open)}
               serverUrl={serverUrl}
               tools={monetizeTools}
+              initialAuthHeaders={authHeaders}
+              initialRequireAuth={requireAuth}
               onCreate={async ({ prices, evmRecipientAddress: evmAddr, svmRecipientAddress: svmAddr, networks, requireAuth, authHeaders, testnet }) => {
                 setPriceByTool(prices)
                 setEvmRecipientAddress(evmAddr || '')
@@ -531,7 +661,7 @@ function RegisterOptionsPage() {
                 setRequireAuth(requireAuth)
                 setAuthHeaders(Object.entries(authHeaders).map(([key, value]) => ({ key, value })))
                 setRecipientIsTestnet(testnet)
-                await createMonetizedEndpoint()
+                await createMonetizedEndpointWithData({ prices, evmRecipientAddress: evmAddr, svmRecipientAddress: svmAddr, networks, requireAuth, authHeaders, testnet })
               }}
             />
 
@@ -723,6 +853,87 @@ function RegisterOptionsPage() {
           </div>
         </div>
       </main>
+
+      {/* Auth Configuration Dialog */}
+      <Dialog open={authConfigOpen} onOpenChange={setAuthConfigOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Authentication Required</DialogTitle>
+            <DialogDescription>
+              This MCP server requires authentication. Please provide the necessary headers to access its tools.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-3">
+              <div className="text-sm font-medium">Authentication Headers</div>
+              <div className="space-y-2">
+                {authHeaders.map((header, index) => (
+                  <div key={index} className="flex items-center gap-2">
+                    <Input
+                      placeholder="Header name (e.g., Authorization)"
+                      value={header.key}
+                      onChange={(e) => setAuthHeaders(prev => 
+                        prev.map((h, i) => i === index ? { ...h, key: e.target.value } : h)
+                      )}
+                      className="flex-1"
+                    />
+                    <Input
+                      placeholder="Header value"
+                      value={header.value}
+                      onChange={(e) => setAuthHeaders(prev => 
+                        prev.map((h, i) => i === index ? { ...h, value: e.target.value } : h)
+                      )}
+                      className="flex-1"
+                    />
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => setAuthHeaders(prev => prev.filter((_, i) => i !== index))}
+                      disabled={authHeaders.length === 1}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setAuthHeaders(prev => [...prev, { key: '', value: '' }])}
+                className="w-full"
+              >
+                Add Header
+              </Button>
+            </div>
+            <div className="text-xs text-muted-foreground">
+              <p className="font-medium mb-1">Common headers:</p>
+              <ul className="list-disc list-inside space-y-1">
+                <li><code>Authorization: Bearer YOUR_API_KEY</code></li>
+                <li><code>x-api-key: YOUR_API_KEY</code></li>
+                <li><code>X-API-Key: YOUR_API_KEY</code></li>
+              </ul>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAuthConfigOpen(false)}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleAuthConfigSubmit}
+              disabled={authConfigLoading || authHeaders.every(h => !h.key || !h.value)}
+            >
+              {authConfigLoading ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Connecting...
+                </>
+              ) : (
+                'Connect & Continue'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
     </div>
   )

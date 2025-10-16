@@ -25,6 +25,8 @@ export type MonetizeWizardProps = {
   onOpenChange: (open: boolean) => void
   serverUrl: string
   tools: MCPToolLite[]
+  initialAuthHeaders?: Array<{ key: string; value: string }>
+  initialRequireAuth?: boolean
   onCreate: (payload: {
     prices: Record<string, number>
     evmRecipientAddress?: string
@@ -36,7 +38,7 @@ export type MonetizeWizardProps = {
   }) => Promise<void>
 }
 
-export function MonetizeWizard({ open, onOpenChange, serverUrl, tools, onCreate }: MonetizeWizardProps) {
+export function MonetizeWizard({ open, onOpenChange, serverUrl, tools, initialAuthHeaders, initialRequireAuth, onCreate }: MonetizeWizardProps) {
   const [step, setStep] = useState<1 | 2 | 3 | 4 | 5>(1)
   const [isMobile, setIsMobile] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -50,8 +52,10 @@ export function MonetizeWizard({ open, onOpenChange, serverUrl, tools, onCreate 
   const [svmRecipientAddress, setSvmRecipientAddress] = useState<string>("")
   const [recipientIsTestnet, setRecipientIsTestnet] = useState(false)
   const [selectedNetworks, setSelectedNetworks] = useState<string[]>([])
-  const [requireAuth, setRequireAuth] = useState(false)
-  const [authHeaders, setAuthHeaders] = useState<Array<{ key: string; value: string }>>([{ key: "", value: "" }])
+  const [requireAuth, setRequireAuth] = useState(initialRequireAuth || false)
+  const [authHeaders, setAuthHeaders] = useState<Array<{ key: string; value: string }>>(
+    initialAuthHeaders && initialAuthHeaders.length > 0 ? initialAuthHeaders : [{ key: "", value: "" }]
+  )
   const [showValues, setShowValues] = useState(true)
   const [bulkHeadersText, setBulkHeadersText] = useState("")
   const [toolsSearch, setToolsSearch] = useState("")
@@ -63,6 +67,18 @@ export function MonetizeWizard({ open, onOpenChange, serverUrl, tools, onCreate 
     window.addEventListener('resize', fn)
     return () => window.removeEventListener('resize', fn)
   }, [])
+
+  // Update auth state when initial props change
+  useEffect(() => {
+    console.log('MonetizeWizard: initialRequireAuth', initialRequireAuth)
+    console.log('MonetizeWizard: initialAuthHeaders', initialAuthHeaders)
+    if (initialRequireAuth !== undefined) {
+      setRequireAuth(initialRequireAuth)
+    }
+    if (initialAuthHeaders && initialAuthHeaders.length > 0) {
+      setAuthHeaders(initialAuthHeaders)
+    }
+  }, [initialRequireAuth, initialAuthHeaders])
 
   useEffect(() => {
     setPriceByTool(Object.fromEntries((tools || []).map(t => [t.name, 0.01])))

@@ -154,7 +154,7 @@ export function withProxy(targetUrl: string, hooks: Hook[]) {
             const forwardHeaders = new Headers(req.headers);
             for (const h of hooks) {
                 if (h.prepareUpstreamHeaders) {
-                    try { await h.prepareUpstreamHeaders(forwardHeaders, currentReq, extra); } catch {}
+                    try { await h.prepareUpstreamHeaders(forwardHeaders, req, extra); } catch {}
                 }
             }
             forwardHeaders.delete("content-length");
@@ -275,7 +275,7 @@ export function withProxy(targetUrl: string, hooks: Hook[]) {
                     const forwardHeaders = new Headers(req.headers);
                     for (const h of hooks) {
                         if (h.prepareUpstreamHeaders) {
-                            try { await h.prepareUpstreamHeaders(forwardHeaders, currentReq, extra); } catch {}
+                            try { await h.prepareUpstreamHeaders(forwardHeaders, req, extra); } catch {}
                         }
                     }
                     forwardHeaders.delete("content-length");

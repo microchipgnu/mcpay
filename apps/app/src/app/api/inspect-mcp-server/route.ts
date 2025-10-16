@@ -24,21 +24,25 @@ function isValidHttpUrl(url: string): boolean {
   }
 }
 
-async function inspect(url: string, include?: IncludeParam) {
+async function inspect(url: string, include?: IncludeParam, authHeaders?: Record<string, string>) {
   const doTools = !include || include.includes("tools")
   const doPrompts = !include || include.includes("prompts")
 
   const [tools, prompts] = await Promise.all([
-    doTools ? getToolsFromMCP(url).catch((err) => { console.warn('tools fetch failed', err); return [] }) : Promise.resolve(undefined),
-    doPrompts ? getPromptsFromMCP(url).catch((err) => { console.warn('prompts fetch failed', err); return [] }) : Promise.resolve(undefined),
+    doTools ? getToolsFromMCP(url, authHeaders).catch((err) => { console.warn('tools fetch failed', err); return [] }) : Promise.resolve(undefined),
+    doPrompts ? getPromptsFromMCP(url, authHeaders).catch((err) => { console.warn('prompts fetch failed', err); return [] }) : Promise.resolve(undefined),
   ])
 
   return { url, tools, prompts }
 }
 
-async function getToolsFromMCP(url: string) {
+async function getToolsFromMCP(url: string, authHeaders?: Record<string, string>) {
   try {
-    const transport = new StreamableHTTPClientTransport(new URL(url))
+    const transport = new StreamableHTTPClientTransport(new URL(url), {
+      requestInit: {
+        headers: authHeaders
+      }
+    })
     const client = await createMCPClient({ transport })
     const tools = await client.tools()
     if (!tools) {
@@ -59,9 +63,13 @@ async function getToolsFromMCP(url: string) {
   }
 }
 
-async function getPromptsFromMCP(url: string) {
+async function getPromptsFromMCP(url: string, authHeaders?: Record<string, string>) {
   try {
-    const transport = new StreamableHTTPClientTransport(new URL(url))
+    const transport = new StreamableHTTPClientTransport(new URL(url), {
+      requestInit: {
+        headers: authHeaders
+      }
+    })
     const client = new Client({ name: "mcpay-inspect", version: "1.0.0" })
     await client.connect(transport)
     const prompts = await client.listPrompts()
@@ -117,12 +125,22 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url)
     const url = searchParams.get("url")?.trim()
     const include = parseIncludeParam(searchParams.get("include"))
+    const authHeadersParam = searchParams.get("authHeaders")
 
     if (!url || !isValidHttpUrl(url)) {
       return NextResponse.json({ ok: false, error: "Missing or invalid 'url' query param" }, { status: 400 })
     }
 
-    const result = await inspect(url, include)
+    let authHeaders: Record<string, string> | undefined
+    if (authHeadersParam) {
+      try {
+        authHeaders = JSON.parse(authHeadersParam)
+      } catch {
+        return NextResponse.json({ ok: false, error: "Invalid authHeaders JSON" }, { status: 400 })
+      }
+    }
+
+    const result = await inspect(url, include, authHeaders)
     return NextResponse.json({ ok: true, ...result })
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error"
@@ -132,17 +150,18 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: Request) {
   try {
-    const body = await req.json().catch(() => ({})) as { url?: string; include?: string | string[] }
+    const body = await req.json().catch(() => ({})) as { url?: string; include?: string | string[]; authHeaders?: Record<string, string> }
     const url = (body.url || "").trim()
     const include = Array.isArray(body.include)
       ? (body.include as string[]).map((p) => p.toLowerCase()).filter((p): p is "tools" | "prompts" => p === "tools" || p === "prompts")
       : parseIncludeParam(typeof body.include === "string" ? body.include : null)
+    const authHeaders = body.authHeaders
 
     if (!url || !isValidHttpUrl(url)) {
       return NextResponse.json({ ok: false, error: "Missing or invalid 'url' in request body" }, { status: 400 })
     }
 
-    const result = await inspect(url, include)
+    const result = await inspect(url, include, authHeaders)
     return NextResponse.json({ ok: true, ...result })
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error"
