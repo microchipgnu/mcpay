@@ -281,27 +281,30 @@ app.all("/mcp", async (c) => {
 
     const mcpConfig = await redisStore.getServerById(serverId);
     // No console logging
-    if (!mcpConfig?.authHeaders || mcpConfig.requireAuth !== true) {
-        // No console logging
-        return new Response("Auth headers missing", { status: 400 });
-    }
-    // Iterate through auth headers and set them in the request headers
-    for (const [key, value] of Object.entries(mcpConfig.authHeaders)) {
-        if (typeof value === "string" && value.length > 0) {
-            headers.set(key, value);
+    
+    // Check if auth headers are required and available
+    if (mcpConfig?.authHeaders && mcpConfig.requireAuth === true) {
+        // Iterate through auth headers and set them in the request headers
+        for (const [key, value] of Object.entries(mcpConfig.authHeaders)) {
+            if (typeof value === "string" && value.length > 0) {
+                headers.set(key, value);
+            }
         }
+
+        const reqForProxyWithHeaders = new Request(targetUrl, {
+            method: original.method,
+            headers: headers,
+            body: original.body,
+            duplex: 'half'
+        } as RequestInit);  
+
+        // No console logging
+        return await proxy(reqForProxyWithHeaders);
+    } else {
+        // No auth headers required or available, proxy original request
+        // No console logging
+        return await proxy(reqForProxy);
     }
-
-    const reqForProxyWithHeaders = new Request(targetUrl, {
-        method: original.method,
-        headers: headers,
-        body: original.body,
-        duplex: 'half'
-    } as RequestInit);  
-
-    // No console logging
-
-    return await proxy(reqForProxyWithHeaders);
 });
 
 const portPromise = getPort({ port: process.env.PORT ? Number(process.env.PORT) : 3006 });
