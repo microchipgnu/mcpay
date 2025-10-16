@@ -17,5 +17,6 @@
     "@types/node": "^20.11.17",
     "tsx": "^4.19.4",
     "typescript": "^5.8.3"
-  }
+  },
+  "version": null
 }
