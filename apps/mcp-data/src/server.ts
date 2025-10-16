@@ -355,6 +355,20 @@ app.get('/server/:id', async (c: Context) => {
       .slice(0, 50)
       .map(x => {
         const pr = x.p.metadata.paymentResponse as any | undefined;
+        const preq = x.p.metadata.paymentRequest as any | undefined;
+        
+        // Extract amount and currency like minimal-explorer
+        const amountFormatted = (() => {
+          // 6 decimals: value is a stringified integer, e.g., "100000" => "0.1"
+          const raw = preq?.payload?.authorization?.value;
+          if (!raw || isNaN(Number(raw))) return '';
+          // Always divide by 1e6 and show up to 6 decimals (remove trailing zeros)
+          return (Number(raw) / 1e6).toLocaleString('en-US', {
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 6,
+          });
+        })();
+        
         return {
           id: x.l.id,
           createdAt: x.l.ts,
@@ -362,6 +376,8 @@ app.get('/server/:id', async (c: Context) => {
           network: pr?.network,
           transactionHash: pr?.transaction,
           payer: pr?.payer,
+          amountFormatted,
+          currency: pr ? "USDC" : undefined,
         };
       });
 

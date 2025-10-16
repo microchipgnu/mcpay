@@ -4,6 +4,7 @@ import { AboutSection } from "@/components/custom-ui/about-section"
 import { ConnectPanel } from "@/components/custom-ui/connect-panel"
 import { ServerDetailsCard } from "@/components/custom-ui/server-details-card"
 import { ServerHeader } from "@/components/custom-ui/server-header"
+import { TokenIcon } from "@/components/custom-ui/token-icon"
 import { ToolExecutionModal, type ToolFromMcpServerWithStats } from "@/components/custom-ui/tool-execution-modal"
 import { ToolsAccordion } from "@/components/custom-ui/tools-accordion"
 import { useTheme } from "@/components/providers/theme-context"
@@ -41,7 +42,15 @@ type ServerDetail = {
   tools: Array<Record<string, unknown>>
   summary: { lastActivity?: string; totalTools: number; totalRequests: number; totalPayments: number }
   dailyAnalytics: Array<{ date: string; totalRequests: number }>
-  recentPayments: Array<{ id: string; createdAt: string; status: 'completed' | 'failed'; network?: string; transactionHash?: string }>
+  recentPayments: Array<{ 
+    id: string; 
+    createdAt: string; 
+    status: 'completed' | 'failed'; 
+    network?: string; 
+    transactionHash?: string;
+    amountFormatted?: string;
+    currency?: string;
+  }>
 }
 
 const formatDate = (dateString?: string) => {
@@ -370,16 +379,21 @@ export default function ServerPage() {
               </div>
             </div>
 
-            <Card className={`${isDark ? "bg-gray-800 border-gray-700" : ""} mt-6`}>
-              <CardHeader>
-                <CardTitle className="text-base">Recent Payments</CardTitle>
-                <CardDescription>Latest payment transactions from tool usage with verified token information</CardDescription>
+            <Card className={`${isDark ? "bg-gray-800 border-gray-700" : ""} mt-6 overflow-hidden`}>
+              <CardHeader className="pb-4">
+                <CardTitle className="text-lg font-semibold flex items-center gap-2">
+                  <div className="h-2 w-2 rounded-full bg-teal-500"></div>
+                  Recent Payments
+                </CardTitle>
+                <CardDescription className="text-sm text-muted-foreground">
+                  Latest payment transactions from tool usage with verified token information
+                </CardDescription>
               </CardHeader>
-              <CardContent>
+              <CardContent className="p-0">
                 {(() => {
-                  // Match explorer compact spacing
-                  const th = "px-2 sm:px-3 py-3 text-[12px] uppercase tracking-widest text-muted-foreground text-left whitespace-nowrap"
-                  const td = "px-2 sm:px-3 py-3.5 border-t border-border align-middle"
+                  // Enhanced spacing and typography
+                  const th = "px-4 sm:px-6 py-4 text-xs font-medium uppercase tracking-wide text-muted-foreground text-left whitespace-nowrap bg-muted/30"
+                  const td = "px-4 sm:px-6 py-4 border-b border-border/50 align-middle transition-colors duration-200"
 
                   const onCopy = async (text?: string, message = "Copied") => {
                     if (!text) return
@@ -392,15 +406,16 @@ export default function ServerPage() {
                   }
 
                   return (
-                    <div className="rounded-md border overflow-x-auto">
-                      <div className="min-w-[800px]">
+                    <div className="overflow-x-auto">
+                      <div className="min-w-[900px]">
                         <Table>
                           <TableHeader>
-                            <TableRow className="border-b border-border">
-                              <TableHead className="w-[40px] pr-1 sr-only">Status</TableHead>
-                              <TableHead className={`${th} font-mono`}>Date</TableHead>
-                              <TableHead className={`${th} font-mono`}>Network</TableHead>
-                              <TableHead className={`${th} font-mono text-right pr-2`}>Transaction</TableHead>
+                            <TableRow className="border-0">
+                              <TableHead className="w-[50px] pl-6 pr-2">Status</TableHead>
+                              <TableHead className={`${th}`}>Date</TableHead>
+                              <TableHead className={`${th}`}>Amount</TableHead>
+                              <TableHead className={`${th}`}>Network</TableHead>
+                              <TableHead className={`${th} text-right pr-6`}>Transaction</TableHead>
                             </TableRow>
                           </TableHeader>
                           <TableBody>
@@ -410,84 +425,138 @@ export default function ServerPage() {
                               const rel = formatRelativeShort(p.createdAt)
 
                               return (
-                                <TableRow key={p.id} className="hover:bg-muted/40">
-                                  {/* Status icon */}
-                                  <TableCell className={`${td} w-[40px] pr-1`}>
+                                <TableRow key={p.id} className="hover:bg-muted/30 transition-all duration-200 group">
+                                  {/* Enhanced Status indicator */}
+                                  <TableCell className={`${td} w-[50px] pl-6 pr-2`}>
                                     <TooltipProvider>
                                       <Tooltip>
                                         <TooltipTrigger asChild>
                                           <div
-                                            className={`inline-flex h-6 w-6 items-center justify-center rounded-sm transition-all duration-300 ${p.status === 'completed'
-                                              ? 'text-teal-700 bg-teal-500/10 hover:bg-teal-500/20 dark:text-teal-200 dark:bg-teal-800/50 dark:hover:bg-teal-800/70'
-                                              : p.status === 'failed'
-                                                ? 'text-red-700 bg-red-500/10 hover:bg-red-500/20 dark:text-red-200 dark:bg-red-800/50 dark:hover:bg-red-800/70'
-                                                : 'text-yellow-700 bg-yellow-500/10 hover:bg-yellow-500/20 dark:text-yellow-200 dark:bg-yellow-800/50 dark:hover:bg-yellow-800/70'}`}
+                                            className={`inline-flex h-8 w-8 items-center justify-center rounded-full transition-all duration-300 group-hover:scale-105 ${
+                                              p.status === 'completed'
+                                                ? 'text-emerald-600 bg-emerald-50 dark:text-emerald-400 dark:bg-emerald-900/20 shadow-sm'
+                                                : p.status === 'failed'
+                                                ? 'text-red-600 bg-red-50 dark:text-red-400 dark:bg-red-900/20 shadow-sm'
+                                                : 'text-amber-600 bg-amber-50 dark:text-amber-400 dark:bg-amber-900/20 shadow-sm'
+                                            }`}
                                             aria-label={p.status}
                                           >
-                                            {p.status === 'completed' ? <CheckCircle2 className="h-4 w-4" /> : p.status === 'failed' ? <XCircle className="h-4 w-4" /> : <Clock className="h-4 w-4" />}
+                                            {p.status === 'completed' ? (
+                                              <CheckCircle2 className="h-4 w-4" />
+                                            ) : p.status === 'failed' ? (
+                                              <XCircle className="h-4 w-4" />
+                                            ) : (
+                                              <Clock className="h-4 w-4" />
+                                            )}
                                           </div>
                                         </TooltipTrigger>
-                                        <TooltipContent className="text-xs capitalize">{p.status}</TooltipContent>
+                                        <TooltipContent className="text-xs font-medium capitalize">
+                                          {p.status === 'completed' ? 'Payment Completed' : p.status === 'failed' ? 'Payment Failed' : 'Payment Pending'}
+                                        </TooltipContent>
                                       </Tooltip>
                                     </TooltipProvider>
                                   </TableCell>
 
-                                  {/* Date relative with tooltip */}
-                                  <TableCell className={`${td} text-[0.95rem] sm:text-sm text-muted-foreground pr-1`}>
+                                  {/* Enhanced Date display */}
+                                  <TableCell className={`${td}`}>
                                     <TooltipProvider>
                                       <Tooltip>
-                                        <TooltipTrigger className="cursor-default">
-                                          {rel}
+                                        <TooltipTrigger className="cursor-default group">
+                                          <div className="flex flex-col">
+                                            <span className="text-sm font-medium text-foreground group-hover:text-primary transition-colors">
+                                              {rel}
+                                            </span>
+                                            <span className="text-xs text-muted-foreground">
+                                              {new Date(p.createdAt).toLocaleDateString()}
+                                            </span>
+                                          </div>
                                         </TooltipTrigger>
-                                        <TooltipContent className="text-xs">{fullDate}</TooltipContent>
+                                        <TooltipContent className="text-xs font-medium">{fullDate}</TooltipContent>
                                       </Tooltip>
                                     </TooltipProvider>
                                   </TableCell>
 
-                                  {/* Network pill */}
-                                  <TableCell className={`${td} font-mono text-xs sm:text-sm text-muted-foreground`}>
-                                    <span className="font-mono text-sm border border-foreground-muted px-2 py-0.5 rounded text-foreground-muted">
-                                      {p.network || '-'}
-                                    </span>
+                                  {/* Enhanced Amount display */}
+                                  <TableCell className={`${td}`}>
+                                    <div className="flex items-center gap-3">
+                                      {p.currency && (
+                                        <div className="relative">
+                                          <TokenIcon currencyOrAddress={p.currency} network={p.network} size={20} />
+                                          <div className="absolute -bottom-1 -right-1 h-2 w-2 rounded-full bg-emerald-500 border border-background"></div>
+                                        </div>
+                                      )}
+                                      <div className="flex flex-col">
+                                        <span className="text-sm font-semibold text-foreground">
+                                          {p.amountFormatted || '—'}
+                                        </span>
+                                        {p.currency && (
+                                          <span className="text-xs text-muted-foreground font-medium">
+                                            {p.currency}
+                                          </span>
+                                        )}
+                                      </div>
+                                    </div>
                                   </TableCell>
 
-                                  {/* Transaction actions: hash + copy + open */}
-                                  <TableCell className={`${td} font-mono text-right pr-0 pl-1`}>
+                                  {/* Enhanced Network pill */}
+                                  <TableCell className={`${td}`}>
+                                    <div className="flex items-center gap-2">
+                                      <div className="h-2 w-2 rounded-full bg-blue-500"></div>
+                                      <span className="text-sm font-medium text-foreground bg-muted/50 px-3 py-1.5 rounded-full border">
+                                        {p.network || 'Unknown'}
+                                      </span>
+                                    </div>
+                                  </TableCell>
+
+                                  {/* Enhanced Transaction section */}
+                                  <TableCell className={`${td} text-right pr-6`}>
                                     {p.transactionHash ? (
-                                      <div className="flex items-center justify-end gap-1">
-                                        <span className="text-xs sm:text-sm mr-2">{truncateHash(p.transactionHash)}</span>
-
-                                        <TooltipProvider>
-                                          <Tooltip>
-                                            <TooltipTrigger asChild>
-                                              <Button
-                                                size="icon"
-                                                variant="ghost"
-                                                className="group h-7 w-7 rounded-sm"
-                                                onClick={(e) => { e.stopPropagation(); onCopy(p.transactionHash, "Copied transaction hash") }}
-                                              >
-                                                <Copy className="size-4 stroke-[2] text-muted-foreground group-hover:text-foreground transition-all duration-300" />
-                                              </Button>
-                                            </TooltipTrigger>
-                                            <TooltipContent className="text-xs">Copy</TooltipContent>
-                                          </Tooltip>
-
-                                          {txUrl && (
+                                      <div className="flex items-center justify-end gap-2">
+                                        <div className="flex flex-col items-end">
+                                          <span className="text-xs font-mono text-muted-foreground">
+                                            {truncateHash(p.transactionHash)}
+                                          </span>
+                                          <span className="text-xs text-muted-foreground">
+                                            Transaction
+                                          </span>
+                                        </div>
+                                        <div className="flex items-center gap-1">
+                                          <TooltipProvider>
                                             <Tooltip>
                                               <TooltipTrigger asChild>
-                                                <Button asChild size="icon" variant="ghost" className="group h-7 w-7 rounded-sm">
-                                                  <a href={txUrl} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}>
-                                                    <ArrowUpRight className="size-5 stroke-[2] text-muted-foreground/80 group-hover:text-foreground transition-all duration-300" />
-                                                  </a>
+                                                <Button
+                                                  size="icon"
+                                                  variant="ghost"
+                                                  className="h-8 w-8 rounded-full hover:bg-muted/80 transition-all duration-200"
+                                                  onClick={(e) => { e.stopPropagation(); onCopy(p.transactionHash, "Copied transaction hash") }}
+                                                >
+                                                  <Copy className="size-3.5 text-muted-foreground hover:text-foreground transition-colors" />
                                                 </Button>
                                               </TooltipTrigger>
-                                              <TooltipContent className="text-xs">Transaction Details</TooltipContent>
+                                              <TooltipContent className="text-xs">Copy Transaction Hash</TooltipContent>
                                             </Tooltip>
-                                          )}
-                                        </TooltipProvider>
+
+                                            {txUrl && (
+                                              <Tooltip>
+                                                <TooltipTrigger asChild>
+                                                  <Button asChild size="icon" variant="ghost" className="h-8 w-8 rounded-full hover:bg-muted/80 transition-all duration-200">
+                                                    <a href={txUrl} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}>
+                                                      <ArrowUpRight className="size-3.5 text-muted-foreground hover:text-foreground transition-colors" />
+                                                    </a>
+                                                  </Button>
+                                                </TooltipTrigger>
+                                                <TooltipContent className="text-xs">View on Explorer</TooltipContent>
+                                              </Tooltip>
+                                            )}
+                                          </TooltipProvider>
+                                        </div>
                                       </div>
                                     ) : (
-                                      <span className="text-xs text-muted-foreground">—</span>
+                                      <div className="flex items-center justify-end">
+                                        <span className="text-xs text-muted-foreground bg-muted/30 px-2 py-1 rounded-full">
+                                          No transaction
+                                        </span>
+                                      </div>
                                     )}
                                   </TableCell>
                                 </TableRow>
@@ -496,8 +565,20 @@ export default function ServerPage() {
 
                             {(!data.recentPayments || data.recentPayments.length === 0) && (
                               <TableRow>
-                                <TableCell colSpan={4} className="px-3 py-6 text-center text-sm">
-                                  <span className={isDark ? "text-gray-400" : "text-gray-600"}>No recent payments</span>
+                                <TableCell colSpan={5} className="px-6 py-16 text-center">
+                                  <div className="flex flex-col items-center gap-4">
+                                    <div className="h-16 w-16 rounded-full bg-muted/30 flex items-center justify-center">
+                                      <div className="h-8 w-8 rounded-full bg-muted/50 flex items-center justify-center">
+                                        <span className="text-2xl">💳</span>
+                                      </div>
+                                    </div>
+                                    <div className="space-y-2">
+                                      <h3 className="text-lg font-semibold text-foreground">No Recent Payments</h3>
+                                      <p className="text-sm text-muted-foreground max-w-sm">
+                                        This server hasn't received any payments yet. Payments will appear here once tools are used with monetization enabled.
+                                      </p>
+                                    </div>
+                                  </div>
                                 </TableCell>
                               </TableRow>
                             )}
@@ -513,6 +594,9 @@ export default function ServerPage() {
           </div>
         </div>
       </main>
+      
+      {/* Bottom spacing */}
+      <div className="h-16"></div>
       {showToolModal && selectedTool && (
         <ToolExecutionModal
           isOpen={showToolModal}
