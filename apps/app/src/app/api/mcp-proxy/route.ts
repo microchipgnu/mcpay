@@ -44,6 +44,10 @@ export async function POST(request: Request) {
   const h = await headers()
   const url = new URL(request.url)
   const targetUrl = url.searchParams.get('target-url')
+  // Header-based control plane passthrough
+  const authMode = h.get('x-mcpay-auth-mode') || url.searchParams.get('auth-mode') || ''
+  const autoPay = h.get('x-mcpay-autopay') || url.searchParams.get('autopay') || ''
+  const errMode = h.get('x-mcpay-402-mode') || url.searchParams.get('402-mode') || ''
 
   const session = await serverAuth.getSession({
     fetchOptions: {
@@ -68,7 +72,11 @@ export async function POST(request: Request) {
   console.log('Request referer:', request.headers.get('referer'))
 
   // Use the local MCP server instead of external proxy
-  const mcpUrl = `${env.NEXT_PUBLIC_AUTH_URL}/mcp?target-url=${targetUrl}`
+  const params = new URLSearchParams({ 'target-url': targetUrl || '' })
+  if (authMode) params.set('auth-mode', authMode)
+  if (autoPay) params.set('autopay', autoPay)
+  if (errMode) params.set('402-mode', errMode)
+  const mcpUrl = `${env.NEXT_PUBLIC_AUTH_URL}/mcp?${params.toString()}`
 
   console.log('mcpUrl', mcpUrl)
   
@@ -82,6 +90,10 @@ export async function POST(request: Request) {
       'X-Wallet-Type': h.get('x-wallet-type') || '',
       'X-Wallet-Address': h.get('x-wallet-address') || '',
       'X-Wallet-Provider': h.get('x-wallet-provider') || '',
+      // Control plane headers for MCP server
+      'X-MCPAY-AUTH-MODE': authMode || '',
+      'X-MCPAY-AUTOPAY': autoPay || '',
+      'X-MCPAY-402-MODE': errMode || '',
     },
     body: request.body,
     credentials: 'include',
@@ -98,8 +110,10 @@ export async function POST(request: Request) {
       'Content-Type': response.headers.get('Content-Type') || 'application/json',
       'Access-Control-Allow-Origin': validOrigin || '*',
       'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Wallet-Type, X-Wallet-Address, X-Wallet-Provider',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Wallet-Type, X-Wallet-Address, X-Wallet-Provider, X-MCPAY-AUTH-MODE, X-MCPAY-AUTOPAY, X-MCPAY-402-MODE',
+      'Access-Control-Expose-Headers': 'X-MCPAY-X420, WWW-Authenticate',
       'Access-Control-Allow-Credentials': validOrigin ? 'true' : 'false',
+      ...(response.headers.get('WWW-Authenticate') ? { 'WWW-Authenticate': response.headers.get('WWW-Authenticate')! } : {}),
     },
   })
 }
@@ -108,6 +122,9 @@ export async function GET(request: Request) {
   const h = await headers()
   const url = new URL(request.url)
   const targetUrl = url.searchParams.get('target-url')
+  const authMode = h.get('x-mcpay-auth-mode') || url.searchParams.get('auth-mode') || ''
+  const autoPay = h.get('x-mcpay-autopay') || url.searchParams.get('autopay') || ''
+  const errMode = h.get('x-mcpay-402-mode') || url.searchParams.get('402-mode') || ''
 
   const session = await serverAuth.getSession({
     fetchOptions: {
@@ -128,7 +145,11 @@ export async function GET(request: Request) {
 
 
   // Use the local MCP server instead of external proxy
-  const mcpUrl = `${env.NEXT_PUBLIC_AUTH_URL}/mcp?target-url=${targetUrl}`
+  const params = new URLSearchParams({ 'target-url': targetUrl || '' })
+  if (authMode) params.set('auth-mode', authMode)
+  if (autoPay) params.set('autopay', autoPay)
+  if (errMode) params.set('402-mode', errMode)
+  const mcpUrl = `${env.NEXT_PUBLIC_AUTH_URL}/mcp?${params.toString()}`
   
   // Forward the request to the local MCP server with session cookie
   const response = await fetch(mcpUrl, {
@@ -139,6 +160,9 @@ export async function GET(request: Request) {
       'X-Wallet-Type': h.get('x-wallet-type') || '',
       'X-Wallet-Address': h.get('x-wallet-address') || '',
       'X-Wallet-Provider': h.get('x-wallet-provider') || '',
+      'X-MCPAY-AUTH-MODE': authMode || '',
+      'X-MCPAY-AUTOPAY': autoPay || '',
+      'X-MCPAY-402-MODE': errMode || '',
     },
     credentials: 'include',
     // @ts-expect-error this is valid and needed
@@ -154,8 +178,10 @@ export async function GET(request: Request) {
       'Content-Type': response.headers.get('Content-Type') || 'application/json',
       'Access-Control-Allow-Origin': validOrigin || '*',
       'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Wallet-Type, X-Wallet-Address, X-Wallet-Provider',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Wallet-Type, X-Wallet-Address, X-Wallet-Provider, X-MCPAY-AUTH-MODE, X-MCPAY-AUTOPAY, X-MCPAY-402-MODE',
+      'Access-Control-Expose-Headers': 'X-MCPAY-X420, WWW-Authenticate',
       'Access-Control-Allow-Credentials': validOrigin ? 'true' : 'false',
+      ...(response.headers.get('WWW-Authenticate') ? { 'WWW-Authenticate': response.headers.get('WWW-Authenticate')! } : {}),
     },
   })
 }
@@ -170,7 +196,8 @@ export async function OPTIONS(request: Request) {
       'Content-Type': 'application/json, text/event-stream',
       'Access-Control-Allow-Origin': validOrigin || '*',
       'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Wallet-Type, X-Wallet-Address, X-Wallet-Provider',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Wallet-Type, X-Wallet-Address, X-Wallet-Provider, X-MCPAY-AUTH-MODE, X-MCPAY-AUTOPAY, X-MCPAY-402-MODE',
+      'Access-Control-Expose-Headers': 'X-MCPAY-X420, WWW-Authenticate',
       'Access-Control-Allow-Credentials': validOrigin ? 'true' : 'false',
     },
   })

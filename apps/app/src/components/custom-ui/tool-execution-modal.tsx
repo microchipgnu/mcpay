@@ -520,6 +520,15 @@ export function ToolExecutionModal({ isOpen, onClose, tool, serverId, url }: Too
         }
 
 
+        // Control-plane hints for proxy behavior
+        const wantsExternalFlow = activeWallet?.walletType === 'external';
+        const controlHeaders: Record<string, string> = {};
+        if (wantsExternalFlow) {
+          controlHeaders['X-MCPAY-AUTH-MODE'] = 'none';
+          controlHeaders['X-MCPAY-AUTOPAY'] = 'off';
+          controlHeaders['X-MCPAY-402-MODE'] = 'x420';
+        }
+
         const transport = new StreamableHTTPClientTransport(mcpUrl, {
           requestInit: {
             credentials: 'include',
@@ -528,6 +537,7 @@ export function ToolExecutionModal({ isOpen, onClose, tool, serverId, url }: Too
               'X-Wallet-Type': activeWallet?.walletType || 'unknown',
               'X-Wallet-Address': walletAddress || '',
               'X-Wallet-Provider': activeWallet?.provider || 'unknown',
+              ...controlHeaders,
               // Explicitly include cookies if available
               ...(document.cookie ? { 'Cookie': document.cookie } : {}),
             }
