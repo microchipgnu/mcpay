@@ -483,11 +483,11 @@ app.all("/mcp", async (c) => {
         
         // Extract API key from various sources
         const apiKeyFromQuery = currentUrl.searchParams.get("apiKey") || currentUrl.searchParams.get("api_key");
-        const authHeader = original.headers.get("authorization");
-        const apiKeyFromHeader = authHeader?.startsWith("Bearer ") ? authHeader.substring(7) : null;
+        // const authHeader = original.headers.get("authorization");
+        // const apiKeyFromHeader = authHeader?.startsWith("Bearer ") ? authHeader.substring(7) : null;
         const apiKeyFromXHeader = original.headers.get("x-api-key");
         
-        const apiKey = apiKeyFromQuery || apiKeyFromHeader || apiKeyFromXHeader;
+        const apiKey = apiKeyFromQuery || apiKeyFromXHeader; //|| apiKeyFromHeader
 
         let session = null;
         if (apiKey) {
