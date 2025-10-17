@@ -12,7 +12,7 @@ import { mcpDataApi, api as realApi, urlUtils } from "@/lib/client/utils"
 import { usePrimaryWallet } from "@/components/providers/user"
 import { SupportedEVMNetworks, SupportedSVMNetworks } from "x402/types"
 import { type Network } from "@/types/blockchain"
-import { AlertCircle, ArrowUpRight, CheckCircle, Clipboard, Info, Loader2, Server, Trash2 } from "lucide-react"
+import { AlertCircle, ArrowUpRight, CheckCircle, Clipboard, Info, Loader2, Server, Trash2, FlaskConical } from "lucide-react"
 import Link from "next/link"
 import { useEffect, useState } from "react"
 import { toast } from "sonner"
@@ -176,8 +176,12 @@ function RegisterOptionsPage() {
   const [authConfigOpen, setAuthConfigOpen] = useState(false)
   const [authConfigLoading, setAuthConfigLoading] = useState(false)
 
+  // Input mode toggle state
+  const [isOpenApiMode, setIsOpenApiMode] = useState(false)
+
   const validateEvm = (addr: string): boolean => /^0x[a-fA-F0-9]{40}$/.test((addr || '').trim())
   const validateSvm = (addr: string): boolean => /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test((addr || '').trim())
+
 
 
   const handleAddServer = async () => {
@@ -189,7 +193,17 @@ function RegisterOptionsPage() {
     try {
       setIndexing(true)
       setIndexError(null)
-      const result = await mcpDataApi.runIndex(serverUrl.trim())
+      
+      // For OpenAPI mode, convert to MCP URL for indexing
+      const urlToIndex = isOpenApiMode 
+        ? `https://api2.mcpay.tech/mcp?url=${encodeURIComponent(serverUrl.trim())}`
+        : serverUrl.trim()
+      
+      if (isOpenApiMode) {
+        toast.success('OpenAPI converted to MCP! Proceeding to index.')
+      }
+      
+      const result = await mcpDataApi.runIndex(urlToIndex)
       if ('ok' in result && result.ok) {
         toast.success('Server indexed successfully!')
         // Redirect to server page or explorer
@@ -218,6 +232,34 @@ function RegisterOptionsPage() {
       return
     }
     
+    if (isOpenApiMode) {
+      // For OpenAPI mode, first convert to MCP URL, then monetize
+      try {
+        const mcpUrl = `https://api2.mcpay.tech/mcp?url=${encodeURIComponent(serverUrl.trim())}`
+        
+        // Inspect the generated MCP URL to get tools
+        const res = await fetch(`/api/inspect-mcp-server?url=${encodeURIComponent(mcpUrl)}&include=tools,prompts`)
+        const data = await res.json().catch(() => ({}))
+        const tools = Array.isArray(data?.tools) ? (data.tools as RegisterMCPTool[]) : []
+        
+        if (tools.length > 0) {
+          // Keep original OpenAPI URL in input, but store MCP URL for processing
+          setMonetizeTools(tools)
+          const defaults: Record<string, number> = {}
+          for (const t of tools) defaults[t.name] = 0.01
+          setPriceByTool(defaults)
+          setMonetizeOpen(true)
+          toast.success('OpenAPI converted to MCP! Proceeding to monetization.')
+        } else {
+          toast.error('Failed to convert OpenAPI to MCP')
+        }
+      } catch {
+        toast.error('Failed to convert OpenAPI to MCP')
+      }
+      return
+    }
+    
+    // Original MCP mode logic
     // First try to inspect without auth
     try {
       const res = await fetch(`/api/inspect-mcp-server?url=${encodeURIComponent(serverUrl.trim())}&include=tools,prompts`)
@@ -318,9 +360,15 @@ function RegisterOptionsPage() {
         if (s.includes('.')) s = s.replace(/\.0+$/, '').replace(/(\.\d*?)0+$/, '$1')
         return `$${s}`
       }
+      
+      // For OpenAPI mode, use the converted MCP URL as the origin
+      const mcpOrigin = isOpenApiMode 
+        ? `https://api2.mcpay.tech/mcp?url=${encodeURIComponent(serverUrl.trim())}`
+        : serverUrl.trim()
+      
       const body = {
         id,
-        mcpOrigin: serverUrl.trim(),
+        mcpOrigin,
         recipient: {
           ...(includesEvm ? { evm: { address: (data.evmRecipientAddress || selectedWalletAddress), isTestnet: data.testnet } } : {}),
           ...(includesSvm ? { svm: { address: data.svmRecipientAddress, isTestnet: data.testnet } } : {}),
@@ -328,7 +376,12 @@ function RegisterOptionsPage() {
         tools: monetizeTools.map((t) => ({ name: t.name, pricing: formatPrice(data.prices[t.name] ?? 0.01) })),
         requireAuth: data.requireAuth,
         authHeaders: data.requireAuth ? data.authHeaders : {},
-        metadata: { createdAt: new Date().toISOString(), source: 'app:register', networks: data.networks },
+        metadata: { 
+          createdAt: new Date().toISOString(), 
+          source: 'app:register', 
+          networks: data.networks,
+          originalUrl: isOpenApiMode ? serverUrl.trim() : undefined
+        },
       }
       const resp = await fetch(`${urlUtils.getMcp2Url()}/register`, {
         method: 'POST',
@@ -360,7 +413,7 @@ function RegisterOptionsPage() {
     }
   }
 
-  const createMonetizedEndpoint = async () => {
+  const _createMonetizedEndpoint = async () => {
     if (!serverUrl.trim()) return
     const includesEvm = selectedNetworks.some(n => (SupportedEVMNetworks as readonly string[]).includes(n))
     const includesSvm = selectedNetworks.some(n => (SupportedSVMNetworks as readonly string[]).includes(n))
@@ -439,7 +492,8 @@ function RegisterOptionsPage() {
       if (!u.hostname) return { valid: false, error: 'URL must include a hostname' }
       return { valid: true as const }
     } catch {
-      return { valid: false as const, error: 'Enter a valid URL (e.g., https://example.com/mcp)' }
+      const example = isOpenApiMode ? 'https://api.example.com/openapi.json' : 'https://example.com/mcp'
+      return { valid: false as const, error: `Enter a valid URL (e.g., ${example})` }
     }
   }
 
@@ -490,8 +544,27 @@ function RegisterOptionsPage() {
         setIsPreviewLoading(true)
         setPreviewError(null)
         try {
-          const tools = await api.getMcpTools(value)
-          setPreviewTools(Array.isArray(tools) ? tools.slice(0, 5) : null)
+          if (isOpenApiMode) {
+            // For OpenAPI mode, use dedicated OpenAPI inspection endpoint
+            const res = await fetch(`/api/inspect-openapi?url=${encodeURIComponent(value)}`)
+            if (res.ok) {
+              const data = await res.json() as { ok?: boolean; tools?: Array<{ name: string; description?: string }> }
+              if (data?.ok && Array.isArray(data.tools)) {
+                setPreviewTools(data.tools.slice(0, 5).map((t) => ({ 
+                  name: t.name, 
+                  description: t.description 
+                })))
+              } else {
+                setPreviewTools(null)
+              }
+            } else {
+              throw new Error(`Failed to inspect OpenAPI: ${res.status}`)
+            }
+          } else {
+            // For MCP mode, use existing logic
+            const tools = await api.getMcpTools(value)
+            setPreviewTools(Array.isArray(tools) ? tools.slice(0, 5) : null)
+          }
         } catch (e) {
           setPreviewTools(null)
           setPreviewError(e instanceof Error ? e.message : 'Failed to inspect server')
@@ -546,19 +619,71 @@ function RegisterOptionsPage() {
             {/* URL Input Section */}
             <Card className="border border-border bg-background mb-10">
               <CardHeader>
-                <div className="flex gap-2">
-                  <CardTitle className="text-xl font-host text-foreground">Server URL</CardTitle>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <button type="button" aria-label="What is an MCP endpoint?" className="inline-flex items-center text-muted-foreground hover:text-foreground">
-                        <Info className="h-4 w-4" />
+                <div className="flex items-center justify-between">
+                  <div className="flex gap-2">
+                    <CardTitle className="text-xl font-host text-foreground">
+                      {isOpenApiMode ? "OpenAPI Specification" : "Server URL"}
+                    </CardTitle>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button type="button" aria-label="What is an MCP endpoint?" className="inline-flex items-center text-muted-foreground hover:text-foreground">
+                          <Info className="h-4 w-4" />
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        {isOpenApiMode 
+                          ? "Provide an OpenAPI/Swagger specification URL to convert to MCP"
+                          : "Provide the HTTP(S) endpoint your MCP server exposes"
+                        }
+                      </TooltipContent>
+                    </Tooltip>
+                  </div>
+                  
+                  {/* Mode Selector */}
+                  <div className="flex items-center gap-3">
+                    <div className="flex gap-1 p-1 rounded-lg bg-muted">
+                      <button 
+                        onClick={() => {
+                          setIsOpenApiMode(false)
+                          setServerUrl('')
+                          setUrlValid(false)
+                          setUrlError(null)
+                          setPreviewTools(null)
+                        }}
+                        className={`flex items-center gap-2 text-xs px-3 py-1.5 rounded-md transition-colors ${
+                          !isOpenApiMode 
+                            ? 'bg-background text-foreground shadow-sm' 
+                            : 'text-muted-foreground hover:text-foreground'
+                        }`}
+                      >
+                        <Server className="h-3.5 w-3.5 text-teal-600" />
+                        <span>MCP Server</span>
                       </button>
-                    </TooltipTrigger>
-                    <TooltipContent>Provide the HTTP(S) endpoint your MCP server exposes.</TooltipContent>
-                  </Tooltip>
+                      <button 
+                        onClick={() => {
+                          setIsOpenApiMode(true)
+                          setServerUrl('')
+                          setUrlValid(false)
+                          setUrlError(null)
+                          setPreviewTools(null)
+                        }}
+                        className={`flex items-center gap-2 text-xs px-3 py-1.5 rounded-md transition-colors ${
+                          isOpenApiMode 
+                            ? 'bg-background text-foreground shadow-sm' 
+                            : 'text-muted-foreground hover:text-foreground'
+                        }`}
+                      >
+                        <FlaskConical className="h-3.5 w-3.5 text-amber-500" />
+                        <span>OpenAPI (Experimental)</span>
+                      </button>
+                    </div>
+                  </div>
                 </div>
                 <CardDescription className="text-muted-foreground">
-                  Enter your MCP server URL to get started
+                  {isOpenApiMode 
+                    ? "Enter an OpenAPI/Swagger specification URL to convert to MCP endpoint"
+                    : "Enter your MCP server URL to get started"
+                  }
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -567,9 +692,9 @@ function RegisterOptionsPage() {
                     <Input
                       id="server-url"
                       type="url"
-                      aria-label="Server URL"
+                      aria-label={isOpenApiMode ? "OpenAPI URL" : "Server URL"}
                       aria-describedby="server-url-help"
-                      placeholder="https://your-mcp-server.com/mcp"
+                      placeholder={isOpenApiMode ? "https://api.example.com/openapi.json" : "https://your-mcp-server.com/mcp"}
                       value={serverUrl}
                       onChange={(e) => setServerUrl(e.target.value)}
                       onBlur={() => setUrlTouched(true)}
@@ -630,13 +755,19 @@ function RegisterOptionsPage() {
                 {/* Preview tools */}
                 {(isPreviewLoading || previewTools || previewError) && (
                   <div className="mt-3 text-sm">
-                    {isPreviewLoading && <span className="text-muted-foreground">Inspecting server…</span>}
+                    {isPreviewLoading && (
+                      <span className="text-muted-foreground">
+                        {isOpenApiMode ? 'Inspecting OpenAPI specification…' : 'Inspecting server…'}
+                      </span>
+                    )}
                     {!isPreviewLoading && previewError && (
                       <span className="text-red-600 dark:text-red-400">{previewError}</span>
                     )}
                     {!isPreviewLoading && previewTools && previewTools.length > 0 && (
                       <div className="text-foreground">
-                        <span className="font-medium">Detected tools:</span>{' '}
+                        <span className="font-medium">
+                          {isOpenApiMode ? 'Detected API endpoints:' : 'Detected tools:'}
+                        </span>{' '}
                         {previewTools.map((t) => t.name).join(', ')}{previewTools.length >= 5 ? '…' : ''}
                       </div>
                     )}
@@ -665,6 +796,7 @@ function RegisterOptionsPage() {
               }}
             />
 
+
             {/* Dynamic Options Based on URL Input */}
             {urlValid ? (
               /* Server Options - Show when URL is valid */
@@ -692,11 +824,11 @@ function RegisterOptionsPage() {
                         {monetizing ? (
                           <>
                             <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                            Creating...
+                            {isOpenApiMode ? 'Converting & Creating...' : 'Creating...'}
                           </>
                         ) : (
                           <>
-                            Get Monetized URL
+                            {isOpenApiMode ? 'Convert & Monetize' : 'Get Monetized URL'}
                           </>
                         )}
                       </Button>
@@ -740,11 +872,11 @@ function RegisterOptionsPage() {
                         {indexing ? (
                           <>
                             <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                            Indexing...
+                            {isOpenApiMode ? 'Converting & Indexing...' : 'Indexing...'}
                           </>
                         ) : (
                           <>
-                            Index Server
+                            {isOpenApiMode ? 'Convert & Index' : 'Index Server'}
                           </>
                         )}
                       </Button>

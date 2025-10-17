@@ -40,6 +40,7 @@ export function ToolsAccordion({ tools, onTry }: ToolsAccordionProps) {
   const { isDark } = useTheme()
   const [query, setQuery] = useState("")
   const [expandedPayments, setExpandedPayments] = useState<Set<string>>(new Set())
+  const [expandedDescriptions, setExpandedDescriptions] = useState<Set<string>>(new Set())
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
@@ -67,7 +68,39 @@ export function ToolsAccordion({ tools, onTry }: ToolsAccordionProps) {
                 <div className="flex-1">
                   <div className="font-medium">{t.name}</div>
                   {!!t.description && (
-                    <div className={`text-sm ${isDark ? "text-gray-300" : "text-gray-700"}`}>{t.description}</div>
+                    <div className={`text-sm ${isDark ? "text-gray-300" : "text-gray-700"}`}>
+                      {(() => {
+                        const isExpanded = expandedDescriptions.has(t.id)
+                        const maxLength = 120
+                        const shouldTruncate = t.description.length > maxLength
+                        
+                        if (!shouldTruncate || isExpanded) {
+                          return t.description
+                        }
+                        
+                        return t.description.slice(0, maxLength) + "…"
+                      })()}
+                      {t.description.length > 120 && (
+                        <div className="mt-1">
+                          <Button 
+                            variant="link" 
+                            className="px-0 text-xs" 
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              const newExpanded = new Set(expandedDescriptions)
+                              if (expandedDescriptions.has(t.id)) {
+                                newExpanded.delete(t.id)
+                              } else {
+                                newExpanded.add(t.id)
+                              }
+                              setExpandedDescriptions(newExpanded)
+                            }}
+                          >
+                            {expandedDescriptions.has(t.id) ? "View less" : "View more"}
+                          </Button>
+                        </div>
+                      )}
+                    </div>
                   )}
                 </div>
                 <div className="shrink-0 flex items-center gap-2">
