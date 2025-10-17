@@ -50,7 +50,11 @@ app.use("*", cors({
         "x-api-key",
         "X-Wallet-Type",
         "X-Wallet-Address", 
-        "X-Wallet-Provider"
+        "X-Wallet-Provider",
+        // Control plane headers
+        "X-MCPAY-AUTH-MODE",
+        "X-MCPAY-AUTOPAY",
+        "X-MCPAY-402-MODE"
     ],
     allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     credentials: true,
@@ -67,7 +71,7 @@ app.use("*", cors({
         }
         return "";
     },
-    exposeHeaders: ["WWW-Authenticate"],
+    exposeHeaders: ["WWW-Authenticate", "X-MCPAY-X420"],
 }))
 
 // // 1. CORS for all routes (including preflight)
@@ -474,46 +478,79 @@ app.all("/mcp", async (c) => {
             return new Response("target-url missing", { status: 400 });
         }
 
-        const withMcpProxy = (session: any) => withProxy(targetUrl, [
-            new AnalyticsHook(analyticsSink, targetUrl),
-            new LoggingHook(),
-            new X402WalletHook(session),
-            new SecurityHook(),
-        ]);
+        // Read header-based controls
+        const inboundHeaders = original.headers;
+        const authModeHeader = (inboundHeaders.get("x-mcpay-auth-mode") || currentUrl.searchParams.get("auth-mode") || "").toLowerCase();
+        const autoPayHeader = (inboundHeaders.get("x-mcpay-autopay") || currentUrl.searchParams.get("autopay") || "").toLowerCase();
+        const errorModeHeader = (inboundHeaders.get("x-mcpay-402-mode") || currentUrl.searchParams.get("402-mode") || "").toLowerCase();
+
+        const isAutoPayDisabled = ["0", "false", "off", "disabled", "no"].includes(autoPayHeader);
+        const wantsX420 = errorModeHeader === "x420";
+
+        const buildProxy = (session: any) => {
+            const hooks = [
+                new AnalyticsHook(analyticsSink, targetUrl),
+                new LoggingHook(),
+            ] as any[];
+            if (!isAutoPayDisabled) {
+                hooks.push(new X402WalletHook(session));
+            }
+            hooks.push(new SecurityHook());
+            return withProxy(targetUrl, hooks as any);
+        };
+
+        // Helper: rewrite HTTP status to 420 when x402/error is present
+        const maybeRewriteTo420 = async (resp: Response): Promise<Response> => {
+            if (!wantsX420) return resp;
+            const ct = resp.headers.get("content-type") || "";
+            // Only attempt for JSON bodies; passthrough for SSE/others
+            if (!ct.includes("application/json")) return resp;
+            let data: unknown;
+            try {
+                data = await resp.clone().json();
+            } catch {
+                return resp;
+            }
+            const hasX402 = !!(data && typeof data === "object" && (data as any).result && (data as any).result._meta && ((data as any).result._meta as any)["x402/error"]);
+            if (!hasX402) return resp;
+            const headers = new Headers(resp.headers);
+            headers.set("x-mcpay-x420", "1");
+            return new Response(JSON.stringify(data), { status: 420 as any, headers });
+        };
         
         // Extract API key from various sources
         const apiKeyFromQuery = currentUrl.searchParams.get("apiKey") || currentUrl.searchParams.get("api_key");
-        // const authHeader = original.headers.get("authorization");
-        // const apiKeyFromHeader = authHeader?.startsWith("Bearer ") ? authHeader.substring(7) : null;
         const apiKeyFromXHeader = original.headers.get("x-api-key");
-        
-        const apiKey = apiKeyFromQuery || apiKeyFromXHeader; //|| apiKeyFromHeader
+        const apiKey = apiKeyFromQuery || apiKeyFromXHeader;
 
-        let session = null;
-        if (apiKey) {
-            session = await auth.api.getSession({
-                headers: new Headers({
-                      'x-api-key': apiKey,
-                }),
-          });
+        // Decide auth mode: explicit header wins; default is "auto" (api-key if present else mcp-auth)
+        const authMode = authModeHeader === "api-key" || authModeHeader === "apikey"
+            ? "api-key"
+            : authModeHeader === "mcp-auth" || authModeHeader === "mcpauth" || authModeHeader === "session"
+                ? "mcp-auth"
+                : authModeHeader === "none"
+                    ? "none"
+                    : "auto";
+
+        if (authMode === "none") {
+            const proxy = buildProxy(null);
+            const resp = await proxy(original);
+            return maybeRewriteTo420(resp);
         }
 
-        if (!session) {
-            session = await auth.api.getSession({ headers: original.headers });
+        if (authMode === "api-key" || (authMode === "auto" && apiKey)) {
+            const session = apiKey
+                ? await auth.api.getSession({ headers: new Headers({ 'x-api-key': apiKey }) })
+                : null;
+            const proxy = buildProxy(session ? session.session : null);
+            const resp = await proxy(original);
+            return maybeRewriteTo420(resp);
         }
 
-        if (session) {
-            console.log("[MCP] Authenticated session found, proxying with session:", session.session?.userId || session.session);
-            return withMcpProxy(session.session)(original);
-        }
-
-        console.log("[MCP] No authenticated session, using withMcpAuth");
-        const handler = withMcpAuth(auth, (req, session) => {
-            console.log("[MCP] withMcpAuth session:", session?.userId || session);
-            return withMcpProxy(session)(req);
-        });
-
-        return handler(original);
+        // mcp-auth (cookie/session) flow with optional login redirect
+        const handler = withMcpAuth(auth, (req, session) => buildProxy(session)(req));
+        const resp = await handler(original);
+        return maybeRewriteTo420(resp);
     }
 
     const handler = (session: any) => createMcpHandler(async (server) => {

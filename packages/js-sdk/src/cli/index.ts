@@ -18,6 +18,9 @@ interface ServerOptions {
   svm?: string;
   evmNetwork?: string;
   svmNetwork?: string;
+  authMode?: string;
+  autopay?: boolean; // commander will set false if --no-autopay
+  x420?: boolean;
 }
 
 const program = new Command();
@@ -37,6 +40,9 @@ program
   .option('--svm <secretKey>', 'SVM secret key (base58/hex) (env: SVM_SECRET_KEY)')
   .option('--evm-network <network>', 'EVM network (base-sepolia, base, avalanche-fuji, avalanche, iotex, sei, sei-testnet). Default: base-sepolia (env: EVM_NETWORK)')
   .option('--svm-network <network>', 'SVM network (solana-devnet, solana). Default: solana-devnet (env: SVM_NETWORK)')
+  .option('--auth-mode <mode>', 'Auth mode for proxy: auto|api-key|mcp-auth|none (default: auto)')
+  .option('--no-autopay', 'Disable proxy-side auto-payment (skip X402 wallet hook)')
+  .option('--x420', 'Request HTTP 420 on x402 errors instead of 200 JSON')
   .action(async (options: ServerOptions) => {
     try {
       const apiKey = options.apiKey || process.env.API_KEY;
@@ -91,18 +97,20 @@ program
       const serverConnections = serverUrls.map(url => {
         const isProxyUrl = url.includes('/v1/mcp') || url.includes('mcpay.tech') || url.includes('proxy');
         
-        let transportOptions: any = undefined;
-        if (apiKey && isProxyUrl) {
-          // Only apply API key to proxy URLs
-          transportOptions = {
-            requestInit: {
-              credentials: 'include',
-              headers: new Headers({
-                'x-api-key': apiKey
-              })
-            }
-          };
-        }
+        const headers = new Headers();
+        // Control-plane headers
+        if (options.authMode) headers.set('x-mcpay-auth-mode', String(options.authMode));
+        if (options.autopay === false) headers.set('x-mcpay-autopay', 'off');
+        if (options.x420) headers.set('x-mcpay-402-mode', 'x420');
+        // API key only to proxy URLs
+        if (apiKey && isProxyUrl) headers.set('x-api-key', apiKey);
+
+        const transportOptions: any = {
+          requestInit: {
+            credentials: 'include',
+            headers,
+          }
+        };
         
         return {
           url,
