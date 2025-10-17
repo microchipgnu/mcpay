@@ -468,16 +468,18 @@ export default function ServerPage() {
                     <div className="overflow-x-auto">
                       <div className="min-w-[800px]">
                         <Table>
-                          <TableHeader>
-                            <TableRow className="border-b border-border">
-                              <TableHead className="w-[40px] pr-1 sr-only">Status</TableHead>
-                              <TableHead className={`${th} font-mono`}>Method</TableHead>
-                              <TableHead className={`${th} font-mono`}>Amount</TableHead>
-                              <TableHead className={`${th} font-mono`}>Network</TableHead>
-                              <TableHead className={`${th} font-mono`}>Date</TableHead>
-                              <TableHead className={`${th} font-mono text-right`}></TableHead>
-                            </TableRow>
-                          </TableHeader>
+                          {(data.recentPayments && data.recentPayments.length > 0) && (
+                            <TableHeader>
+                              <TableRow className="border-b border-border">
+                                <TableHead className="w-[40px] pr-1 sr-only">Status</TableHead>
+                                <TableHead className={`${th} font-mono`}>Method</TableHead>
+                                <TableHead className={`${th} font-mono`}>Amount</TableHead>
+                                <TableHead className={`${th} font-mono`}>Network</TableHead>
+                                <TableHead className={`${th} font-mono`}>Date</TableHead>
+                                <TableHead className={`${th} font-mono text-right`}></TableHead>
+                              </TableRow>
+                            </TableHeader>
+                          )}
                           <TableBody>
                             {(data.recentPayments || []).map((p) => {
                               const txUrl = safeTxUrl(p.network, p.transactionHash)

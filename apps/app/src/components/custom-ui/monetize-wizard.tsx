@@ -145,9 +145,17 @@ export function MonetizeWizard({ open, onOpenChange, serverUrl, tools, initialAu
     return `${address.slice(0, 6)}...${address.slice(-4)}`
   }
 
+  // Track if user has manually cleared addresses
+  const [evmManuallyCleared, setEvmManuallyCleared] = useState(false)
+  const [svmManuallyCleared, setSvmManuallyCleared] = useState(false)
+  
+  // Track if user has manually typed/edited addresses
+  const [evmUserEdited, setEvmUserEdited] = useState(false)
+  const [svmUserEdited, setSvmUserEdited] = useState(false)
+
   // Set default selections to primary wallets
   useEffect(() => {
-    if (primaryWallet && !evmRecipientAddress && !svmRecipientAddress) {
+    if (primaryWallet && !evmRecipientAddress && !svmRecipientAddress && !evmManuallyCleared && !svmManuallyCleared && !evmUserEdited && !svmUserEdited) {
       const architecture = getBlockchainArchitecture(primaryWallet.blockchain)
       if (architecture === 'evm' && needsEvm) {
         setEvmRecipientAddress(primaryWallet.walletAddress)
@@ -155,7 +163,7 @@ export function MonetizeWizard({ open, onOpenChange, serverUrl, tools, initialAu
         setSvmRecipientAddress(primaryWallet.walletAddress)
       }
     }
-  }, [primaryWallet, evmRecipientAddress, svmRecipientAddress, needsEvm, needsSvm])
+  }, [primaryWallet, evmRecipientAddress, svmRecipientAddress, needsEvm, needsSvm, evmManuallyCleared, svmManuallyCleared, evmUserEdited, svmUserEdited])
 
   // Filter wallets based on input
   const filteredEvmWallets = useMemo(() => {
@@ -525,6 +533,10 @@ export function MonetizeWizard({ open, onOpenChange, serverUrl, tools, initialAu
                     onChange={(e) => {
                       setEvmRecipientAddress(e.target.value)
                       setEvmSuggestionsOpen(e.target.value.length > 0 && filteredEvmWallets.length > 0)
+                      setEvmUserEdited(true)
+                      if (e.target.value.length > 0) {
+                        setEvmManuallyCleared(false)
+                      }
                     }}
                     onFocus={() => {
                       setEvmInputFocused(true)
@@ -536,9 +548,9 @@ export function MonetizeWizard({ open, onOpenChange, serverUrl, tools, initialAu
                       setTimeout(() => setEvmSuggestionsOpen(false), 150)
                     }}
                     placeholder={recipientIsTestnet ? '0x… (testnet) or select from wallets' : '0x… (mainnet) or select from wallets'} 
-                    className="pl-10 pr-20 bg-background border-border" 
+                    className="pl-10 pr-28 bg-background border-border" 
                   />
-                  <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                  <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-1 z-10">
                     {evmWallets.length > 0 && (
                       <Popover open={evmWalletSelectorOpen} onOpenChange={setEvmWalletSelectorOpen}>
                         <PopoverTrigger asChild>
@@ -568,6 +580,8 @@ export function MonetizeWizard({ open, onOpenChange, serverUrl, tools, initialAu
                                     onClick={() => {
                                       setEvmRecipientAddress(wallet.walletAddress)
                                       setEvmWalletSelectorOpen(false)
+                                      setEvmManuallyCleared(false)
+                                      setEvmUserEdited(false)
                                     }}
                                     className={`p-3 rounded-md border cursor-pointer transition-all duration-300 ${
                                       evmRecipientAddress === wallet.walletAddress
@@ -629,6 +643,20 @@ export function MonetizeWizard({ open, onOpenChange, serverUrl, tools, initialAu
                         )}
                       </Button>
                     )}
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7"
+                      onClick={() => {
+                        console.log('Clear EVM button clicked')
+                        setEvmRecipientAddress("")
+                        setEvmManuallyCleared(true)
+                      }}
+                      title="Clear address"
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
                   </div>
                   
                   {/* Smart Suggestions Dropdown */}
@@ -688,6 +716,10 @@ export function MonetizeWizard({ open, onOpenChange, serverUrl, tools, initialAu
                     onChange={(e) => {
                       setSvmRecipientAddress(e.target.value)
                       setSvmSuggestionsOpen(e.target.value.length > 0 && filteredSvmWallets.length > 0)
+                      setSvmUserEdited(true)
+                      if (e.target.value.length > 0) {
+                        setSvmManuallyCleared(false)
+                      }
                     }}
                     onFocus={() => {
                       setSvmInputFocused(true)
@@ -699,9 +731,9 @@ export function MonetizeWizard({ open, onOpenChange, serverUrl, tools, initialAu
                       setTimeout(() => setSvmSuggestionsOpen(false), 150)
                     }}
                     placeholder={recipientIsTestnet ? 'Devnet address or select from wallets' : 'Mainnet address or select from wallets'} 
-                    className="pl-10 pr-20 bg-background border-border" 
+                    className="pl-10 pr-28 bg-background border-border" 
                   />
-                  <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                  <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-1 z-10">
                     {svmWallets.length > 0 && (
                       <Popover open={svmWalletSelectorOpen} onOpenChange={setSvmWalletSelectorOpen}>
                         <PopoverTrigger asChild>
@@ -731,6 +763,8 @@ export function MonetizeWizard({ open, onOpenChange, serverUrl, tools, initialAu
                                     onClick={() => {
                                       setSvmRecipientAddress(wallet.walletAddress)
                                       setSvmWalletSelectorOpen(false)
+                                      setSvmManuallyCleared(false)
+                                      setSvmUserEdited(false)
                                     }}
                                     className={`p-3 rounded-md border cursor-pointer transition-all duration-300 ${
                                       svmRecipientAddress === wallet.walletAddress
@@ -796,6 +830,20 @@ export function MonetizeWizard({ open, onOpenChange, serverUrl, tools, initialAu
                         )}
                       </Button>
                     )}
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7"
+                      onClick={() => {
+                        console.log('Clear SVM button clicked')
+                        setSvmRecipientAddress("")
+                        setSvmManuallyCleared(true)
+                      }}
+                      title="Clear address"
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
                   </div>
                   
                   {/* Smart Suggestions Dropdown */}
