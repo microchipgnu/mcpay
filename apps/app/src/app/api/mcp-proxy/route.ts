@@ -44,6 +44,10 @@ export async function POST(request: Request) {
   const h = await headers()
   const url = new URL(request.url)
   const targetUrl = url.searchParams.get('target-url')
+  // Optional header hints from client/CLI
+  const authMode = (h.get('x-mcp-auth-mode') || '').toLowerCase() // 'api-key' | 'mcp-auth' | 'none'
+  const autoPay = (h.get('x-mcp-auto-pay') || '').toLowerCase()
+  const errorMode = (h.get('x-mcp-error-mode') || '').toLowerCase()
 
   const session = await serverAuth.getSession({
     fetchOptions: {
@@ -55,7 +59,13 @@ export async function POST(request: Request) {
   })
 
   if (!session.data) {
-    return new Response("Unauthorized", { status: 401 })
+    // If the caller requested x420 behavior (browser wallets), surface 420
+    const wantsX420 = errorMode === 'x420'
+    const payload = wantsX420 ? { error: 'UNAUTHORIZED' } : 'Unauthorized'
+    return new Response(typeof payload === 'string' ? payload : JSON.stringify(payload), {
+      status: wantsX420 ? 420 : 401,
+      headers: { 'Content-Type': 'application/json' }
+    })
   }
 
   if (!targetUrl) {
@@ -82,6 +92,10 @@ export async function POST(request: Request) {
       'X-Wallet-Type': h.get('x-wallet-type') || '',
       'X-Wallet-Address': h.get('x-wallet-address') || '',
       'X-Wallet-Provider': h.get('x-wallet-provider') || '',
+      // Forward client routing/autopay preferences to MCP server
+      'X-MCP-Auth-Mode': authMode,
+      'X-MCP-Auto-Pay': autoPay,
+      'X-MCP-Error-Mode': errorMode,
     },
     body: request.body,
     credentials: 'include',
@@ -98,7 +112,7 @@ export async function POST(request: Request) {
       'Content-Type': response.headers.get('Content-Type') || 'application/json',
       'Access-Control-Allow-Origin': validOrigin || '*',
       'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Wallet-Type, X-Wallet-Address, X-Wallet-Provider',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Wallet-Type, X-Wallet-Address, X-Wallet-Provider, X-MCP-Auth-Mode, X-MCP-Auto-Pay, X-MCP-Error-Mode',
       'Access-Control-Allow-Credentials': validOrigin ? 'true' : 'false',
     },
   })
@@ -108,6 +122,10 @@ export async function GET(request: Request) {
   const h = await headers()
   const url = new URL(request.url)
   const targetUrl = url.searchParams.get('target-url')
+  // Optional header hints from client/CLI
+  const authMode = (h.get('x-mcp-auth-mode') || '').toLowerCase()
+  const autoPay = (h.get('x-mcp-auto-pay') || '').toLowerCase()
+  const errorMode = (h.get('x-mcp-error-mode') || '').toLowerCase()
 
   const session = await serverAuth.getSession({
     fetchOptions: {
@@ -119,7 +137,12 @@ export async function GET(request: Request) {
   })
 
   if (!session.data) {
-    return new Response("Unauthorized", { status: 401 })
+    const wantsX420 = errorMode === 'x420'
+    const payload = wantsX420 ? { error: 'UNAUTHORIZED' } : 'Unauthorized'
+    return new Response(typeof payload === 'string' ? payload : JSON.stringify(payload), {
+      status: wantsX420 ? 420 : 401,
+      headers: { 'Content-Type': 'application/json' }
+    })
   }
   
   if (!targetUrl) {
@@ -139,6 +162,9 @@ export async function GET(request: Request) {
       'X-Wallet-Type': h.get('x-wallet-type') || '',
       'X-Wallet-Address': h.get('x-wallet-address') || '',
       'X-Wallet-Provider': h.get('x-wallet-provider') || '',
+      'X-MCP-Auth-Mode': authMode,
+      'X-MCP-Auto-Pay': autoPay,
+      'X-MCP-Error-Mode': errorMode,
     },
     credentials: 'include',
     // @ts-expect-error this is valid and needed
@@ -154,7 +180,7 @@ export async function GET(request: Request) {
       'Content-Type': response.headers.get('Content-Type') || 'application/json',
       'Access-Control-Allow-Origin': validOrigin || '*',
       'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Wallet-Type, X-Wallet-Address, X-Wallet-Provider',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Wallet-Type, X-Wallet-Address, X-Wallet-Provider, X-MCP-Auth-Mode, X-MCP-Auto-Pay, X-MCP-Error-Mode',
       'Access-Control-Allow-Credentials': validOrigin ? 'true' : 'false',
     },
   })
@@ -170,7 +196,7 @@ export async function OPTIONS(request: Request) {
       'Content-Type': 'application/json, text/event-stream',
       'Access-Control-Allow-Origin': validOrigin || '*',
       'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Wallet-Type, X-Wallet-Address, X-Wallet-Provider',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Wallet-Type, X-Wallet-Address, X-Wallet-Provider, X-MCP-Auth-Mode, X-MCP-Auto-Pay, X-MCP-Error-Mode',
       'Access-Control-Allow-Credentials': validOrigin ? 'true' : 'false',
     },
   })
