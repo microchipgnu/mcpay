@@ -48,6 +48,10 @@ app.use("*", cors({
         "Authorization", 
         "WWW-Authenticate", 
         "x-api-key",
+        // Client-controlled routing of auth and autopay behavior
+        "X-MCP-Auth-Mode", // "api-key" | "mcp-auth" | "none"
+        "X-MCP-Auto-Pay",  // "on" | "off"
+        "X-MCP-Error-Mode", // e.g. "x420" (used by app proxy)
         "X-Wallet-Type",
         "X-Wallet-Address", 
         "X-Wallet-Provider"
@@ -474,34 +478,57 @@ app.all("/mcp", async (c) => {
             return new Response("target-url missing", { status: 400 });
         }
 
-        const withMcpProxy = (session: any) => withProxy(targetUrl, [
-            new AnalyticsHook(analyticsSink, targetUrl),
-            new LoggingHook(),
-            new X402WalletHook(session),
-            new SecurityHook(),
-        ]);
+        // Determine routing mode and autopay behavior from headers
+        const inbound = new Headers(original.headers);
+        const authMode = (inbound.get("x-mcp-auth-mode") || "").toLowerCase();
+        const autoPay = (inbound.get("x-mcp-auto-pay") || "on").toLowerCase(); // default on for CLI
+        const errorMode = (inbound.get("x-mcp-error-mode") || "").toLowerCase();
+
+        // Build proxy hooks conditionally (X402WalletHook toggled by autoPay)
+        const buildHooks = (sessionLike: any) => {
+            const hooks = [
+                new AnalyticsHook(analyticsSink, targetUrl),
+                new LoggingHook(),
+                new SecurityHook(),
+            ] as any[];
+            if (autoPay !== "off") {
+                hooks.splice(2, 0, new X402WalletHook(sessionLike));
+            }
+            return hooks;
+        };
+        const withMcpProxy = (session: any) => withProxy(targetUrl, buildHooks(session));
         
-        // Extract API key from various sources
+        // Extract API key from sources
         const apiKeyFromQuery = currentUrl.searchParams.get("apiKey") || currentUrl.searchParams.get("api_key");
-        // const authHeader = original.headers.get("authorization");
-        // const apiKeyFromHeader = authHeader?.startsWith("Bearer ") ? authHeader.substring(7) : null;
         const apiKeyFromXHeader = original.headers.get("x-api-key");
-        
-        const apiKey = apiKeyFromQuery || apiKeyFromXHeader; //|| apiKeyFromHeader
+        const apiKey = apiKeyFromQuery || apiKeyFromXHeader;
 
-        let session = null;
-        if (apiKey) {
-            session = await auth.api.getSession({
-                headers: new Headers({
-                      'x-api-key': apiKey,
-                }),
-          });
+        // Header-based mode selection
+        // 1) api-key: prefer header key, ignore cookie/session
+        if (authMode === "api-key") {
+            if (!apiKey) {
+                // Explicit api-key mode but no key provided
+                const wantsX420 = errorMode === "x420";
+                const body = wantsX420 ? { error: "API_KEY_REQUIRED" } : { error: "Unauthorized" };
+                return new Response(JSON.stringify(body), { status: wantsX420 ? 420 : 401, headers: { 'content-type': 'application/json' } });
+            }
+            const session = await auth.api.getSession({ headers: new Headers({ 'x-api-key': apiKey }) });
+            if (!session) {
+                const wantsX420 = errorMode === "x420";
+                const body = wantsX420 ? { error: "INVALID_API_KEY" } : { error: "Unauthorized" };
+                return new Response(JSON.stringify(body), { status: wantsX420 ? 420 : 401, headers: { 'content-type': 'application/json' } });
+            }
+            return withMcpProxy(session.session)(original);
         }
 
-        if (!session) {
-            session = await auth.api.getSession({ headers: original.headers });
+        // 2) none: bypass Better Auth; run proxy with anonymous session
+        if (authMode === "none") {
+            const anon = { userId: undefined } as any;
+            return withMcpProxy(anon)(original);
         }
 
+        // 3) default or "mcp-auth": attempt cookie/session; if missing, fall back to OIDC flow via withMcpAuth
+        let session = await auth.api.getSession({ headers: original.headers });
         if (session) {
             console.log("[MCP] Authenticated session found, proxying with session:", session.session?.userId || session.session);
             return withMcpProxy(session.session)(original);
