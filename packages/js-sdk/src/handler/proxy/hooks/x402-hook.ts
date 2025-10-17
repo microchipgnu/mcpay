@@ -1,11 +1,11 @@
-import type { CallToolRequest, CallToolResult, TextContent } from "@modelcontextprotocol/sdk/types.js";
+import type { CallToolRequest, CallToolResult, TextContent, ListToolsResult } from "@modelcontextprotocol/sdk/types.js";
 import type { FacilitatorConfig, Network, PaymentPayload, PaymentRequirements, Price } from "x402/types";
 import { SupportedEVMNetworks, SupportedSVMNetworks } from "x402/types";
 import { decodePayment as decodeX402Payment } from "x402/schemes";
 import { findMatchingPaymentRequirements, processPriceToAtomicAmount } from "x402/shared";
 import { useFacilitator } from "x402/verify";
 import { getAddress } from "viem";
-import type { Hook, RequestExtra } from "../hooks.js";
+import type { Hook, RequestExtra, ListToolsRequestWithContext } from "../hooks.js";
 
 export type RecipientWithTestnet = { address: string; isTestnet?: boolean };
 export type X402ProxyConfig = {
@@ -295,5 +295,58 @@ export class X402MonetizationHook implements Hook {
             const response = this.paymentRequired([], "SETTLEMENT_FAILED");
             return { resultType: "continue" as const, response };
         }
+    }
+
+    async processListToolsResult(result: ListToolsResult, originalRequest: ListToolsRequestWithContext, extra: RequestExtra) {
+        // Add payment annotations to tools that have prices configured
+        if (result.tools) {
+            result.tools = result.tools.map((tool) => {
+                const price = this.cfg.prices[tool.name];
+                if (!price) {
+                    return tool;
+                }
+
+                // Build payment network information
+                const recipientsByNetwork = this.normalizeRecipients(this.cfg.recipient);
+                const paymentNetworks: unknown[] = [];
+                
+                const networks = Object.keys(recipientsByNetwork) as Network[];
+                for (const network of networks) {
+                    const payTo = recipientsByNetwork[network];
+                    if (!network || !payTo) continue;
+
+                    const atomic = processPriceToAtomicAmount(price, network);
+                    if ("error" in atomic) continue;
+                    const { maxAmountRequired, asset } = atomic;
+
+                    const networkInfo = {
+                        network,
+                        recipient: payTo,
+                        maxAmountRequired: maxAmountRequired.toString(),
+                        asset: {
+                            address: asset.address,
+                            symbol: 'symbol' in asset ? asset.symbol : undefined,
+                            decimals: 'decimals' in asset ? asset.decimals : undefined
+                        },
+                        type: SupportedEVMNetworks.includes(network) ? 'evm' : 'svm'
+                    };
+
+                    paymentNetworks.push(networkInfo);
+                }
+
+                return {
+                    ...tool,
+                    annotations: {
+                        ...tool.annotations,
+                        paymentHint: true,
+                        paymentPriceUSD: price,
+                        paymentNetworks,
+                        paymentVersion: this.x402Version
+                    }
+                };
+            });
+        }
+
+        return { resultType: "continue" as const, response: result };
     }
 }

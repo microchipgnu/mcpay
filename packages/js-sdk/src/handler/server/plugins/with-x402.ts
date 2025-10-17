@@ -46,6 +46,55 @@ export function withX402<S extends McpServer>(
   const { verify, settle } = useFacilitator(cfg.facilitator);
   const x402Version = cfg.version ?? 1;
 
+  // Normalize recipients to a per-network map, supporting evm/svm shorthands
+  const normalizeRecipients = (
+    r: X402Config["recipient"]
+  ): Partial<Record<Network, string>> => {
+    if (!r || typeof r !== "object") return {};
+
+    const out: Partial<Record<Network, string>> = {};
+
+    // Helper to detect if a network is a testnet
+    const isTestnetNetwork = (network: Network): boolean => {
+      return (
+        network.includes("sepolia") ||
+        network.includes("fuji") ||
+        network.includes("devnet") ||
+        network.includes("testnet") ||
+        network.includes("amoy")
+      );
+    };
+
+    // Expand evm/svm shorthands first
+    const maybeFamily = r as Partial<Record<"evm" | "svm", RecipientWithTestnet>>;
+    if (maybeFamily.evm && typeof maybeFamily.evm.address === "string") {
+      const useTestnet = maybeFamily.evm.isTestnet;
+      for (const net of SupportedEVMNetworks) {
+        if (useTestnet === undefined || isTestnetNetwork(net) === !!useTestnet) {
+          out[net] = maybeFamily.evm.address;
+        }
+      }
+    }
+    if (maybeFamily.svm && typeof maybeFamily.svm.address === "string") {
+      const useTestnet = maybeFamily.svm.isTestnet;
+      for (const net of SupportedSVMNetworks) {
+        if (useTestnet === undefined || isTestnetNetwork(net) === !!useTestnet) {
+          out[net] = maybeFamily.svm.address;
+        }
+      }
+    }
+
+    // Copy explicit per-network mappings (override expanded ones if present)
+    const allKnown = new Set<Network>([...SupportedEVMNetworks, ...SupportedSVMNetworks]);
+    for (const [key, value] of Object.entries(r as Record<string, unknown>)) {
+      if (typeof value === "string" && allKnown.has(key as Network)) {
+        out[key as Network] = value;
+      }
+    }
+
+    return out;
+  };
+
   function paidTool<Args extends ZodRawShape>(
     name: string,
     description: string,
@@ -54,61 +103,47 @@ export function withX402<S extends McpServer>(
     annotations: ToolAnnotations,
     cb: ToolCallback<Args>
   ): RegisteredTool {
+    // Build synchronous payment information for annotations
+    const recipientsByNetwork = normalizeRecipients(cfg.recipient);
+    const paymentNetworks: unknown[] = [];
+    
+    // Build basic network info synchronously
+    const networks = Object.keys(recipientsByNetwork) as Network[];
+    for (const network of networks) {
+      const payTo = recipientsByNetwork[network];
+      if (!network || !payTo) continue;
+
+      const atomic = processPriceToAtomicAmount(price, network);
+      if ("error" in atomic) continue;
+      const { maxAmountRequired, asset } = atomic;
+
+      const networkInfo = {
+        network,
+        recipient: payTo,
+        maxAmountRequired: maxAmountRequired.toString(),
+        asset: {
+          address: asset.address,
+          symbol: 'symbol' in asset ? asset.symbol : undefined,
+          decimals: 'decimals' in asset ? asset.decimals : undefined
+        },
+        type: SupportedEVMNetworks.includes(network) ? 'evm' : 'svm'
+      };
+
+      paymentNetworks.push(networkInfo);
+    }
+
     return server.tool(
       name,
       description,
       paramsSchema,
-      { ...annotations, paymentHint: true, paymentPriceUSD: price },
+      { 
+        ...annotations, 
+        paymentHint: true, 
+        paymentPriceUSD: price,
+        paymentNetworks,
+        paymentVersion: x402Version
+      },
       (async (args, extra) => {
-        // Normalize recipients to a per-network map, supporting evm/svm shorthands
-        const normalizeRecipients = (
-          r: X402Config["recipient"]
-        ): Partial<Record<Network, string>> => {
-          if (!r || typeof r !== "object") return {};
-
-          const out: Partial<Record<Network, string>> = {};
-
-          // Helper to detect if a network is a testnet
-          const isTestnetNetwork = (network: Network): boolean => {
-            return (
-              network.includes("sepolia") ||
-              network.includes("fuji") ||
-              network.includes("devnet") ||
-              network.includes("testnet") ||
-              network.includes("amoy")
-            );
-          };
-
-          // Expand evm/svm shorthands first
-          const maybeFamily = r as Partial<Record<"evm" | "svm", RecipientWithTestnet>>;
-          if (maybeFamily.evm && typeof maybeFamily.evm.address === "string") {
-            const useTestnet = maybeFamily.evm.isTestnet;
-            for (const net of SupportedEVMNetworks) {
-              if (useTestnet === undefined || isTestnetNetwork(net) === !!useTestnet) {
-                out[net] = maybeFamily.evm.address;
-              }
-            }
-          }
-          if (maybeFamily.svm && typeof maybeFamily.svm.address === "string") {
-            const useTestnet = maybeFamily.svm.isTestnet;
-            for (const net of SupportedSVMNetworks) {
-              if (useTestnet === undefined || isTestnetNetwork(net) === !!useTestnet) {
-                out[net] = maybeFamily.svm.address;
-              }
-            }
-          }
-
-          // Copy explicit per-network mappings (override expanded ones if present)
-          const allKnown = new Set<Network>([...SupportedEVMNetworks, ...SupportedSVMNetworks]);
-          for (const [key, value] of Object.entries(r as Record<string, unknown>)) {
-            if (typeof value === "string" && allKnown.has(key as Network)) {
-              out[key as Network] = value;
-            }
-          }
-
-          return out;
-        };
-
         const recipientsByNetwork = normalizeRecipients(cfg.recipient);
 
         // Build PaymentRequirements across supported networks

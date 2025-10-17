@@ -57,7 +57,35 @@ export function withX402Client<T extends MCPClient>(
         const cost = tool.annotations?.paymentPriceUSD
           ? `$${tool.annotations?.paymentPriceUSD}`
           : "an unknown amount";
-        description += ` (This is a paid tool, you will be charged ${cost} for its execution)`;
+        
+        let paymentDetails = ` (This is a paid tool, you will be charged ${cost} for its execution)`;
+        
+        // Add detailed payment information if available
+        if (tool.annotations?.paymentNetworks && Array.isArray(tool.annotations.paymentNetworks)) {
+          const networks = tool.annotations.paymentNetworks as Array<{
+            network: string;
+            recipient: string;
+            maxAmountRequired: string;
+            asset: { address: string; symbol?: string; decimals?: number };
+            type: 'evm' | 'svm';
+          }>;
+          
+          if (networks.length > 0) {
+            paymentDetails += `\n\nPayment Details:`;
+            networks.forEach((net) => {
+              const amount = net.maxAmountRequired;
+              const symbol = net.asset.symbol || 'tokens';
+              const decimals = net.asset.decimals || 6;
+              const formattedAmount = (Number(amount) / Math.pow(10, decimals)).toFixed(decimals);
+              
+              paymentDetails += `\n• ${net.network} (${net.type.toUpperCase()}): ${formattedAmount} ${symbol}`;
+              paymentDetails += `\n  Recipient: ${net.recipient}`;
+              paymentDetails += `\n  Asset: ${net.asset.address}`;
+            });
+          }
+        }
+        
+        description += paymentDetails;
       }
       return {
         ...tool,
