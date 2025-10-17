@@ -6,9 +6,10 @@
     "docs": "0.0.1",
     "auth-example": "0.1.0",
     "openai-apps-minimal-nextjs": "0.1.2",
-    "mcpay": "0.1.10"
+    "mcpay": "0.1.11"
   },
   "changesets": [
-    "gold-buttons-smell"
+    "gold-buttons-smell",
+    "solid-pets-dance"
   ]
 }

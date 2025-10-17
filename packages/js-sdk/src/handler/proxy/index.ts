@@ -203,16 +203,19 @@ export function withProxy(targetUrl: string, hooks: Hook[]) {
             const isJson = contentType.includes("application/json");
             const isStreaming = contentType.includes("text/event-stream");
 
+            // Clone response before consuming body to avoid "Response body object should not be disturbed or locked" error
+            const clonedUpstream = upstream.clone();
+            
             let data: unknown;
             if (isStreaming) {
                 let text: string | null = null;
-                try { text = await upstream.text(); } catch { return wrapUpstreamResponse(upstream); }
+                try { text = await upstream.text(); } catch { return wrapUpstreamResponse(clonedUpstream); }
                 try {
                     const dataLines = text.split('\n').filter(line => line.startsWith('data: ')).map(line => line.substring(6));
                     if (dataLines.length === 0) { data = JSON.parse(text); } else { const lastMessage = dataLines[dataLines.length - 1]; data = JSON.parse(lastMessage); }
-                } catch { return wrapUpstreamResponse(upstream); }
+                } catch { return wrapUpstreamResponse(clonedUpstream); }
             } else if (isJson) {
-                try { data = await upstream.json(); } catch { return wrapUpstreamResponse(upstream); }
+                try { data = await upstream.json(); } catch { return wrapUpstreamResponse(clonedUpstream); }
             } else {
                 return wrapUpstreamResponse(upstream);
             }
@@ -312,16 +315,25 @@ export function withProxy(targetUrl: string, hooks: Hook[]) {
                     const isJson = contentType.includes("application/json");
                     const isStreaming = contentType.includes("text/event-stream");
 
+                    // Clone response before consuming body to avoid "Response body object should not be disturbed or locked" error
+                    const clonedUpstream = upstream.clone();
+                    
                     let data: unknown;
                     if (isStreaming) {
                         let text: string | null = null;
-                        try { text = await upstream.text(); } catch { return wrapUpstreamResponse(upstream); }
+                        try { text = await upstream.text(); } catch { 
+                            return wrapUpstreamResponse(clonedUpstream); 
+                        }
                         try {
                             const dataLines = text.split('\n').filter(line => line.startsWith('data: ')).map(line => line.substring(6));
                             if (dataLines.length === 0) { data = JSON.parse(text); } else { const lastMessage = dataLines[dataLines.length - 1]; data = JSON.parse(lastMessage); }
-                        } catch { return wrapUpstreamResponse(upstream); }
+                        } catch { 
+                            return wrapUpstreamResponse(clonedUpstream); 
+                        }
                     } else if (isJson) {
-                        try { data = await upstream.json(); } catch { return wrapUpstreamResponse(upstream); }
+                        try { data = await upstream.json(); } catch { 
+                            return wrapUpstreamResponse(clonedUpstream); 
+                        }
                     } else {
                         return wrapUpstreamResponse(upstream);
                     }
