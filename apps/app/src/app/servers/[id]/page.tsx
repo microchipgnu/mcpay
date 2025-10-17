@@ -313,14 +313,33 @@ export default function ServerPage() {
                 {isToolsCardExpanded && (
                   <CardContent>
                     {(() => {
-                      const allTools = (data.tools || []).map((t, idx) => ({
-                        id: (t?.id as string) || (t?.name as string) || `tool-${idx}`,
-                        name: (t?.name as string) || `tool-${idx}`,
-                        description: (t?.description as string) || '',
-                        inputSchema: ((t as { inputSchema?: unknown; parameters?: { jsonSchema?: unknown } })?.inputSchema || (t as { parameters?: { jsonSchema?: unknown } })?.parameters?.jsonSchema || {}) as Record<string, unknown>,
-                        pricing: Array.isArray((t as { pricing?: unknown[] })?.pricing) ? (t as { pricing?: unknown[] }).pricing as Array<{ label?: string; amount?: number; currency?: string; active?: boolean }> : [],
-                        isMonetized: Array.isArray((t as { pricing?: Array<{ active?: boolean }> })?.pricing) && ((t as { pricing?: Array<{ active?: boolean }> }).pricing || []).some((p) => p?.active === true),
-                      }))
+                      const allTools = (data.tools || []).map((t, idx) => {
+                        const annotations = (t as { annotations?: Record<string, unknown> })?.annotations || {};
+                        const paymentHint = Boolean(annotations.paymentHint);
+                        const paymentPriceUSD = annotations.paymentPriceUSD as number | undefined;
+                        const paymentNetworks = annotations.paymentNetworks as Array<{
+                          network: string;
+                          recipient: string;
+                          maxAmountRequired: string;
+                          asset: { address: string; symbol?: string; decimals?: number };
+                          type: 'evm' | 'svm';
+                        }> | undefined;
+                        const paymentVersion = annotations.paymentVersion as number | undefined;
+
+                        return {
+                          id: (t?.id as string) || (t?.name as string) || `tool-${idx}`,
+                          name: (t?.name as string) || `tool-${idx}`,
+                          description: (t?.description as string) || '',
+                          inputSchema: ((t as { inputSchema?: unknown; parameters?: { jsonSchema?: unknown } })?.inputSchema || (t as { parameters?: { jsonSchema?: unknown } })?.parameters?.jsonSchema || {}) as Record<string, unknown>,
+                          pricing: Array.isArray((t as { pricing?: unknown[] })?.pricing) ? (t as { pricing?: unknown[] }).pricing as Array<{ label?: string; amount?: number; currency?: string; active?: boolean }> : [],
+                          isMonetized: Array.isArray((t as { pricing?: Array<{ active?: boolean }> })?.pricing) && ((t as { pricing?: Array<{ active?: boolean }> }).pricing || []).some((p) => p?.active === true),
+                          // X402 payment annotations
+                          paymentHint,
+                          paymentPriceUSD,
+                          paymentNetworks,
+                          paymentVersion,
+                        };
+                      })
                       
                       const toolsToShow = showAllTools ? allTools : allTools.slice(0, 5)
                       const hasMoreTools = allTools.length > 5
