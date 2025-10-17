@@ -98,7 +98,7 @@ program
             requestInit: {
               credentials: 'include',
               headers: new Headers({
-                'Authorization': `Bearer ${apiKey}`
+                'x-api-key': apiKey
               })
             }
           };

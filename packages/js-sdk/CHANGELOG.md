@@ -1,5 +1,11 @@
 # mcpay
 
+## 0.1.9
+
+### Patch Changes
+
+- fix api key
+
 ## 0.1.8
 
 ### Patch Changes
