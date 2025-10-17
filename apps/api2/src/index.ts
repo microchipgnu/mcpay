@@ -276,12 +276,80 @@ const getSchemaShape = (inputSchema: unknown): Record<string, z.ZodTypeAny> => {
   return schemaShape;
 };
 
-const handler = (url: string) => createMcpHandler(async (server) => {
-    console.log(`[MCP] Initializing MCP server`);
+const extractServerMetadata = async (url: string): Promise<{ name: string; version: string; description?: string }> => {
+  try {
+    const response = await fetch(url);
+    if (!response.ok) throw new Error('Failed to fetch spec');
+    
+    const spec = await response.json() as OpenAPIV3.Document;
+    
+    // Extract name with priority order:
+    let name = "OpenAPI MCP Server";
+    
+    // 1. Server name (OpenAPI 3.2+) - check for extension field
+    const firstServer = spec.servers?.[0];
+    if (firstServer && 'name' in firstServer && typeof firstServer.name === 'string') {
+      name = firstServer.name;
+    }
+    // 2. Info title
+    else if (spec.info?.title) {
+      name = spec.info.title;
+    }
+    // 3. Description (first 50 chars)
+    else if (spec.info?.description) {
+      name = spec.info.description.substring(0, 50).trim();
+    }
+    // 4. Contact name
+    else if (spec.info?.contact?.name) {
+      name = spec.info.contact.name;
+    }
+    // 5. Version combination
+    else if (spec.info?.version) {
+      name = `API v${spec.info.version}`;
+    }
+    // 6. Custom extensions
+    else {
+      const infoWithExtensions = spec.info as OpenAPIV3.InfoObject & Record<string, unknown>;
+      if (infoWithExtensions?.['x-name']) {
+        name = String(infoWithExtensions['x-name']);
+      }
+      // 7. URL-based fallback
+      else {
+        const urlParts = new URL(url);
+        const hostname = urlParts.hostname.split('.')[0];
+        if (hostname && hostname !== 'localhost') {
+          name = hostname;
+        }
+      }
+    }
+    
+    // Extract version
+    const version = spec.info?.version || "0.0.1";
+    
+    // Extract description
+    const description = spec.info?.description;
+    
+    return { name, version, description };
+    
+  } catch (error) {
+    console.warn(`[MCP] Failed to extract server metadata:`, error);
+    return { name: "OpenAPI MCP Server", version: "0.0.1" };
+  }
+};
 
-    const tools = await getToolsFromOpenApi(url, {
-        dereference: true
-    });
+const handler = (url: string) => {
+    // Extract server metadata with enhanced fallbacks
+    let serverMetadata = { name: "OpenAPI MCP Server", version: "0.0.1" };
+    
+    return createMcpHandler(async (server) => {
+        console.log(`[MCP] Initializing MCP server`);
+
+        serverMetadata = await extractServerMetadata(url);
+        console.log(`[MCP] Extracted server metadata:`, serverMetadata);
+
+        const tools = await getToolsFromOpenApi(url, {
+            dereference: true
+        });
 
     tools.forEach((tool) => {
         console.log(`[MCP] Tool:`, tool.name);
@@ -362,7 +430,13 @@ const handler = (url: string) => createMcpHandler(async (server) => {
         });
       });
     });
+  }, {
+    serverInfo: {
+      name: serverMetadata.name,
+      version: serverMetadata.version,
+    }
   });
+};
 
 // Root route handler that serves the main HTML page
 // This page provides a simple UI for users to:
