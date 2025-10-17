@@ -116,7 +116,7 @@ export default function MCPBrowser() {
     >
       <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
         <span className="text-sm sm:text-base">
-          We're beta testing
+          We&apos;re beta testing
           <a
             href="https://v2.mcpay.tech"
             target="_blank"
