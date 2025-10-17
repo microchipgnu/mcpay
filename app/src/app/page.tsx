@@ -106,6 +106,36 @@ export default function MCPBrowser() {
   const { isDark } = useTheme()
   const { isAtBottom: hasReachedBottom } = useWindowScroll(200)
 
+  const renderBetaBanner = () => (
+    <div
+      className={`mb-6 rounded-md border px-4 py-3 text-center ${
+        isDark
+          ? "bg-teal-900/40 border-teal-800 text-teal-200"
+          : "bg-teal-50 border-teal-200 text-teal-800"
+      }`}
+    >
+      <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+        <span className="text-sm sm:text-base">
+          We&apos;re beta testing
+          <a
+            href="https://v2.mcpay.tech"
+            target="_blank"
+            rel="noreferrer"
+            className="mx-2 underline decoration-dotted underline-offset-4"
+          >
+            https://v2.mcpay.tech
+          </a>
+        </span>
+        <Button asChild size="sm" variant="ghostCustom" className="px-4">
+          <a href="https://v2.mcpay.tech" target="_blank" rel="noreferrer">
+            Join now!
+            <ArrowRight className="ml-2 h-4 w-4" />
+          </a>
+        </Button>
+      </div>
+    </div>
+  )
+
   const getFriendlyErrorMessage = (error: string) => {
     if (error.includes('404')) {
       return {
@@ -170,6 +200,7 @@ export default function MCPBrowser() {
     return (
       <div className="min-h-screen bg-background">
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          {renderBetaBanner()}
           <div className="text-center mb-16 relative">
             <div className="mb-[100px]"></div>
             <h1 className={`text-5xl font-extrabold tracking-tight mb-6 animate-fade-in-up ${isDark ? "text-white" : "text-gray-900"}`}>
@@ -208,6 +239,7 @@ export default function MCPBrowser() {
   return (
     <div className="min-h-screen bg-background">
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
+        {renderBetaBanner()}
 
         <section className="mb-16 md:mb-40">
           <Hero />
